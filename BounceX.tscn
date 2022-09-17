@@ -1,0 +1,475 @@
+[gd_scene load_steps=23 format=2]
+
+[ext_resource path="res://BounceX.gd" type="Script" id=1]
+[ext_resource path="res://Textures/Ball/Center Ball.svg" type="Texture" id=2]
+[ext_resource path="res://Fonts/Rubik-Light.tres" type="DynamicFont" id=3]
+[ext_resource path="res://Line2D.gd" type="Script" id=4]
+[ext_resource path="res://Textures/line gradient.tres" type="Gradient" id=5]
+[ext_resource path="res://Textures/Ball/Center Heart.svg" type="Texture" id=6]
+[ext_resource path="res://Ball.gd" type="Script" id=7]
+[ext_resource path="res://Textures/Ball/Ring.svg" type="Texture" id=8]
+[ext_resource path="res://Textures/Ball/Background.svg" type="Texture" id=9]
+[ext_resource path="res://Textures/border.png" type="Texture" id=10]
+[ext_resource path="res://Fonts/Rubik-Light-H1.tres" type="DynamicFont" id=11]
+[ext_resource path="res://Textures/Menu Button/bg.svg" type="Texture" id=12]
+[ext_resource path="res://Textures/Menu Button/icon.svg" type="Texture" id=13]
+[ext_resource path="res://Textures/input map.png" type="Texture" id=14]
+[ext_resource path="res://Fonts/Rubik-Light-H2.tres" type="DynamicFont" id=15]
+[ext_resource path="res://Textures/dot.svg" type="Texture" id=16]
+[ext_resource path="res://SpinBox.gd" type="Script" id=17]
+
+[sub_resource type="GDScript" id=6]
+script/source = "extends PopupDialog
+
+func _on_Button_pressed():
+	OS.shell_open(OS.get_user_data_dir()+\"/Captures\")
+	get_tree().quit()
+"
+
+[sub_resource type="GDScript" id=9]
+script/source = "extends Panel
+
+func _on_BaselineBPM_value_changed(value):
+	var config := ConfigFile.new()
+	config.set_value('baseline','bpm',value)
+	config.save('user://config.cfg')
+	owner.bpm = value
+
+func _on_OpenUserDir_pressed():
+	OS.shell_open(OS.get_user_data_dir())
+
+func _on_ShowInputMap_pressed():
+	OS.set_window_fullscreen(true)
+	get_node('../InputMap').show()
+"
+
+[sub_resource type="GDScript" id=8]
+script/source = "extends Control
+
+func _on_Button_mouse_entered():
+	$Bg.set_modulate('#28ffffff')
+
+func _on_Button_mouse_exited():
+	$Bg.set_modulate('#1cffffff')
+
+func _on_Button_toggled(button_pressed):
+	if button_pressed:
+		get_node('../../Menu').show()
+		$Icon.set_modulate('#f366ff')
+	else:
+		get_node('../../Menu').hide()
+		$Icon.set_modulate('#6b84fd')
+"
+
+[sub_resource type="GDScript" id=7]
+script/source = "extends HBoxContainer
+
+func _on_SpinBox_value_changed(value):
+	owner.set_bpm(value,false)
+"
+
+[sub_resource type="GDScript" id=10]
+script/source = "extends Button
+
+func _on_pressed():
+	get_parent().hide()
+	get_node('../../Header/MenuButton/Button').set_pressed(false)
+	OS.set_window_fullscreen(false)
+	OS.set_window_size(Vector2(OS.get_screen_size().x,400))
+"
+
+[node name="BounceX" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource( 1 )
+
+[node name="Tween" type="Tween" parent="."]
+repeat = true
+playback/repeat = true
+
+[node name="BGPanel" type="NinePatchRect" parent="."]
+margin_top = 83.0
+margin_right = 1920.0
+margin_bottom = 364.0
+texture = ExtResource( 10 )
+patch_margin_left = 12
+patch_margin_top = 4
+patch_margin_right = 12
+patch_margin_bottom = 4
+__meta__ = {
+"_edit_use_anchors_": true
+}
+
+[node name="Background" type="Panel" parent="BGPanel"]
+modulate = Color( 1, 1, 1, 0.501961 )
+anchor_top = 0.0106762
+anchor_right = 1.0
+anchor_bottom = 0.989324
+__meta__ = {
+"_edit_use_anchors_": true
+}
+
+[node name="Line2D" type="Line2D" parent="."]
+default_color = Color( 0.941176, 0.231373, 1, 1 )
+gradient = ExtResource( 5 )
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+script = ExtResource( 4 )
+
+[node name="Tween" type="Tween" parent="Line2D"]
+
+[node name="Ball" type="Node2D" parent="."]
+script = ExtResource( 7 )
+
+[node name="Read" type="Node2D" parent="Ball"]
+position = Vector2( 960, 324 )
+
+[node name="Background" type="Sprite" parent="Ball/Read"]
+self_modulate = Color( 0.4, 0.501961, 1, 0.0980392 )
+texture = ExtResource( 9 )
+
+[node name="CenterHeart" type="Sprite" parent="Ball/Read"]
+self_modulate = Color( 1, 0.231373, 0.741176, 1 )
+scale = Vector2( 1e-05, 1e-05 )
+texture = ExtResource( 6 )
+
+[node name="CenterBall" type="Sprite" parent="Ball/Read"]
+self_modulate = Color( 0.4, 0.501961, 1, 0.776471 )
+texture = ExtResource( 2 )
+
+[node name="Ring" type="Sprite" parent="Ball/Read"]
+texture = ExtResource( 8 )
+
+[node name="Tween" type="Tween" parent="Ball/Read"]
+
+[node name="Write" type="Node2D" parent="Ball"]
+position = Vector2( 1847.5, 324 )
+
+[node name="Background" type="Sprite" parent="Ball/Write"]
+self_modulate = Color( 0.4, 0.501961, 1, 0.0980392 )
+texture = ExtResource( 9 )
+
+[node name="CenterHeart" type="Sprite" parent="Ball/Write"]
+self_modulate = Color( 1, 0.231373, 0.741176, 1 )
+scale = Vector2( 1e-05, 1e-05 )
+texture = ExtResource( 6 )
+
+[node name="CenterBall" type="Sprite" parent="Ball/Write"]
+self_modulate = Color( 0.4, 0.501961, 1, 0.776471 )
+texture = ExtResource( 2 )
+
+[node name="Ring" type="Sprite" parent="Ball/Write"]
+texture = ExtResource( 8 )
+
+[node name="Tween" type="Tween" parent="Ball/Write"]
+
+[node name="Tween" type="Tween" parent="Ball"]
+
+[node name="ExitPanel" type="PopupDialog" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -125.0
+margin_top = -50.0
+margin_right = 175.0
+margin_bottom = 60.0
+script = SubResource( 6 )
+
+[node name="Label" type="Label" parent="ExitPanel"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -99.5
+margin_top = -42.5
+margin_right = 99.5
+margin_bottom = -13.5
+custom_fonts/font = ExtResource( 11 )
+text = "Capture complete!"
+
+[node name="Button" type="Button" parent="ExitPanel"]
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+margin_left = -113.0
+margin_top = -57.0
+margin_right = 113.0
+margin_bottom = -17.0
+custom_fonts/font = ExtResource( 3 )
+text = "Show captures and exit"
+
+[node name="Menu" type="Panel" parent="."]
+visible = false
+anchor_bottom = 1.0
+margin_right = 233.0
+script = SubResource( 9 )
+__meta__ = {
+"_edit_use_anchors_": true
+}
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Menu"]
+margin_left = 9.0
+margin_top = 80.0
+margin_right = 223.0
+margin_bottom = 346.0
+custom_constants/separation = 11
+
+[node name="BaselineBPM" type="Control" parent="Menu/VBoxContainer"]
+margin_right = 214.0
+margin_bottom = 24.0
+rect_min_size = Vector2( 0, 24 )
+
+[node name="Label" type="Label" parent="Menu/VBoxContainer/BaselineBPM"]
+margin_right = 129.0
+margin_bottom = 24.0
+custom_fonts/font = ExtResource( 3 )
+text = "Baseline BPM:"
+
+[node name="SpinBox" type="SpinBox" parent="Menu/VBoxContainer/BaselineBPM"]
+anchor_left = 1.0
+anchor_right = 1.0
+margin_left = -74.0
+margin_bottom = 24.0
+min_value = 0.01
+max_value = 9999.99
+step = 0.01
+value = 0.01
+script = ExtResource( 17 )
+
+[node name="OpenUserDir" type="Button" parent="Menu/VBoxContainer"]
+margin_top = 35.0
+margin_right = 214.0
+margin_bottom = 65.0
+custom_fonts/font = ExtResource( 3 )
+text = "Open user directory"
+
+[node name="ShowInputMap" type="Button" parent="Menu/VBoxContainer"]
+margin_top = 76.0
+margin_right = 214.0
+margin_bottom = 106.0
+custom_fonts/font = ExtResource( 3 )
+text = "Show input map"
+
+[node name="Header" type="Control" parent="."]
+margin_left = 10.0
+margin_top = 10.0
+margin_right = 886.0
+margin_bottom = 64.0
+
+[node name="MenuButton" type="Control" parent="Header"]
+margin_top = 1.5
+margin_right = 51.0
+margin_bottom = 52.5
+script = SubResource( 8 )
+
+[node name="Bg" type="TextureRect" parent="Header/MenuButton"]
+modulate = Color( 1, 1, 1, 0.109804 )
+anchor_right = 1.0
+anchor_bottom = 1.0
+texture = ExtResource( 12 )
+
+[node name="Icon" type="TextureRect" parent="Header/MenuButton"]
+modulate = Color( 0.419608, 0.517647, 0.992157, 1 )
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -25.5
+margin_top = -25.5
+margin_right = 25.5
+margin_bottom = 25.5
+rect_pivot_offset = Vector2( 25.5, 25.5 )
+texture = ExtResource( 13 )
+expand = true
+stretch_mode = 1
+
+[node name="Button" type="TextureButton" parent="Header/MenuButton"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+toggle_mode = true
+
+[node name="BPM" type="HBoxContainer" parent="Header"]
+margin_left = 64.0
+margin_top = 10.0
+margin_right = 200.0
+margin_bottom = 46.0
+custom_constants/separation = 6
+script = SubResource( 7 )
+
+[node name="Label" type="Label" parent="Header/BPM"]
+margin_top = 3.0
+margin_right = 56.0
+margin_bottom = 32.0
+custom_fonts/font = ExtResource( 11 )
+text = "BPM:"
+
+[node name="SpinBox" type="SpinBox" parent="Header/BPM"]
+margin_left = 62.0
+margin_right = 140.0
+margin_bottom = 36.0
+rect_min_size = Vector2( 78, 0 )
+min_value = 0.01
+max_value = 9999.99
+step = 0.01
+value = 0.01
+script = ExtResource( 17 )
+
+[node name="Recording" type="Control" parent="Header"]
+visible = false
+margin_left = 240.0
+margin_right = 324.0
+margin_bottom = 55.0
+
+[node name="Dot" type="TextureRect" parent="Header/Recording"]
+modulate = Color( 1, 0, 0, 1 )
+margin_right = 21.0
+margin_bottom = 55.0
+texture = ExtResource( 16 )
+stretch_mode = 6
+
+[node name="Label" type="Label" parent="Header/Recording"]
+margin_left = 24.0
+margin_top = 8.0
+margin_right = 84.0
+margin_bottom = 46.0
+custom_colors/font_color = Color( 1, 1, 1, 1 )
+custom_colors/font_color_shadow = Color( 0.72549, 0.47451, 0.47451, 1 )
+custom_fonts/font = ExtResource( 15 )
+text = "REC"
+
+[node name="Display" type="HBoxContainer" parent="Header"]
+margin_left = 360.0
+margin_top = 7.0
+margin_right = 875.0
+margin_bottom = 47.0
+custom_constants/separation = 50
+
+[node name="Transition" type="HBoxContainer" parent="Header/Display"]
+margin_right = 273.0
+margin_bottom = 40.0
+custom_constants/separation = 8
+
+[node name="Label" type="Label" parent="Header/Display/Transition" groups=["ResizeText"]]
+margin_top = 1.0
+margin_right = 151.0
+margin_bottom = 39.0
+custom_colors/font_color = Color( 0.862745, 0.403922, 0.8, 1 )
+custom_fonts/font = ExtResource( 15 )
+text = "Transition:"
+
+[node name="Value" type="Label" parent="Header/Display/Transition" groups=["ResizeText"]]
+margin_left = 159.0
+margin_top = 1.0
+margin_right = 273.0
+margin_bottom = 39.0
+custom_fonts/font = ExtResource( 15 )
+text = "XXXXXX"
+
+[node name="Easing" type="HBoxContainer" parent="Header/Display"]
+margin_left = 323.0
+margin_right = 588.0
+margin_bottom = 40.0
+custom_constants/separation = 8
+
+[node name="Label" type="Label" parent="Header/Display/Easing" groups=["ResizeText"]]
+margin_top = 1.0
+margin_right = 105.0
+margin_bottom = 39.0
+custom_colors/font_color = Color( 0.862745, 0.8, 0.403922, 1 )
+custom_fonts/font = ExtResource( 15 )
+text = "Easing:"
+
+[node name="Value" type="Label" parent="Header/Display/Easing" groups=["ResizeText"]]
+margin_left = 113.0
+margin_top = 1.0
+margin_right = 265.0
+margin_bottom = 39.0
+custom_fonts/font = ExtResource( 15 )
+text = "XXXXXXXX"
+
+[node name="Height" type="HBoxContainer" parent="Header/Display"]
+margin_left = 638.0
+margin_right = 787.0
+margin_bottom = 40.0
+custom_constants/separation = 8
+
+[node name="Label" type="Label" parent="Header/Display/Height" groups=["ResizeText"]]
+margin_top = 1.0
+margin_right = 103.0
+margin_bottom = 39.0
+custom_colors/font_color = Color( 0.403922, 0.756863, 0.862745, 1 )
+custom_fonts/font = ExtResource( 15 )
+text = "Height:"
+
+[node name="Value" type="Label" parent="Header/Display/Height" groups=["ResizeText"]]
+margin_left = 111.0
+margin_top = 1.0
+margin_right = 149.0
+margin_bottom = 39.0
+custom_fonts/font = ExtResource( 15 )
+text = "XX"
+
+[node name="Depth" type="HBoxContainer" parent="Header/Display"]
+margin_left = 837.0
+margin_right = 979.0
+margin_bottom = 40.0
+custom_constants/separation = 8
+
+[node name="Label" type="Label" parent="Header/Display/Depth" groups=["ResizeText"]]
+margin_top = 1.0
+margin_right = 96.0
+margin_bottom = 39.0
+custom_colors/font_color = Color( 0.403922, 0.862745, 0.678431, 1 )
+custom_fonts/font = ExtResource( 15 )
+text = "Depth:"
+
+[node name="Value" type="Label" parent="Header/Display/Depth" groups=["ResizeText"]]
+margin_left = 104.0
+margin_top = 1.0
+margin_right = 142.0
+margin_bottom = 39.0
+custom_fonts/font = ExtResource( 15 )
+text = "XX"
+
+[node name="InputMap" type="TextureRect" parent="."]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+texture = ExtResource( 14 )
+expand = true
+stretch_mode = 6
+
+[node name="BG" type="Panel" parent="InputMap"]
+show_behind_parent = true
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Back" type="Button" parent="InputMap"]
+margin_left = 10.0
+margin_top = 10.0
+margin_right = 97.0
+margin_bottom = 57.0
+custom_fonts/font = ExtResource( 15 )
+text = "Back"
+script = SubResource( 10 )
+
+[node name="TextureButton" type="TextureButton" parent="."]
+visible = false
+margin_right = 40.0
+margin_bottom = 40.0
+
+[connection signal="tween_completed" from="Line2D/Tween" to="Line2D" method="_on_Tween_tween_completed"]
+[connection signal="tween_step" from="Line2D/Tween" to="Line2D" method="_on_Tween_tween_step"]
+[connection signal="tween_all_completed" from="Ball/Tween" to="Ball" method="_on_Tween_tween_all_completed"]
+[connection signal="pressed" from="ExitPanel/Button" to="ExitPanel" method="_on_Button_pressed"]
+[connection signal="value_changed" from="Menu/VBoxContainer/BaselineBPM/SpinBox" to="Menu" method="_on_BaselineBPM_value_changed"]
+[connection signal="pressed" from="Menu/VBoxContainer/OpenUserDir" to="Menu" method="_on_OpenUserDir_pressed"]
+[connection signal="pressed" from="Menu/VBoxContainer/ShowInputMap" to="Menu" method="_on_ShowInputMap_pressed"]
+[connection signal="mouse_entered" from="Header/MenuButton/Button" to="Header/MenuButton" method="_on_Button_mouse_entered"]
+[connection signal="mouse_exited" from="Header/MenuButton/Button" to="Header/MenuButton" method="_on_Button_mouse_exited"]
+[connection signal="toggled" from="Header/MenuButton/Button" to="Header/MenuButton" method="_on_Button_toggled"]
+[connection signal="value_changed" from="Header/BPM/SpinBox" to="Header/BPM" method="_on_SpinBox_value_changed"]
+[connection signal="pressed" from="InputMap/Back" to="InputMap/Back" method="_on_pressed"]
