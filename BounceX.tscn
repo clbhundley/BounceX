@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=2]
+[gd_scene load_steps=24 format=2]
 
 [ext_resource path="res://BounceX.gd" type="Script" id=1]
 [ext_resource path="res://Textures/Ball/Center Ball.svg" type="Texture" id=2]
@@ -30,9 +30,8 @@ func _on_Button_pressed():
 script/source = "extends Panel
 
 func _on_BaselineBPM_value_changed(value):
-	var config := ConfigFile.new()
-	config.set_value('baseline','bpm',value)
-	config.save('user://config.cfg')
+	owner.config.set_value('General','baseline_bpm',value)
+	owner.config.save('user://config.cfg')
 	owner.bpm = value
 
 func _on_OpenUserDir_pressed():
@@ -41,6 +40,45 @@ func _on_OpenUserDir_pressed():
 func _on_ShowInputMap_pressed():
 	OS.set_window_fullscreen(true)
 	get_node('../InputMap').show()
+"
+
+[sub_resource type="GDScript" id=11]
+script/source = "extends CheckButton
+
+func _on_NoNumpad_toggled(button_pressed):
+	owner.config.set_value('General','no_numpad',button_pressed)
+	owner.config.save('user://config.cfg')
+	var new_input_map_image = alternate_input_map_image
+	alternate_input_map_image = owner.get_node('InputMap').texture
+	owner.get_node('InputMap').set_texture(new_input_map_image)
+	for action in alternate_controls:
+		var new_key = alternate_controls[action]
+		var action_list = InputMap.get_action_list(action)
+		if not action_list.empty():
+			alternate_controls[action] = action_list[0].scancode
+		InputMap.action_erase_events(action)
+		var event = InputEventKey.new()
+		event.scancode = new_key
+		InputMap.action_add_event(action,event)
+
+var alternate_input_map_image = load(\"res://Textures/input map no_numpad.png\")
+
+var alternate_controls = {
+	'toggle_line':KEY_CONTROL,
+	'transition_1':KEY_A,
+	'transition_2':KEY_S,
+	'transition_3':KEY_D,
+	'transition_4':KEY_F,
+	'transition_5':KEY_G,
+	'transition_6':KEY_H,
+	'transition_7':KEY_J,
+	'transition_8':KEY_K,
+	'transition_9':KEY_L,
+	'easing_1':KEY_Z,
+	'easing_2':KEY_X,
+	'easing_3':KEY_C,
+	'easing_4':KEY_V,
+}
 "
 
 [sub_resource type="GDScript" id=8]
@@ -68,12 +106,16 @@ func _on_SpinBox_value_changed(value):
 	owner.set_bpm(value,false)
 "
 
-[sub_resource type="GDScript" id=10]
-script/source = "extends Button
+[sub_resource type="GDScript" id=12]
+script/source = "extends TextureRect
 
-func _on_pressed():
-	get_parent().hide()
-	get_node('../../Header/MenuButton/Button').set_pressed(false)
+func _input(event):
+	if is_visible_in_tree() and event.is_action_pressed('ui_cancel'):
+		_on_Close_pressed()
+
+func _on_Close_pressed():
+	hide()
+	owner.get_node('Header/MenuButton/Button').set_pressed(false)
 	OS.set_window_fullscreen(false)
 	OS.set_window_size(Vector2(OS.get_screen_size().x,400))
 "
@@ -252,6 +294,14 @@ margin_right = 214.0
 margin_bottom = 106.0
 custom_fonts/font = ExtResource( 3 )
 text = "Show input map"
+
+[node name="NoNumpad" type="CheckButton" parent="Menu/VBoxContainer"]
+margin_top = 117.0
+margin_right = 214.0
+margin_bottom = 157.0
+custom_fonts/font = ExtResource( 3 )
+text = "No numpad"
+script = SubResource( 11 )
 
 [node name="Header" type="Control" parent="."]
 margin_left = 10.0
@@ -441,20 +491,20 @@ anchor_bottom = 1.0
 texture = ExtResource( 14 )
 expand = true
 stretch_mode = 6
+script = SubResource( 12 )
 
 [node name="BG" type="Panel" parent="InputMap"]
 show_behind_parent = true
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="Back" type="Button" parent="InputMap"]
+[node name="Close" type="Button" parent="InputMap"]
 margin_left = 10.0
 margin_top = 10.0
 margin_right = 97.0
 margin_bottom = 57.0
 custom_fonts/font = ExtResource( 15 )
-text = "Back"
-script = SubResource( 10 )
+text = "Close"
 
 [node name="TextureButton" type="TextureButton" parent="."]
 visible = false
@@ -468,8 +518,9 @@ margin_bottom = 40.0
 [connection signal="value_changed" from="Menu/VBoxContainer/BaselineBPM/SpinBox" to="Menu" method="_on_BaselineBPM_value_changed"]
 [connection signal="pressed" from="Menu/VBoxContainer/OpenUserDir" to="Menu" method="_on_OpenUserDir_pressed"]
 [connection signal="pressed" from="Menu/VBoxContainer/ShowInputMap" to="Menu" method="_on_ShowInputMap_pressed"]
+[connection signal="toggled" from="Menu/VBoxContainer/NoNumpad" to="Menu/VBoxContainer/NoNumpad" method="_on_NoNumpad_toggled"]
 [connection signal="mouse_entered" from="Header/MenuButton/Button" to="Header/MenuButton" method="_on_Button_mouse_entered"]
 [connection signal="mouse_exited" from="Header/MenuButton/Button" to="Header/MenuButton" method="_on_Button_mouse_exited"]
 [connection signal="toggled" from="Header/MenuButton/Button" to="Header/MenuButton" method="_on_Button_toggled"]
 [connection signal="value_changed" from="Header/BPM/SpinBox" to="Header/BPM" method="_on_SpinBox_value_changed"]
-[connection signal="pressed" from="InputMap/Back" to="InputMap/Back" method="_on_pressed"]
+[connection signal="pressed" from="InputMap/Close" to="InputMap" method="_on_Close_pressed"]

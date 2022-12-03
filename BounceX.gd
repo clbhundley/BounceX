@@ -320,16 +320,33 @@ func load_record():
 var config := ConfigFile.new()
 func load_config():
 	var path = 'user://config.cfg'
-	if config.load(path) != OK or not config.get_value('baseline','bpm'):
-		config.set_value('baseline','bpm',120)
+	if not config_is_valid(path):
+		config = ConfigFile.new()
+		config.set_value('General','baseline_bpm',120)
+		config.set_value('General','no_numpad',false)
 		config.save(path)
-	set_bpm(config.get_value('baseline','bpm'))
-	var baseline_bpm = $Menu/VBoxContainer/BaselineBPM/SpinBox
-	baseline_bpm.value = config.get_value('baseline','bpm')
+	if config.get_value('General','no_numpad'):
+		$Menu/VBoxContainer/NoNumpad.set_pressed(true)
+	var loaded_baseline_bpm = config.get_value('General','baseline_bpm')
+	$Menu/VBoxContainer/BaselineBPM/SpinBox.value = loaded_baseline_bpm
+	set_bpm(loaded_baseline_bpm)
 	set_transition(1)
 	set_easing(2)
 	set_height(1)
 	set_depth(0)
+
+func config_is_valid(path) -> bool:
+	if config.load(path) != OK:
+		return false
+	if not config.has_section('General'):
+		return false
+	for key in ['baseline_bpm','no_numpad']:
+		if not key in config.get_section_keys('General'):
+			return false
+	for key in config.get_sections():
+		if not key in ['General']:
+			return false
+	return true
 
 var H1 = load("res://Fonts/Rubik-Light-H1.tres")
 var H2 = load("res://Fonts/Rubik-Light-H2.tres")
