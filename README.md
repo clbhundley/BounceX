@@ -1,6 +1,7 @@
 # BounceX 2.0
 
 Beat marker creation tool made in Godot 4
+
 Works best with touchscreen or drawing tablet input
 
 # Instructions
