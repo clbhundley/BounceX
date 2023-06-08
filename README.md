@@ -7,7 +7,7 @@ Works best with touchscreen or drawing tablet input
 # Instructions
 ### <a href="https://godotengine.org/download">Download Godot</a>
 
-Download this repository, extract from zip
+Download this repository as a zip and extract it
 
 Open Godot
 
