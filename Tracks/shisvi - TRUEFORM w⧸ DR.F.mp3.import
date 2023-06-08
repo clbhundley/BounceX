@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://kxlesbp3uky0"
+path="res://.godot/imported/shisvi - TRUEFORM w⧸ DR.F.mp3-4d4d11a1d8cc67c483626eacd8293e02.mp3str"
+
+[deps]
+
+source_file="res://Tracks/shisvi - TRUEFORM w⧸ DR.F.mp3"
+dest_files=["res://.godot/imported/shisvi - TRUEFORM w⧸ DR.F.mp3-4d4d11a1d8cc67c483626eacd8293e02.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

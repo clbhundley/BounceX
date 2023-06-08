@@ -1,526 +1,1303 @@
-[gd_scene load_steps=24 format=2]
+[gd_scene load_steps=28 format=3 uid="uid://ni5y54wv42nf"]
 
-[ext_resource path="res://BounceX.gd" type="Script" id=1]
-[ext_resource path="res://Textures/Ball/Center Ball.svg" type="Texture" id=2]
-[ext_resource path="res://Fonts/Rubik-Light.tres" type="DynamicFont" id=3]
-[ext_resource path="res://Line2D.gd" type="Script" id=4]
-[ext_resource path="res://Textures/line gradient.tres" type="Gradient" id=5]
-[ext_resource path="res://Textures/Ball/Center Heart.svg" type="Texture" id=6]
-[ext_resource path="res://Ball.gd" type="Script" id=7]
-[ext_resource path="res://Textures/Ball/Ring.svg" type="Texture" id=8]
-[ext_resource path="res://Textures/Ball/Background.svg" type="Texture" id=9]
-[ext_resource path="res://Textures/border.png" type="Texture" id=10]
-[ext_resource path="res://Fonts/Rubik-Light-H1.tres" type="DynamicFont" id=11]
-[ext_resource path="res://Textures/Menu Button/bg.svg" type="Texture" id=12]
-[ext_resource path="res://Textures/Menu Button/icon.svg" type="Texture" id=13]
-[ext_resource path="res://Textures/input map.png" type="Texture" id=14]
-[ext_resource path="res://Fonts/Rubik-Light-H2.tres" type="DynamicFont" id=15]
-[ext_resource path="res://Textures/dot.svg" type="Texture" id=16]
-[ext_resource path="res://SpinBox.gd" type="Script" id=17]
+[ext_resource type="Theme" uid="uid://4ddly4r83yek" path="res://Theme.tres" id="1_qtjw4"]
+[ext_resource type="Script" path="res://BounceX.gd" id="2_4ci4k"]
+[ext_resource type="FontFile" uid="uid://c2wtnhu46b5xf" path="res://Font/Rubik-Light.ttf" id="2_wwilv"]
+[ext_resource type="Texture2D" uid="uid://cbwqw7m1wqj64" path="res://Textures/Dot Small.svg" id="3_mj5xg"]
+[ext_resource type="Texture2D" uid="uid://bkabq6ivbs23x" path="res://Textures/Circle Small.svg" id="4_rocsv"]
+[ext_resource type="Texture2D" uid="uid://bqgebmq2ks1mj" path="res://Textures/Play.svg" id="4_tyhll"]
+[ext_resource type="Texture2D" uid="uid://dnlqy6ppe68nr" path="res://Textures/Triangle.svg" id="4_xkljy"]
+[ext_resource type="Texture2D" uid="uid://btcvoinq33eia" path="res://Textures/Edit.svg" id="5_8cp6s"]
+[ext_resource type="Texture2D" uid="uid://dnc4n3dtd5v83" path="res://Textures/Pause.svg" id="5_r8mq7"]
+[ext_resource type="Texture2D" uid="uid://c7tcg80cl58pp" path="res://Textures/Menu.svg" id="6_vw5ng"]
+[ext_resource type="Texture2D" uid="uid://404qr06t6u7x" path="res://Textures/Line.svg" id="6_xdjfl"]
+[ext_resource type="Texture2D" uid="uid://cdlwfv4b2xdt7" path="res://Textures/X.svg" id="7_jv2cd"]
+[ext_resource type="Texture2D" uid="uid://b1o26anuxa26c" path="res://Textures/Circle.svg" id="8_53ihq"]
+[ext_resource type="Texture2D" uid="uid://bmlus4dohtrmw" path="res://Textures/Gear.svg" id="8_o0vj8"]
+[ext_resource type="Texture2D" uid="uid://bius3v0napj7c" path="res://Textures/Ball.svg" id="12_freos"]
 
-[sub_resource type="GDScript" id=6]
-script/source = "extends PopupDialog
+[sub_resource type="Gradient" id="Gradient_gixs1"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0)
 
-func _on_Button_pressed():
-	OS.shell_open(OS.get_user_data_dir()+\"/Captures\")
+[sub_resource type="GDScript" id="GDScript_4vcmm"]
+script/source = "extends VBoxContainer
+
+func _ready():
+	load_tracks()
+
+func _physics_process(delta):
+	if $AudioStreamPlayer.is_playing():
+		for slider in [$TrackSlider, owner.get_node('TrackSliderClone')]:
+			if slider.is_connected(\"value_changed\", scrub):
+				slider.disconnect(\"value_changed\",scrub)
+			var playback_pos = $AudioStreamPlayer.get_playback_position()
+			slider.set_value(playback_pos)
+
+func scrub(value):
+	for bar in [$TrackSlider, owner.get_node('TrackSliderClone')]:
+		if bar.value != value:
+			bar.value = value
+	var stream_length = $AudioStreamPlayer.stream.get_length()
+	value = min(value, stream_length - 0.1)
+	if not $AudioStreamPlayer.playing:
+		$AudioStreamPlayer.play(value)
+		$AudioStreamPlayer.stream_paused = true
+	elif $AudioStreamPlayer.stream_paused:
+		$AudioStreamPlayer.stream_paused = false
+		$AudioStreamPlayer.seek(value)
+		$AudioStreamPlayer.stream_paused = true
+	else:
+		$AudioStreamPlayer.seek(value)
+	var stream_position = value / stream_length
+	owner.frame = ceil((owner.path.size() - 1) * stream_position)
+	if sign(owner.path[owner.frame]) > -1:
+		owner.toggle_path_visible(true)
+		owner.place_ball(owner.path[owner.frame])
+		owner.get_node('Circle').position = owner.get_node('Ball').position
+	elif $Paths.is_anything_selected():
+		owner.toggle_path_visible(false)
+
+func _on_track_selection_toggled(button_pressed):
+	if button_pressed:
+		load_tracks()
+
+func _on_track_slider_gui_input(event):
+	for slider in [$TrackSlider, owner.get_node('TrackSliderClone')]:
+		if not slider.is_connected(\"value_changed\", scrub):
+			slider.connect(\"value_changed\", scrub)
+
+func load_tracks() -> void:
+	var dir := DirAccess.open('res://Tracks')
+	var selected = $TrackSelection.selected
+	$TrackSelection.clear()
+	dir.list_dir_begin()
+	var file_name = dir.get_next()
+	while file_name != \"\":
+		for suffix in ['.mp3', '.wav', '.ogg']:
+			if file_name.ends_with(suffix):
+				$TrackSelection.add_item(file_name)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	$TrackSelection.selected = selected
+
+func load_paths(track_title:String) -> void:
+	var dir := DirAccess.open('user://Paths/' + track_title)
+	var list:PackedStringArray
+	$Render.disabled = true
+	$Edit.disabled = true
+	$Paths.clear()
+	last_path_index = -1
+	dir.list_dir_begin()
+	var file_name = dir.get_next()
+	while file_name != \"\":
+		list.append(file_name)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	list.reverse()
+	for title in list:
+		$Paths.add_item(title)
+
+func _on_track_selected(index):
+	var track_name = $TrackSelection.get_item_text(index)
+	$AudioStreamPlayer.stream = load('res://Tracks/' + track_name)
+	for slider in [$TrackSlider, owner.get_node('TrackSliderClone')]:
+		slider.max_value = $AudioStreamPlayer.stream.get_length()
+		slider.editable = true
+	$TrackControls/Play.button_pressed = false
+	$TrackControls/Play.disabled = false
+	$TrackControls/Play/Icon.self_modulate.a = 1
+	$Record.disabled = false
+	var dir := DirAccess.open('user://Paths')
+	if not dir.dir_exists(track_name):
+		dir.make_dir(track_name)
+	load_paths(track_name)
+	Data.set_config('user', 'track', track_name)
+	owner.path.clear()
+	owner.define_path()
+
+var last_path_index:int = -1
+func _on_path_selected(index):
+	if index == last_path_index:
+		$Paths.deselect_all()
+		$Edit.disabled = true
+		$Render.disabled = true
+		owner.path.clear()
+		owner.define_path()
+		last_path_index = -1
+	else:
+		last_path_index = index
+		var selected = $TrackSelection.selected
+		var track_title:String = $TrackSelection.get_item_text(selected)
+		var file_path := 'user://Paths/' + track_title + '/'
+		$Edit.disabled = false
+		$Render.disabled = false
+		Data.load_path(file_path + $Paths.get_item_text(index))
+
+func _on_paths_item_clicked(index, at_position, mouse_button_index):
+	if index == last_path_index and mouse_button_index == 2:
+		$Paths/EditPath.popup_centered()
+		$Paths/EditPath.dir = DirAccess.open('user://Paths')
+		var selected_track = $TrackSelection.selected
+		var track_title:String = $TrackSelection.get_item_text(selected_track)
+		$Paths/EditPath.track_title = track_title
+		$Paths/EditPath.file_name = $Paths.get_item_text(index)
+		$Paths/EditPath/LineEdit.text = $Paths.get_item_text(index)
+"
+
+[sub_resource type="GDScript" id="GDScript_ap78a"]
+script/source = "extends HBoxContainer
+
+@onready var audio = get_node('../AudioStreamPlayer')
+
+const small := Vector2(0.9, 0.9)
+const normal := Vector2(1, 1)
+
+func _ready():
+	$Play.self_modulate.a = 0
+	$Pause.self_modulate.a = 0
+
+func _on_play_toggled(button_pressed):
+	if button_pressed:
+		$Play.disabled = true
+		$Play.self_modulate.a = 1
+		$Pause.disabled = false
+		$Pause.button_pressed = false
+		$Pause/Icon.self_modulate.a = 1
+		$Pause/Icon.scale = normal
+		owner.play_button.button_pressed = true
+	else:
+		$Play.disabled = false
+		$Play.self_modulate.a = 0
+
+func _on_pause_toggled(button_pressed):
+	if button_pressed:
+		$Pause.disabled = true
+		$Pause.self_modulate.a = 1
+		$Play.button_pressed = false
+		audio.stream_paused = true
+		$Play/Icon.scale = normal
+		owner.toggle_path_visible(true)
+		owner.play_button.button_pressed = false
+	else:
+		$Pause.disabled = false
+		$Pause.self_modulate.a = 0
+
+func _on_play_mouse_entered():
+	if not $Play.disabled and not $Play.button_pressed:
+		$Play/Icon.scale = small
+
+func _on_play_mouse_exited():
+	if not $Play.disabled:
+		$Play/Icon.scale = normal
+
+func _on_pause_mouse_entered():
+	if not $Pause.disabled and not $Pause.button_pressed:
+		$Pause/Icon.scale = small
+
+func _on_pause_mouse_exited():
+	if not $Pause.disabled:
+		$Pause/Icon.scale = normal
+"
+
+[sub_resource type="GDScript" id="GDScript_snsh4"]
+script/source = "extends ConfirmationDialog
+
+var track_title:String
+var file_name:String
+
+var dir:DirAccess
+
+func _ready():
+	get_child(2,true).get_child(3,true).hide()
+	add_button(\"DELETE\", true, 'delete')
+
+func _on_confirmed():
+	var path = 'user://Paths/' + track_title + '/'
+	dir.rename(path + file_name, path + $LineEdit.text)
+	owner.get_node('Menu/Controls').load_paths(track_title)
+	var paths = owner.get_node('Menu/Controls/Paths')
+	for i in paths.item_count:
+		if paths.get_item_text(i) == $LineEdit.text:
+			paths.select(i)
+			owner.get_node('Menu/Controls')._on_path_selected(i)
+
+func _on_custom_action(action):
+	if action == 'delete':
+		$Delete.dialog_text = \"Delete \" + $LineEdit.text + \"?\"
+		$Delete.popup_centered()
+		hide()
+
+func _on_delete_confirmed():
+	dir.remove('user://Paths/' + track_title + '/' + file_name)
+	owner.get_node('Menu/Controls').load_paths(track_title)
+	owner.path.clear()
+	owner.define_path()
+"
+
+[sub_resource type="GDScript" id="GDScript_kde6i"]
+script/source = "extends VBoxContainer
+
+@onready var colors:Node = get_node('../Colors')
+
+func _ready():
+	var config:ConfigFile = Data.config
+	config.load(Data.config_path)
+	
+	if config.has_section_key('path', 'path_max_length'):
+		var value = config.get_value('path', 'path_max_length')
+		_on_path_max_length_value_changed(value)
+	else:
+		_on_path_max_length_value_changed($PathMaxLength.value)
+	
+	if config.has_section_key('path', 'path_thickness'):
+		var value = config.get_value('path', 'path_thickness')
+		_on_path_thickness_value_changed(value)
+	else:
+		_on_path_thickness_value_changed($PathThickness.value)
+	
+	if config.has_section_key('path', 'path_fade'):
+		var value = config.get_value('path', 'path_fade')
+		_on_path_fade_value_changed(value)
+		$PathFade/HSlider.value = value
+	else:
+		_on_path_fade_value_changed($PathFade/HSlider.value)
+		$PathFade/HSlider.value = $PathFade/HSlider.value
+	
+	if config.has_section_key('path', 'path_speed'):
+		var value = config.get_value('path', 'path_speed')
+		_on_path_speed_changed(value)
+		$PathSpeed/HSlider.value = value
+	else:
+		_on_path_speed_changed($PathSpeed/HSlider.value)
+		$PathSpeed/HSlider.value = $PathSpeed/HSlider.value
+	
+	if config.has_section_key('path', 'path_area'):
+		var value = config.get_value('path', 'path_area')
+		_on_path_area_value_changed(value)
+	else:
+		_on_path_area_value_changed($PathArea.value)
+
+func _on_path_speed_changed(value):
+	owner.path_speed = value
+	$PathSpeed/Label.text = \"Path Speed: \" + str(value)
+	Data.set_config('path', 'path_speed', value)
+
+func _on_path_fade_value_changed(value):
+	$PathFade/Label.text = \"Fade: \" + str(value)
+	owner.get_node('Path').gradient.colors[0].a = 1 - value
+	owner.get_node('Path').gradient.colors[2].a = 1 - value
+	Data.set_config('path', 'path_fade', value)
+
+func _on_change_colors_pressed():
+	colors.get_node('TabBar').current_tab = 0
+	colors._on_tab_bar_tab_changed(0)
+	colors.show()
+	hide()
+
+func _on_path_max_length_value_changed(value):
+	owner.path_max_length = value
+	Data.set_config('path', 'path_max_length', value)
+
+func _on_path_area_value_changed(value):
+	owner.path_area = value
+	owner.update_display()
+	Data.set_config('path', 'path_area', value)
+
+func _on_path_thickness_value_changed(value):
+	owner.get_node('Path').width = value
+	Data.set_config('path', 'path_thickness', value)
+
+func _on_open_tracks_pressed():
+	var folder_path = ProjectSettings.globalize_path('res://Tracks')
+	OS.shell_open(folder_path)
+	$OpenTracks/AcceptDialog.popup_centered()
+
+func _on_open_renders_pressed():
+	var folder_path = ProjectSettings.globalize_path('user://Renders')
+	OS.shell_open(folder_path)
+
+func _on_open_paths_pressed():
+	var folder_path = ProjectSettings.globalize_path('user://Paths')
+	OS.shell_open(folder_path)
+"
+
+[sub_resource type="GDScript" id="GDScript_575x6"]
+script/source = "extends VBoxContainer
+
+func _on_x_value_changed(value):
+	Data.set_config('user', 'render_resolution:x', value)
+
+func _on_y_value_changed(value):
+	Data.set_config('user', 'render_resolution:y', value)
+"
+
+[sub_resource type="GDScript" id="GDScript_nob1l"]
+script/source = "extends VBoxContainer
+
+func _ready():
+	match DisplayServer.window_get_mode():
+		DisplayServer.WINDOW_MODE_FULLSCREEN:
+			$OptionButton.select(0)
+		DisplayServer.WINDOW_MODE_WINDOWED:
+			$OptionButton.select(1)
+		DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
+			$OptionButton.select(2)
+
+func _on_option_button_item_selected(index):
+	match index:
+		0:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		1:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		2:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
+	Data.set_config('user', 'display_mode', index)
+"
+
+[sub_resource type="GDScript" id="GDScript_ywdvr"]
+script/source = "extends VBoxContainer
+
+var selected:Node
+
+var previous_color:Color
+
+func _on_color_picker_color_changed(color):
+	match $TabBar.current_tab:
+		0, 1:
+			selected.set_self_modulate(color)
+		2:
+			selected.set_self_modulate(color)
+			owner.top_color = color
+		4:
+			selected.set_self_modulate(color)
+			owner.bottom_color = color
+		3:
+			owner.top_color_active = color
+		5:
+			owner.bottom_color_active = color
+	var title = $TabBar.get_tab_title($TabBar.current_tab)
+	Data.set_config('colors', title, color)
+
+func _on_done_pressed():
+	get_node('../Options').show()
+	hide()
+
+func _on_cancel_pressed():
+	if selected:
+		selected.set_self_modulate(previous_color)
+	get_node('../Options').show()
+	hide()
+
+func _on_tab_bar_tab_changed(tab):
+	match tab:
+		0:
+			selected = owner.get_node('Ball')
+			previous_color = selected.self_modulate
+		1:
+			selected = owner.get_node('Path')
+			previous_color = selected.self_modulate
+		2:
+			selected = owner.get_node('TopLine')
+			previous_color = owner.top_color
+		3:
+			selected = owner.get_node('TopLine')
+			previous_color = owner.top_color_active
+		4:
+			selected = owner.get_node('BottomLine')
+			previous_color = owner.bottom_color
+		5:
+			selected = owner.get_node('BottomLine')
+			previous_color = owner.bottom_color_active
+	$ColorPicker.color = previous_color
+"
+
+[sub_resource type="GDScript" id="GDScript_q4aw8"]
+script/source = "extends TextureButton
+
+func _on_mouse_entered():
+	self_modulate = 'ff4040'
+
+func _on_mouse_exited():
+	self_modulate = 'ff7474d7'
+
+func _on_pressed():
+	modulate.a = 2.2
+	for frame in 3:
+		await get_tree().process_frame
 	get_tree().quit()
 "
 
-[sub_resource type="GDScript" id=9]
-script/source = "extends Panel
+[sub_resource type="GDScript" id="GDScript_sh086"]
+script/source = "extends TextureButton
 
-func _on_BaselineBPM_value_changed(value):
-	owner.config.set_value('General','baseline_bpm',value)
-	owner.config.save('user://config.cfg')
-	owner.bpm = value
-
-func _on_OpenUserDir_pressed():
-	OS.shell_open(OS.get_user_data_dir())
-
-func _on_ShowInputMap_pressed():
-	OS.set_window_fullscreen(true)
-	get_node('../InputMap').show()
-"
-
-[sub_resource type="GDScript" id=11]
-script/source = "extends CheckButton
-
-func _on_NoNumpad_toggled(button_pressed):
-	owner.config.set_value('General','no_numpad',button_pressed)
-	owner.config.save('user://config.cfg')
-	var new_input_map_image = alternate_input_map_image
-	alternate_input_map_image = owner.get_node('InputMap').texture
-	owner.get_node('InputMap').set_texture(new_input_map_image)
-	for action in alternate_controls:
-		var new_key = alternate_controls[action]
-		var action_list = InputMap.get_action_list(action)
-		if not action_list.empty():
-			alternate_controls[action] = action_list[0].scancode
-		InputMap.action_erase_events(action)
-		var event = InputEventKey.new()
-		event.scancode = new_key
-		InputMap.action_add_event(action,event)
-
-var alternate_input_map_image = load(\"res://Textures/input map no_numpad.png\")
-
-var alternate_controls = {
-	'toggle_line':KEY_CONTROL,
-	'transition_1':KEY_A,
-	'transition_2':KEY_S,
-	'transition_3':KEY_D,
-	'transition_4':KEY_F,
-	'transition_5':KEY_G,
-	'transition_6':KEY_H,
-	'transition_7':KEY_J,
-	'transition_8':KEY_K,
-	'transition_9':KEY_L,
-	'easing_1':KEY_Z,
-	'easing_2':KEY_X,
-	'easing_3':KEY_C,
-	'easing_4':KEY_V,
-}
-"
-
-[sub_resource type="GDScript" id=8]
-script/source = "extends Control
-
-func _on_Button_mouse_entered():
-	$Bg.set_modulate('#28ffffff')
-
-func _on_Button_mouse_exited():
-	$Bg.set_modulate('#1cffffff')
-
-func _on_Button_toggled(button_pressed):
-	if button_pressed:
-		get_node('../../Menu').show()
-		$Icon.set_modulate('#f366ff')
+func _on_mouse_entered():
+	if not button_pressed:
+		self_modulate.a = 1
 	else:
-		get_node('../../Menu').hide()
-		$Icon.set_modulate('#6b84fd')
+		self_modulate.a = 1.8
+
+func _on_mouse_exited():
+	if not button_pressed:
+		self_modulate.a = 0.8
+	else:
+		self_modulate.a = 2.8
+
+func _on_toggled(button_pressed):
+	if button_pressed:
+		owner.input_disabled = true
+		self_modulate = '4040ff'
+		self_modulate.a = 2.8
+		owner.get_node('Menu/Controls').hide()
+		owner.get_node('Menu/Options').show()
+	else:
+		owner.input_disabled = false
+		self_modulate = 'ffff40cc'
+		owner.get_node('Menu/Colors').hide()
+		owner.get_node('Menu/Options').hide()
+		owner.get_node('Menu/Controls').show()
+
 "
 
-[sub_resource type="GDScript" id=7]
-script/source = "extends HBoxContainer
+[sub_resource type="GDScript" id="GDScript_8l1ut"]
+script/source = "extends TextureButton
 
-func _on_SpinBox_value_changed(value):
-	owner.set_bpm(value,false)
+func _on_mouse_entered():
+	if button_pressed:
+		self_modulate.a = 0.8
+	else:
+		self_modulate = '4fd6d6'
+
+func _on_mouse_exited():
+	if button_pressed:
+		self_modulate.a = 1
+	else:
+		self_modulate = '74ffffa1'
+
+var tween:Tween
+@onready var menu = get_node('../../Menu')
+@onready var options_button = get_node('../OptionsButton')
+@onready var exit_button = get_node('../ExitButton')
+
+func _ready():
+	options_button.modulate.a = 0
+	options_button.position.x = 0
+	exit_button.modulate.a = 0
+	exit_button.position.x = 0
+	ui_mouse_filter(false)
+
+func _on_toggled(button_pressed):
+	var tween = get_tree().create_tween()
+	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART).set_parallel()
+	var menu_pos:float
+	var options_pos:float
+	var exit_pos:float
+	var alpha:float
+	if button_pressed:
+		menu_pos = 0
+		options_pos = 127
+		exit_pos = 245
+		alpha = 1
+		self_modulate = '00a86b'
+		if get_node('../OptionsButton').toggled:
+			get_node('../OptionsButton').button_pressed = false
+		owner.get_node('Menu/Colors').hide()
+		tween.tween_callback(ui_mouse_filter.bind(true)).set_delay(0.3)
+	else:
+		menu_pos = -menu.size.x
+		options_pos = 0
+		exit_pos = 0
+		alpha = 0
+		self_modulate = '74ffffa1'
+		tween.tween_callback(ui_mouse_filter.bind(false)).set_delay(0.3)
+	tween.tween_property(menu, 'position:x', menu_pos, 0.25)
+	tween.tween_property(options_button, 'position:x', options_pos, 0.3)
+	tween.tween_property(options_button, 'modulate:a', alpha, 0.3)
+	tween.tween_property(exit_button, 'position:x', exit_pos, 0.3)
+	tween.tween_property(exit_button, 'modulate:a', alpha, 0.4)
+
+func ui_mouse_filter(active:bool) -> void:
+	if active:
+		options_button.mouse_filter = MOUSE_FILTER_STOP
+		exit_button.mouse_filter = MOUSE_FILTER_STOP
+	else:
+		options_button.mouse_filter = MOUSE_FILTER_IGNORE
+		exit_button.mouse_filter = MOUSE_FILTER_IGNORE
 "
 
-[sub_resource type="GDScript" id=12]
-script/source = "extends TextureRect
+[sub_resource type="GDScript" id="GDScript_xak41"]
+script/source = "extends AcceptDialog
 
-func _input(event):
-	if is_visible_in_tree() and event.is_action_pressed('ui_cancel'):
-		_on_Close_pressed()
+var track_name
+var folder_name
 
-func _on_Close_pressed():
-	hide()
-	owner.get_node('Header/MenuButton/Button').set_pressed(false)
-	OS.set_window_fullscreen(false)
-	OS.set_window_size(Vector2(OS.get_screen_size().x,400))
+func _ready():
+	add_button(\"Show Render\", true, 'show_render')
+
+func _on_custom_action(action):
+	if action == 'show_render':
+		var path = \"user://Renders/%s/%s/\" % [track_name, folder_name]
+		var global_path = ProjectSettings.globalize_path(path)
+		OS.shell_open(global_path)
+		hide()
 "
 
 [node name="BounceX" type="Control"]
+layout_mode = 3
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-script = ExtResource( 1 )
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+theme = ExtResource("1_qtjw4")
+script = ExtResource("2_4ci4k")
 
-[node name="Tween" type="Tween" parent="."]
-repeat = true
-playback/repeat = true
+[node name="Path" type="Line2D" parent="."]
+gradient = SubResource("Gradient_gixs1")
 
-[node name="BGPanel" type="NinePatchRect" parent="."]
-margin_top = 83.0
-margin_right = 1920.0
-margin_bottom = 364.0
-texture = ExtResource( 10 )
-patch_margin_left = 12
-patch_margin_top = 4
-patch_margin_right = 12
-patch_margin_bottom = 4
-__meta__ = {
-"_edit_use_anchors_": true
-}
-
-[node name="Background" type="Panel" parent="BGPanel"]
-modulate = Color( 1, 1, 1, 0.501961 )
-anchor_top = 0.0106762
-anchor_right = 1.0
-anchor_bottom = 0.989324
-__meta__ = {
-"_edit_use_anchors_": true
-}
-
-[node name="Line2D" type="Line2D" parent="."]
-default_color = Color( 0.941176, 0.231373, 1, 1 )
-gradient = ExtResource( 5 )
-joint_mode = 2
-begin_cap_mode = 2
-end_cap_mode = 2
-script = ExtResource( 4 )
-
-[node name="Tween" type="Tween" parent="Line2D"]
-
-[node name="Ball" type="Node2D" parent="."]
-script = ExtResource( 7 )
-
-[node name="Read" type="Node2D" parent="Ball"]
-position = Vector2( 960, 324 )
-
-[node name="Background" type="Sprite" parent="Ball/Read"]
-self_modulate = Color( 0.4, 0.501961, 1, 0.0980392 )
-texture = ExtResource( 9 )
-
-[node name="CenterHeart" type="Sprite" parent="Ball/Read"]
-self_modulate = Color( 1, 0.231373, 0.741176, 1 )
-scale = Vector2( 1e-05, 1e-05 )
-texture = ExtResource( 6 )
-
-[node name="CenterBall" type="Sprite" parent="Ball/Read"]
-self_modulate = Color( 0.4, 0.501961, 1, 0.776471 )
-texture = ExtResource( 2 )
-
-[node name="Ring" type="Sprite" parent="Ball/Read"]
-texture = ExtResource( 8 )
-
-[node name="Tween" type="Tween" parent="Ball/Read"]
-
-[node name="Write" type="Node2D" parent="Ball"]
-position = Vector2( 1847.5, 324 )
-
-[node name="Background" type="Sprite" parent="Ball/Write"]
-self_modulate = Color( 0.4, 0.501961, 1, 0.0980392 )
-texture = ExtResource( 9 )
-
-[node name="CenterHeart" type="Sprite" parent="Ball/Write"]
-self_modulate = Color( 1, 0.231373, 0.741176, 1 )
-scale = Vector2( 1e-05, 1e-05 )
-texture = ExtResource( 6 )
-
-[node name="CenterBall" type="Sprite" parent="Ball/Write"]
-self_modulate = Color( 0.4, 0.501961, 1, 0.776471 )
-texture = ExtResource( 2 )
-
-[node name="Ring" type="Sprite" parent="Ball/Write"]
-texture = ExtResource( 8 )
-
-[node name="Tween" type="Tween" parent="Ball/Write"]
-
-[node name="Tween" type="Tween" parent="Ball"]
-
-[node name="ExitPanel" type="PopupDialog" parent="."]
-anchor_left = 0.5
+[node name="TopLine" type="TextureRect" parent="."]
+custom_minimum_size = Vector2(0, 4)
+layout_mode = 1
+anchors_preset = 14
 anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-margin_left = -125.0
-margin_top = -50.0
-margin_right = 175.0
-margin_bottom = 60.0
-script = SubResource( 6 )
-
-[node name="Label" type="Label" parent="ExitPanel"]
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-margin_left = -99.5
-margin_top = -42.5
-margin_right = 99.5
-margin_bottom = -13.5
-custom_fonts/font = ExtResource( 11 )
-text = "Capture complete!"
-
-[node name="Button" type="Button" parent="ExitPanel"]
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-margin_left = -113.0
-margin_top = -57.0
-margin_right = 113.0
-margin_bottom = -17.0
-custom_fonts/font = ExtResource( 3 )
-text = "Show captures and exit"
-
-[node name="Menu" type="Panel" parent="."]
-visible = false
-anchor_bottom = 1.0
-margin_right = 233.0
-script = SubResource( 9 )
-__meta__ = {
-"_edit_use_anchors_": true
-}
-
-[node name="VBoxContainer" type="VBoxContainer" parent="Menu"]
-margin_left = 9.0
-margin_top = 80.0
-margin_right = 223.0
-margin_bottom = 346.0
-custom_constants/separation = 11
-
-[node name="BaselineBPM" type="Control" parent="Menu/VBoxContainer"]
-margin_right = 214.0
-margin_bottom = 24.0
-rect_min_size = Vector2( 0, 24 )
-
-[node name="Label" type="Label" parent="Menu/VBoxContainer/BaselineBPM"]
-margin_right = 129.0
-margin_bottom = 24.0
-custom_fonts/font = ExtResource( 3 )
-text = "Baseline BPM:"
-
-[node name="SpinBox" type="SpinBox" parent="Menu/VBoxContainer/BaselineBPM"]
-anchor_left = 1.0
 anchor_right = 1.0
-margin_left = -74.0
-margin_bottom = 24.0
-min_value = 0.01
-max_value = 9999.99
-step = 0.01
-value = 0.01
-script = ExtResource( 17 )
-
-[node name="OpenUserDir" type="Button" parent="Menu/VBoxContainer"]
-margin_top = 35.0
-margin_right = 214.0
-margin_bottom = 65.0
-custom_fonts/font = ExtResource( 3 )
-text = "Open user directory"
-
-[node name="ShowInputMap" type="Button" parent="Menu/VBoxContainer"]
-margin_top = 76.0
-margin_right = 214.0
-margin_bottom = 106.0
-custom_fonts/font = ExtResource( 3 )
-text = "Show input map"
-
-[node name="NoNumpad" type="CheckButton" parent="Menu/VBoxContainer"]
-margin_top = 117.0
-margin_right = 214.0
-margin_bottom = 157.0
-custom_fonts/font = ExtResource( 3 )
-text = "No numpad"
-script = SubResource( 11 )
-
-[node name="Header" type="Control" parent="."]
-margin_left = 10.0
-margin_top = 10.0
-margin_right = 886.0
-margin_bottom = 64.0
-
-[node name="MenuButton" type="Control" parent="Header"]
-margin_top = 1.5
-margin_right = 51.0
-margin_bottom = 52.5
-script = SubResource( 8 )
-
-[node name="Bg" type="TextureRect" parent="Header/MenuButton"]
-modulate = Color( 1, 1, 1, 0.109804 )
-anchor_right = 1.0
-anchor_bottom = 1.0
-texture = ExtResource( 12 )
-
-[node name="Icon" type="TextureRect" parent="Header/MenuButton"]
-modulate = Color( 0.419608, 0.517647, 0.992157, 1 )
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
 anchor_bottom = 0.5
-margin_left = -25.5
-margin_top = -25.5
-margin_right = 25.5
-margin_bottom = 25.5
-rect_pivot_offset = Vector2( 25.5, 25.5 )
-texture = ExtResource( 13 )
-expand = true
+offset_top = -53.0
+offset_bottom = -49.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("6_xdjfl")
+expand_mode = 2
 stretch_mode = 1
 
-[node name="Button" type="TextureButton" parent="Header/MenuButton"]
+[node name="BottomLine" type="TextureRect" parent="."]
+custom_minimum_size = Vector2(0, 4)
+layout_mode = 1
+anchors_preset = 14
+anchor_top = 0.5
 anchor_right = 1.0
+anchor_bottom = 0.5
+offset_top = 49.0
+offset_bottom = 53.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("6_xdjfl")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Menu" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = -1
 anchor_bottom = 1.0
+offset_left = -300.0
+grow_vertical = 2
+metadata/_edit_use_anchors_ = true
+
+[node name="Controls" type="VBoxContainer" parent="Menu"]
+layout_mode = 2
+offset_left = 9.0
+offset_top = 71.0
+offset_right = 290.0
+offset_bottom = 637.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+script = SubResource("GDScript_4vcmm")
+metadata/_edit_use_anchors_ = true
+
+[node name="Record" type="Button" parent="Menu/Controls"]
+layout_mode = 2
+focus_mode = 0
+disabled = true
 toggle_mode = true
+text = "Record  -  [Enter]"
+alignment = 0
 
-[node name="BPM" type="HBoxContainer" parent="Header"]
-margin_left = 64.0
-margin_top = 10.0
-margin_right = 200.0
-margin_bottom = 46.0
-custom_constants/separation = 6
-script = SubResource( 7 )
-
-[node name="Label" type="Label" parent="Header/BPM"]
-margin_top = 3.0
-margin_right = 56.0
-margin_bottom = 32.0
-custom_fonts/font = ExtResource( 11 )
-text = "BPM:"
-
-[node name="SpinBox" type="SpinBox" parent="Header/BPM"]
-margin_left = 62.0
-margin_right = 140.0
-margin_bottom = 36.0
-rect_min_size = Vector2( 78, 0 )
-min_value = 0.01
-max_value = 9999.99
-step = 0.01
-value = 0.01
-script = ExtResource( 17 )
-
-[node name="Recording" type="Control" parent="Header"]
+[node name="Lap" type="Button" parent="Menu/Controls"]
 visible = false
-margin_left = 240.0
-margin_right = 324.0
-margin_bottom = 55.0
+layout_mode = 2
+focus_mode = 0
+disabled = true
+toggle_mode = true
+text = "Play  -  [Tab]"
+alignment = 0
 
-[node name="Dot" type="TextureRect" parent="Header/Recording"]
-modulate = Color( 1, 0, 0, 1 )
-margin_right = 21.0
-margin_bottom = 55.0
-texture = ExtResource( 16 )
-stretch_mode = 6
+[node name="Edit" type="Button" parent="Menu/Controls"]
+layout_mode = 2
+focus_mode = 0
+disabled = true
+toggle_mode = true
+text = "Edit  -  [Tab]"
+alignment = 0
 
-[node name="Label" type="Label" parent="Header/Recording"]
-margin_left = 24.0
-margin_top = 8.0
-margin_right = 84.0
-margin_bottom = 46.0
-custom_colors/font_color = Color( 1, 1, 1, 1 )
-custom_colors/font_color_shadow = Color( 0.72549, 0.47451, 0.47451, 1 )
-custom_fonts/font = ExtResource( 15 )
+[node name="Render" type="Button" parent="Menu/Controls"]
+layout_mode = 2
+focus_mode = 0
+disabled = true
+text = "Render  -  [Backspace]"
+alignment = 0
+
+[node name="HSeparator" type="HSeparator" parent="Menu/Controls"]
+layout_mode = 2
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="Menu/Controls"]
+
+[node name="TrackSelection" type="OptionButton" parent="Menu/Controls"]
+layout_mode = 2
+focus_mode = 0
+text_overrun_behavior = 2
+clip_text = true
+
+[node name="TrackControls" type="HBoxContainer" parent="Menu/Controls"]
+layout_mode = 2
+theme_override_constants/separation = 32
+alignment = 1
+script = SubResource("GDScript_ap78a")
+
+[node name="Play" type="TextureButton" parent="Menu/Controls/TrackControls"]
+layout_mode = 2
+focus_mode = 0
+disabled = true
+toggle_mode = true
+texture_normal = ExtResource("4_rocsv")
+
+[node name="Icon" type="TextureRect" parent="Menu/Controls/TrackControls/Play"]
+self_modulate = Color(0.3, 0.69, 0.31, 0.33)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -12.0
+offset_top = -25.0
+offset_right = 17.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(14, 25)
+mouse_filter = 2
+texture = ExtResource("4_tyhll")
+stretch_mode = 3
+
+[node name="Pause" type="TextureButton" parent="Menu/Controls/TrackControls"]
+layout_mode = 2
+focus_mode = 0
+disabled = true
+toggle_mode = true
+texture_normal = ExtResource("4_rocsv")
+
+[node name="Icon" type="TextureRect" parent="Menu/Controls/TrackControls/Pause"]
+self_modulate = Color(0.13, 0.59, 0.95, 0.33)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -9.0
+offset_top = -25.0
+offset_right = 9.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(9, 25)
+mouse_filter = 2
+texture = ExtResource("5_r8mq7")
+stretch_mode = 3
+
+[node name="TrackSlider" type="HSlider" parent="Menu/Controls"]
+layout_mode = 2
+focus_mode = 0
+step = 0.1
+editable = false
+scrollable = false
+
+[node name="HSeparator2" type="HSeparator" parent="Menu/Controls"]
+layout_mode = 2
+
+[node name="Paths" type="ItemList" parent="Menu/Controls"]
+custom_minimum_size = Vector2(0, 250)
+layout_mode = 2
+focus_mode = 0
+allow_reselect = true
+
+[node name="EditPath" type="ConfirmationDialog" parent="Menu/Controls/Paths"]
+title = "Edit Path"
+size = Vector2i(300, 100)
+script = SubResource("GDScript_snsh4")
+
+[node name="LineEdit" type="LineEdit" parent="Menu/Controls/Paths/EditPath"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 292.0
+offset_bottom = 55.0
+
+[node name="Delete" type="ConfirmationDialog" parent="Menu/Controls/Paths/EditPath"]
+title = "Delete?"
+
+[node name="Options" type="VBoxContainer" parent="Menu"]
+visible = false
+layout_mode = 1
+anchors_preset = -1
+offset_left = 9.0
+offset_top = 71.0
+offset_right = 290.0
+offset_bottom = 639.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+script = SubResource("GDScript_kde6i")
+metadata/_edit_use_anchors_ = true
+
+[node name="PathSpeed" type="VBoxContainer" parent="Menu/Options"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Menu/Options/PathSpeed"]
+layout_mode = 2
+text = "Path Speed: 1"
+horizontal_alignment = 1
+
+[node name="HSlider" type="HSlider" parent="Menu/Options/PathSpeed"]
+layout_mode = 2
+focus_mode = 0
+min_value = 1.0
+max_value = 10.0
+value = 4.0
+
+[node name="PathFade" type="VBoxContainer" parent="Menu/Options"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Menu/Options/PathFade"]
+layout_mode = 2
+text = "Fade: 1"
+horizontal_alignment = 1
+
+[node name="HSlider" type="HSlider" parent="Menu/Options/PathFade"]
+layout_mode = 2
+focus_mode = 0
+max_value = 1.0
+step = 0.1
+value = 0.6
+
+[node name="PathArea" type="SpinBox" parent="Menu/Options"]
+layout_mode = 2
+min_value = 1.0
+max_value = 10000.0
+value = 200.0
+prefix = "Path Area:"
+
+[node name="PathThickness" type="SpinBox" parent="Menu/Options"]
+layout_mode = 2
+min_value = 1.0
+value = 8.0
+prefix = "Path Thickness:"
+
+[node name="PathMaxLength" type="SpinBox" parent="Menu/Options"]
+layout_mode = 2
+min_value = 1.0
+max_value = 10000.0
+value = 250.0
+prefix = "Path Max Length:"
+
+[node name="RenderResolution" type="VBoxContainer" parent="Menu/Options"]
+layout_mode = 2
+script = SubResource("GDScript_575x6")
+
+[node name="Label" type="Label" parent="Menu/Options/RenderResolution"]
+layout_mode = 2
+text = "Render Resolution:"
+horizontal_alignment = 1
+
+[node name="Values" type="HBoxContainer" parent="Menu/Options/RenderResolution"]
+layout_mode = 2
+alignment = 1
+
+[node name="XLabel" type="Label" parent="Menu/Options/RenderResolution/Values"]
+layout_mode = 2
+text = "X:"
+horizontal_alignment = 1
+
+[node name="X" type="SpinBox" parent="Menu/Options/RenderResolution/Values"]
+layout_mode = 2
+max_value = 10000.0
+value = 1920.0
+
+[node name="YLabel" type="Label" parent="Menu/Options/RenderResolution/Values"]
+layout_mode = 2
+text = "Y:"
+horizontal_alignment = 1
+
+[node name="Y" type="SpinBox" parent="Menu/Options/RenderResolution/Values"]
+layout_mode = 2
+max_value = 10000.0
+value = 1080.0
+
+[node name="ChangeColors" type="Button" parent="Menu/Options"]
+layout_mode = 2
+focus_mode = 0
+text = "Change Colors"
+alignment = 0
+
+[node name="OpenTracks" type="Button" parent="Menu/Options"]
+layout_mode = 2
+focus_mode = 0
+text = "Open Tracks Folder"
+alignment = 0
+
+[node name="AcceptDialog" type="AcceptDialog" parent="Menu/Options/OpenTracks"]
+size = Vector2i(462, 100)
+dialog_text = "You must restart the app after adding new tracks."
+
+[node name="OpenRenders" type="Button" parent="Menu/Options"]
+layout_mode = 2
+focus_mode = 0
+text = "Open Renders Folder"
+alignment = 0
+
+[node name="OpenPaths" type="Button" parent="Menu/Options"]
+layout_mode = 2
+focus_mode = 0
+text = "Open Paths Folder"
+alignment = 0
+
+[node name="DisplayMode" type="VBoxContainer" parent="Menu/Options"]
+layout_mode = 2
+script = SubResource("GDScript_nob1l")
+
+[node name="Label" type="Label" parent="Menu/Options/DisplayMode"]
+layout_mode = 2
+text = "Display Mode:"
+horizontal_alignment = 1
+
+[node name="OptionButton" type="OptionButton" parent="Menu/Options/DisplayMode"]
+layout_mode = 2
+focus_mode = 0
+item_count = 3
+popup/item_0/text = "Fullscreen"
+popup/item_0/id = 0
+popup/item_1/text = "Windowed"
+popup/item_1/id = 1
+popup/item_2/text = "Windowed Exclusive"
+popup/item_2/id = 2
+
+[node name="Colors" type="VBoxContainer" parent="Menu"]
+visible = false
+layout_mode = 1
+anchors_preset = -1
+offset_left = 5.0
+offset_top = 72.9999
+offset_right = 295.0
+offset_bottom = 770.0
+grow_horizontal = 2
+grow_vertical = 2
+script = SubResource("GDScript_ywdvr")
+metadata/_edit_use_anchors_ = true
+
+[node name="TabBar" type="TabBar" parent="Menu/Colors"]
+layout_mode = 2
+tab_count = 6
+tab_0/title = "Ball"
+tab_1/title = "Path"
+tab_2/title = "Top Line"
+tab_3/title = "Top Active"
+tab_4/title = "Bottom Line"
+tab_5/title = "Bottom Active"
+
+[node name="Done" type="Button" parent="Menu/Colors"]
+layout_mode = 2
+focus_mode = 0
+text = "Done"
+alignment = 0
+
+[node name="Cancel" type="Button" parent="Menu/Colors"]
+layout_mode = 2
+focus_mode = 0
+text = "Cancel"
+alignment = 0
+
+[node name="ColorPicker" type="ColorPicker" parent="Menu/Colors"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="Version" type="Label" parent="Menu"]
+layout_mode = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 9.0
+offset_top = -28.0
+offset_right = 290.0
+offset_bottom = -4.0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 17
+text = "BounceX v2.0"
+metadata/_edit_use_anchors_ = true
+
+[node name="Header" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 62.0
+grow_horizontal = 2
+mouse_filter = 2
+
+[node name="ExitButton" type="TextureButton" parent="Header"]
+self_modulate = Color(1, 0.454902, 0.454902, 0.843137)
+layout_mode = 1
+anchors_preset = -1
+offset_left = 147.0
+offset_top = 8.99998
+offset_right = 174.599
+offset_bottom = 53.0
+grow_vertical = 2
+focus_mode = 0
+texture_normal = ExtResource("4_rocsv")
+script = SubResource("GDScript_q4aw8")
+metadata/_edit_use_anchors_ = true
+
+[node name="Icon" type="TextureRect" parent="Header/ExitButton"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -13.0
+offset_top = -13.0
+offset_right = 13.0
+offset_bottom = 13.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("7_jv2cd")
+
+[node name="OptionsButton" type="TextureButton" parent="Header"]
+self_modulate = Color(1, 1, 0.25098, 0.8)
+layout_mode = 1
+anchors_preset = -1
+offset_left = 76.2
+offset_top = 8.99998
+offset_right = 103.8
+offset_bottom = 53.0
+grow_vertical = 2
+focus_mode = 0
+toggle_mode = true
+texture_normal = ExtResource("4_rocsv")
+script = SubResource("GDScript_sh086")
+metadata/_edit_use_anchors_ = true
+
+[node name="Icon" type="TextureRect" parent="Header/OptionsButton"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = 16.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("8_o0vj8")
+
+[node name="MenuButton" type="TextureButton" parent="Header"]
+self_modulate = Color(0.454902, 1, 1, 0.635294)
+layout_mode = 1
+anchors_preset = -1
+offset_left = 5.4
+offset_top = 8.99998
+offset_right = 33.0
+offset_bottom = 53.0
+grow_vertical = 2
+focus_mode = 0
+toggle_mode = true
+texture_normal = ExtResource("4_rocsv")
+script = SubResource("GDScript_8l1ut")
+metadata/_edit_use_anchors_ = true
+
+[node name="Icon" type="TextureRect" parent="Header/MenuButton"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -13.0
+offset_top = -13.0
+offset_right = 13.0
+offset_bottom = 13.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("6_vw5ng")
+
+[node name="Record" type="Control" parent="Header"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -36.5
+offset_top = -10.5
+offset_right = 36.5
+offset_bottom = 10.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Label" type="Label" parent="Header/Record"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_top = -17.5
+offset_right = 49.0
+offset_bottom = 17.5
+grow_vertical = 2
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("2_wwilv")
+theme_override_font_sizes/font_size = 26
 text = "REC"
+vertical_alignment = 1
 
-[node name="Display" type="HBoxContainer" parent="Header"]
-margin_left = 360.0
-margin_top = 7.0
-margin_right = 875.0
-margin_bottom = 47.0
-custom_constants/separation = 50
-
-[node name="Transition" type="HBoxContainer" parent="Header/Display"]
-margin_right = 273.0
-margin_bottom = 40.0
-custom_constants/separation = 8
-
-[node name="Label" type="Label" parent="Header/Display/Transition" groups=["ResizeText"]]
-margin_top = 1.0
-margin_right = 151.0
-margin_bottom = 39.0
-custom_colors/font_color = Color( 0.862745, 0.403922, 0.8, 1 )
-custom_fonts/font = ExtResource( 15 )
-text = "Transition:"
-
-[node name="Value" type="Label" parent="Header/Display/Transition" groups=["ResizeText"]]
-margin_left = 159.0
-margin_top = 1.0
-margin_right = 273.0
-margin_bottom = 39.0
-custom_fonts/font = ExtResource( 15 )
-text = "XXXXXX"
-
-[node name="Easing" type="HBoxContainer" parent="Header/Display"]
-margin_left = 323.0
-margin_right = 588.0
-margin_bottom = 40.0
-custom_constants/separation = 8
-
-[node name="Label" type="Label" parent="Header/Display/Easing" groups=["ResizeText"]]
-margin_top = 1.0
-margin_right = 105.0
-margin_bottom = 39.0
-custom_colors/font_color = Color( 0.862745, 0.8, 0.403922, 1 )
-custom_fonts/font = ExtResource( 15 )
-text = "Easing:"
-
-[node name="Value" type="Label" parent="Header/Display/Easing" groups=["ResizeText"]]
-margin_left = 113.0
-margin_top = 1.0
-margin_right = 265.0
-margin_bottom = 39.0
-custom_fonts/font = ExtResource( 15 )
-text = "XXXXXXXX"
-
-[node name="Height" type="HBoxContainer" parent="Header/Display"]
-margin_left = 638.0
-margin_right = 787.0
-margin_bottom = 40.0
-custom_constants/separation = 8
-
-[node name="Label" type="Label" parent="Header/Display/Height" groups=["ResizeText"]]
-margin_top = 1.0
-margin_right = 103.0
-margin_bottom = 39.0
-custom_colors/font_color = Color( 0.403922, 0.756863, 0.862745, 1 )
-custom_fonts/font = ExtResource( 15 )
-text = "Height:"
-
-[node name="Value" type="Label" parent="Header/Display/Height" groups=["ResizeText"]]
-margin_left = 111.0
-margin_top = 1.0
-margin_right = 149.0
-margin_bottom = 39.0
-custom_fonts/font = ExtResource( 15 )
-text = "XX"
-
-[node name="Depth" type="HBoxContainer" parent="Header/Display"]
-margin_left = 837.0
-margin_right = 979.0
-margin_bottom = 40.0
-custom_constants/separation = 8
-
-[node name="Label" type="Label" parent="Header/Display/Depth" groups=["ResizeText"]]
-margin_top = 1.0
-margin_right = 96.0
-margin_bottom = 39.0
-custom_colors/font_color = Color( 0.403922, 0.862745, 0.678431, 1 )
-custom_fonts/font = ExtResource( 15 )
-text = "Depth:"
-
-[node name="Value" type="Label" parent="Header/Display/Depth" groups=["ResizeText"]]
-margin_left = 104.0
-margin_top = 1.0
-margin_right = 142.0
-margin_bottom = 39.0
-custom_fonts/font = ExtResource( 15 )
-text = "XX"
-
-[node name="InputMap" type="TextureRect" parent="."]
-visible = false
+[node name="Icon" type="TextureRect" parent="Header/Record"]
+modulate = Color(1, 0, 0, 1)
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
 anchor_right = 1.0
-anchor_bottom = 1.0
-texture = ExtResource( 14 )
-expand = true
-stretch_mode = 6
-script = SubResource( 12 )
+anchor_bottom = 0.5
+offset_left = -21.0
+offset_top = -10.5
+offset_bottom = 10.5
+grow_horizontal = 0
+grow_vertical = 2
+texture = ExtResource("3_mj5xg")
 
-[node name="BG" type="Panel" parent="InputMap"]
-show_behind_parent = true
-anchor_right = 1.0
-anchor_bottom = 1.0
-
-[node name="Close" type="Button" parent="InputMap"]
-margin_left = 10.0
-margin_top = 10.0
-margin_right = 97.0
-margin_bottom = 57.0
-custom_fonts/font = ExtResource( 15 )
-text = "Close"
-
-[node name="TextureButton" type="TextureButton" parent="."]
+[node name="Play" type="Control" parent="Header"]
 visible = false
-margin_right = 40.0
-margin_bottom = 40.0
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -43.0
+offset_top = -10.5
+offset_right = 43.0
+offset_bottom = 10.5
+grow_horizontal = 2
+grow_vertical = 2
 
-[connection signal="tween_completed" from="Line2D/Tween" to="Line2D" method="_on_Tween_tween_completed"]
-[connection signal="tween_step" from="Line2D/Tween" to="Line2D" method="_on_Tween_tween_step"]
-[connection signal="tween_all_completed" from="Ball/Tween" to="Ball" method="_on_Tween_tween_all_completed"]
-[connection signal="pressed" from="ExitPanel/Button" to="ExitPanel" method="_on_Button_pressed"]
-[connection signal="value_changed" from="Menu/VBoxContainer/BaselineBPM/SpinBox" to="Menu" method="_on_BaselineBPM_value_changed"]
-[connection signal="pressed" from="Menu/VBoxContainer/OpenUserDir" to="Menu" method="_on_OpenUserDir_pressed"]
-[connection signal="pressed" from="Menu/VBoxContainer/ShowInputMap" to="Menu" method="_on_ShowInputMap_pressed"]
-[connection signal="toggled" from="Menu/VBoxContainer/NoNumpad" to="Menu/VBoxContainer/NoNumpad" method="_on_NoNumpad_toggled"]
-[connection signal="mouse_entered" from="Header/MenuButton/Button" to="Header/MenuButton" method="_on_Button_mouse_entered"]
-[connection signal="mouse_exited" from="Header/MenuButton/Button" to="Header/MenuButton" method="_on_Button_mouse_exited"]
-[connection signal="toggled" from="Header/MenuButton/Button" to="Header/MenuButton" method="_on_Button_toggled"]
-[connection signal="value_changed" from="Header/BPM/SpinBox" to="Header/BPM" method="_on_SpinBox_value_changed"]
-[connection signal="pressed" from="InputMap/Close" to="InputMap" method="_on_Close_pressed"]
+[node name="Label" type="Label" parent="Header/Play"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_top = -17.5
+offset_right = 49.0
+offset_bottom = 17.5
+grow_vertical = 2
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("2_wwilv")
+theme_override_font_sizes/font_size = 26
+text = "PLAY"
+vertical_alignment = 1
+
+[node name="Icon" type="TextureRect" parent="Header/Play"]
+modulate = Color(0, 1, 0, 1)
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -21.0
+offset_top = -10.5
+offset_bottom = 10.5
+grow_horizontal = 0
+grow_vertical = 2
+texture = ExtResource("4_xkljy")
+
+[node name="Edit" type="Control" parent="Header"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -38.5
+offset_top = -10.5
+offset_right = 38.5
+offset_bottom = 10.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Label" type="Label" parent="Header/Edit"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_top = -17.5
+offset_right = 49.0
+offset_bottom = 17.5
+grow_vertical = 2
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("2_wwilv")
+theme_override_font_sizes/font_size = 26
+text = "EDIT"
+vertical_alignment = 1
+
+[node name="Icon" type="TextureRect" parent="Header/Edit"]
+modulate = Color(0, 1, 1, 1)
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -21.0
+offset_top = -10.5
+offset_bottom = 10.5
+grow_horizontal = 0
+grow_vertical = 2
+texture = ExtResource("5_8cp6s")
+
+[node name="Ball" type="Sprite2D" parent="."]
+position = Vector2(576, 324)
+texture = ExtResource("12_freos")
+
+[node name="Circle" type="Sprite2D" parent="."]
+position = Vector2(576, 324)
+texture = ExtResource("8_53ihq")
+
+[node name="Backstop" type="Control" parent="."]
+layout_mode = 1
+anchor_left = 0.498403
+anchor_top = 0.88
+anchor_right = 0.499
+anchor_bottom = 0.88
+offset_left = -216.16
+offset_top = -69.24
+offset_right = 216.152
+offset_bottom = 68.7599
+grow_horizontal = 2
+grow_vertical = 2
+metadata/_edit_use_anchors_ = true
+
+[node name="Speed" type="HSlider" parent="."]
+top_level = true
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.831494
+anchor_right = 0.5
+anchor_bottom = 0.831494
+offset_left = -178.5
+offset_top = -8.00006
+offset_right = 178.5
+offset_bottom = 7.99994
+grow_horizontal = 2
+grow_vertical = 0
+focus_mode = 0
+min_value = 0.1
+max_value = 20.0
+step = 0.1
+value = 2.0
+metadata/_edit_use_anchors_ = true
+
+[node name="Label" type="Label" parent="Speed"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -24.5
+offset_top = -23.0
+offset_right = 24.5
+offset_bottom = 3.0
+grow_horizontal = 2
+text = "SPEED"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TrackSliderClone" type="HSlider" parent="."]
+top_level = true
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.941062
+anchor_right = 0.5
+anchor_bottom = 0.941062
+offset_left = -178.5
+offset_top = -8.00006
+offset_right = 178.5
+offset_bottom = 7.99994
+grow_horizontal = 2
+grow_vertical = 0
+focus_mode = 0
+step = 0.1
+editable = false
+metadata/_edit_use_anchors_ = true
+
+[node name="RenderComplete" type="AcceptDialog" parent="."]
+title = "Render Complete!"
+size = Vector2i(300, 80)
+script = SubResource("GDScript_xak41")
+
+[connection signal="gui_input" from="." to="." method="_on_gui_input"]
+[connection signal="resized" from="." to="." method="update_display"]
+[connection signal="toggled" from="Menu/Controls/Record" to="." method="_on_record_toggled"]
+[connection signal="toggled" from="Menu/Controls/Lap" to="." method="_on_play_toggled"]
+[connection signal="toggled" from="Menu/Controls/Edit" to="." method="_on_edit_toggled"]
+[connection signal="pressed" from="Menu/Controls/Render" to="." method="_on_render_pressed"]
+[connection signal="item_selected" from="Menu/Controls/TrackSelection" to="Menu/Controls" method="_on_track_selected"]
+[connection signal="toggled" from="Menu/Controls/TrackSelection" to="Menu/Controls" method="_on_track_selection_toggled"]
+[connection signal="mouse_entered" from="Menu/Controls/TrackControls/Play" to="Menu/Controls/TrackControls" method="_on_play_mouse_entered"]
+[connection signal="mouse_exited" from="Menu/Controls/TrackControls/Play" to="Menu/Controls/TrackControls" method="_on_play_mouse_exited"]
+[connection signal="toggled" from="Menu/Controls/TrackControls/Play" to="." method="_on_play_toggled"]
+[connection signal="toggled" from="Menu/Controls/TrackControls/Play" to="Menu/Controls/TrackControls" method="_on_play_toggled"]
+[connection signal="mouse_entered" from="Menu/Controls/TrackControls/Pause" to="Menu/Controls/TrackControls" method="_on_pause_mouse_entered"]
+[connection signal="mouse_exited" from="Menu/Controls/TrackControls/Pause" to="Menu/Controls/TrackControls" method="_on_pause_mouse_exited"]
+[connection signal="toggled" from="Menu/Controls/TrackControls/Pause" to="Menu/Controls/TrackControls" method="_on_pause_toggled"]
+[connection signal="gui_input" from="Menu/Controls/TrackSlider" to="Menu/Controls" method="_on_track_slider_gui_input"]
+[connection signal="value_changed" from="Menu/Controls/TrackSlider" to="Menu/Controls" method="scrub"]
+[connection signal="item_clicked" from="Menu/Controls/Paths" to="Menu/Controls" method="_on_paths_item_clicked"]
+[connection signal="item_selected" from="Menu/Controls/Paths" to="Menu/Controls" method="_on_path_selected"]
+[connection signal="confirmed" from="Menu/Controls/Paths/EditPath" to="Menu/Controls/Paths/EditPath" method="_on_confirmed"]
+[connection signal="custom_action" from="Menu/Controls/Paths/EditPath" to="Menu/Controls/Paths/EditPath" method="_on_custom_action"]
+[connection signal="confirmed" from="Menu/Controls/Paths/EditPath/Delete" to="Menu/Controls/Paths/EditPath" method="_on_delete_confirmed"]
+[connection signal="value_changed" from="Menu/Options/PathSpeed/HSlider" to="Menu/Options" method="_on_path_speed_changed"]
+[connection signal="value_changed" from="Menu/Options/PathFade/HSlider" to="Menu/Options" method="_on_path_fade_value_changed"]
+[connection signal="value_changed" from="Menu/Options/PathArea" to="Menu/Options" method="_on_path_area_value_changed"]
+[connection signal="value_changed" from="Menu/Options/PathThickness" to="Menu/Options" method="_on_path_thickness_value_changed"]
+[connection signal="value_changed" from="Menu/Options/PathMaxLength" to="Menu/Options" method="_on_path_max_length_value_changed"]
+[connection signal="value_changed" from="Menu/Options/RenderResolution/Values/X" to="Menu/Options/RenderResolution" method="_on_x_value_changed"]
+[connection signal="value_changed" from="Menu/Options/RenderResolution/Values/Y" to="Menu/Options/RenderResolution" method="_on_y_value_changed"]
+[connection signal="pressed" from="Menu/Options/ChangeColors" to="Menu/Options" method="_on_change_colors_pressed"]
+[connection signal="pressed" from="Menu/Options/OpenTracks" to="Menu/Options" method="_on_open_tracks_pressed"]
+[connection signal="pressed" from="Menu/Options/OpenRenders" to="Menu/Options" method="_on_open_renders_pressed"]
+[connection signal="pressed" from="Menu/Options/OpenPaths" to="Menu/Options" method="_on_open_paths_pressed"]
+[connection signal="item_selected" from="Menu/Options/DisplayMode/OptionButton" to="Menu/Options/DisplayMode" method="_on_option_button_item_selected"]
+[connection signal="tab_changed" from="Menu/Colors/TabBar" to="Menu/Colors" method="_on_tab_bar_tab_changed"]
+[connection signal="pressed" from="Menu/Colors/Done" to="Menu/Colors" method="_on_done_pressed"]
+[connection signal="pressed" from="Menu/Colors/Cancel" to="Menu/Colors" method="_on_cancel_pressed"]
+[connection signal="color_changed" from="Menu/Colors/ColorPicker" to="Menu/Colors" method="_on_color_picker_color_changed"]
+[connection signal="mouse_entered" from="Header/ExitButton" to="Header/ExitButton" method="_on_mouse_entered"]
+[connection signal="mouse_exited" from="Header/ExitButton" to="Header/ExitButton" method="_on_mouse_exited"]
+[connection signal="pressed" from="Header/ExitButton" to="Header/ExitButton" method="_on_pressed"]
+[connection signal="mouse_entered" from="Header/OptionsButton" to="Header/OptionsButton" method="_on_mouse_entered"]
+[connection signal="mouse_exited" from="Header/OptionsButton" to="Header/OptionsButton" method="_on_mouse_exited"]
+[connection signal="toggled" from="Header/OptionsButton" to="Header/OptionsButton" method="_on_toggled"]
+[connection signal="mouse_entered" from="Header/MenuButton" to="Header/MenuButton" method="_on_mouse_entered"]
+[connection signal="mouse_exited" from="Header/MenuButton" to="Header/MenuButton" method="_on_mouse_exited"]
+[connection signal="toggled" from="Header/MenuButton" to="Header/MenuButton" method="_on_toggled"]
+[connection signal="value_changed" from="Speed" to="." method="_on_speed_value_changed"]
+[connection signal="gui_input" from="TrackSliderClone" to="Menu/Controls" method="_on_track_slider_gui_input"]
+[connection signal="value_changed" from="TrackSliderClone" to="Menu/Controls" method="scrub"]
+[connection signal="custom_action" from="RenderComplete" to="RenderComplete" method="_on_custom_action"]

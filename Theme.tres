@@ -1,0 +1,44 @@
+[gd_resource type="Theme" load_steps=8 format=3 uid="uid://4ddly4r83yek"]
+
+[ext_resource type="FontFile" uid="uid://c2wtnhu46b5xf" path="res://Font/Rubik-Light.ttf" id="1_flfqj"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fvgel"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+shadow_color = Color(0.447059, 0.407843, 0.396078, 0.6)
+shadow_size = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2wrti"]
+bg_color = Color(0.196078, 0.670588, 0.729412, 1)
+shadow_color = Color(0.196078, 0.670588, 0.729412, 1)
+shadow_size = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_clfk3"]
+bg_color = Color(0.196078, 0.670588, 0.729412, 1)
+shadow_color = Color(0.196078, 0.670588, 0.729412, 1)
+shadow_size = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6o74t"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+shadow_color = Color(0, 0.52549, 0.439216, 0.6)
+shadow_size = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_k2hy0"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+shadow_color = Color(0.741176, 0.203922, 0.482353, 0.6)
+shadow_size = 12
+
+[sub_resource type="StyleBoxLine" id="StyleBoxLine_rr6ck"]
+color = Color(0.270588, 0, 0.964706, 1)
+thickness = 6
+
+[resource]
+Button/font_sizes/font_size = 22
+Button/fonts/font = ExtResource("1_flfqj")
+Button/styles/disabled = SubResource("StyleBoxFlat_fvgel")
+Button/styles/focus = SubResource("StyleBoxFlat_2wrti")
+Button/styles/hover = SubResource("StyleBoxFlat_clfk3")
+Button/styles/normal = SubResource("StyleBoxFlat_6o74t")
+Button/styles/pressed = SubResource("StyleBoxFlat_k2hy0")
+HSlider/styles/slider = SubResource("StyleBoxLine_rr6ck")
+Label/font_sizes/font_size = 20
+Label/fonts/font = ExtResource("1_flfqj")
