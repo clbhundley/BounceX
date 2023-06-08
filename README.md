@@ -14,6 +14,7 @@ Open Godot
 Drag the extracted BounceX folder into the Godot Project Manager window
 
 Select BounceX and Press Edit to "install" the project (you only have to do this once)
+
 Close Godot after the project editor opens up
 
 Restart Godot, select BounceX, and press Play
