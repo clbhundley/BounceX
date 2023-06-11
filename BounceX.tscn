@@ -848,7 +848,8 @@ alignment = 0
 
 [node name="AcceptDialog" type="AcceptDialog" parent="Menu/Options/OpenTracks"]
 size = Vector2i(462, 100)
-dialog_text = "You must restart the app after adding new tracks."
+dialog_text = "After adding tracks, close the app and open it once in 'Edit' mode to import the new audio files.
+Filetypes can be .mp3 .wav or .ogg"
 
 [node name="OpenRenders" type="Button" parent="Menu/Options"]
 layout_mode = 2
