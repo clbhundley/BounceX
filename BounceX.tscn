@@ -1,20 +1,23 @@
-[gd_scene load_steps=28 format=3 uid="uid://ni5y54wv42nf"]
+[gd_scene load_steps=33 format=3 uid="uid://ni5y54wv42nf"]
 
 [ext_resource type="Theme" uid="uid://4ddly4r83yek" path="res://Theme.tres" id="1_qtjw4"]
 [ext_resource type="Script" path="res://BounceX.gd" id="2_4ci4k"]
 [ext_resource type="FontFile" uid="uid://c2wtnhu46b5xf" path="res://Font/Rubik-Light.ttf" id="2_wwilv"]
 [ext_resource type="Texture2D" uid="uid://cbwqw7m1wqj64" path="res://Textures/Dot Small.svg" id="3_mj5xg"]
+[ext_resource type="Script" path="res://Markers.gd" id="3_votmw"]
 [ext_resource type="Texture2D" uid="uid://bkabq6ivbs23x" path="res://Textures/Circle Small.svg" id="4_rocsv"]
 [ext_resource type="Texture2D" uid="uid://bqgebmq2ks1mj" path="res://Textures/Play.svg" id="4_tyhll"]
 [ext_resource type="Texture2D" uid="uid://dnlqy6ppe68nr" path="res://Textures/Triangle.svg" id="4_xkljy"]
-[ext_resource type="Texture2D" uid="uid://btcvoinq33eia" path="res://Textures/Edit.svg" id="5_8cp6s"]
 [ext_resource type="Texture2D" uid="uid://dnc4n3dtd5v83" path="res://Textures/Pause.svg" id="5_r8mq7"]
 [ext_resource type="Texture2D" uid="uid://c7tcg80cl58pp" path="res://Textures/Menu.svg" id="6_vw5ng"]
 [ext_resource type="Texture2D" uid="uid://404qr06t6u7x" path="res://Textures/Line.svg" id="6_xdjfl"]
 [ext_resource type="Texture2D" uid="uid://cdlwfv4b2xdt7" path="res://Textures/X.svg" id="7_jv2cd"]
-[ext_resource type="Texture2D" uid="uid://b1o26anuxa26c" path="res://Textures/Circle.svg" id="8_53ihq"]
+[ext_resource type="Texture2D" uid="uid://bcdbk4tsjnisc" path="res://Textures/Square.svg" id="7_slea2"]
+[ext_resource type="Texture2D" uid="uid://c13twlshihhp5" path="res://Textures/Trash.svg" id="8_mcxme"]
 [ext_resource type="Texture2D" uid="uid://bmlus4dohtrmw" path="res://Textures/Gear.svg" id="8_o0vj8"]
 [ext_resource type="Texture2D" uid="uid://bius3v0napj7c" path="res://Textures/Ball.svg" id="12_freos"]
+[ext_resource type="Texture2D" uid="uid://cvdu2l73nu3mw" path="res://Textures/Key Map.svg" id="16_2degy"]
+[ext_resource type="Texture2D" uid="uid://4gt7poc6r8ta" path="res://Textures/Right Click.png" id="17_cvd54"]
 
 [sub_resource type="Gradient" id="Gradient_gixs1"]
 offsets = PackedFloat32Array(0, 0.5, 1)
@@ -23,38 +26,47 @@ colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0)
 [sub_resource type="GDScript" id="GDScript_4vcmm"]
 script/source = "extends VBoxContainer
 
+@onready var slider_large = owner.get_node('TrackSliderLarge')
+
 func _ready():
 	load_tracks()
 
 func _physics_process(delta):
 	if $AudioStreamPlayer.is_playing():
-		for slider in [$TrackSlider, owner.get_node('TrackSliderClone')]:
+		for slider in [$TrackSlider, slider_large]:
 			if slider.is_connected(\"value_changed\", scrub):
 				slider.disconnect(\"value_changed\",scrub)
+			var track_length = $AudioStreamPlayer.stream.get_length()
 			var playback_pos = $AudioStreamPlayer.get_playback_position()
-			slider.set_value(playback_pos)
+			var seconds = str(int(playback_pos) % 60).lpad(2, \"0\")
+			var minutes = str(int(playback_pos) / 60).lpad(2, \"0\")
+			slider_large.get_node('TrackTime').text = minutes + \":\" + seconds
+			slider.set_value(playback_pos / track_length)
 
 func scrub(value):
-	for bar in [$TrackSlider, owner.get_node('TrackSliderClone')]:
+	for bar in [$TrackSlider, slider_large]:
 		if bar.value != value:
 			bar.value = value
 	var stream_length = $AudioStreamPlayer.stream.get_length()
+	var stream_position = stream_length * value
 	value = min(value, stream_length - 0.1)
 	if not $AudioStreamPlayer.playing:
-		$AudioStreamPlayer.play(value)
+		$AudioStreamPlayer.play(stream_position)
 		$AudioStreamPlayer.stream_paused = true
 	elif $AudioStreamPlayer.stream_paused:
 		$AudioStreamPlayer.stream_paused = false
-		$AudioStreamPlayer.seek(value)
+		$AudioStreamPlayer.seek(stream_position)
 		$AudioStreamPlayer.stream_paused = true
 	else:
-		$AudioStreamPlayer.seek(value)
-	var stream_position = value / stream_length
-	owner.frame = ceil((owner.path.size() - 1) * stream_position)
+		$AudioStreamPlayer.seek(stream_position)
+	owner.frame = ceil((owner.path.size() - 1) * value)# * 0.5
+	owner.get_node('Markers').position_markers()
+	var seconds = str(int(stream_position) % 60).lpad(2, \"0\")
+	var minutes = str(int(stream_position) / 60).lpad(2, \"0\")
+	slider_large.get_node('TrackTime').text = minutes + \":\" + seconds
 	if sign(owner.path[owner.frame]) > -1:
 		owner.toggle_path_visible(true)
 		owner.place_ball(owner.path[owner.frame])
-		owner.get_node('Circle').position = owner.get_node('Ball').position
 	elif $Paths.is_anything_selected():
 		owner.toggle_path_visible(false)
 
@@ -63,9 +75,7 @@ func _on_track_selection_toggled(button_pressed):
 		load_tracks()
 
 func _on_track_slider_gui_input(event):
-	for slider in [$TrackSlider, owner.get_node('TrackSliderClone')]:
-		if not slider.is_connected(\"value_changed\", scrub):
-			slider.connect(\"value_changed\", scrub)
+	owner.connect_sliders_signal()
 
 func load_tracks() -> void:
 	var dir := DirAccess.open('res://Tracks')
@@ -85,8 +95,8 @@ func load_paths(track_title:String) -> void:
 	var dir := DirAccess.open('user://Paths/' + track_title)
 	var list:PackedStringArray
 	$Render.disabled = true
-	$Edit.disabled = true
 	$Paths.clear()
+	unload_all()
 	last_path_index = -1
 	dir.list_dir_begin()
 	var file_name = dir.get_next()
@@ -96,14 +106,16 @@ func load_paths(track_title:String) -> void:
 	dir.list_dir_end()
 	list.reverse()
 	for title in list:
-		$Paths.add_item(title)
+		if title.ends_with('.bx'):
+			title.trim_suffix('.bx')
+			$Paths.add_item(title.trim_suffix('.bx'))
 
 func _on_track_selected(index):
 	var track_name = $TrackSelection.get_item_text(index)
 	$AudioStreamPlayer.stream = load('res://Tracks/' + track_name)
-	for slider in [$TrackSlider, owner.get_node('TrackSliderClone')]:
-		slider.max_value = $AudioStreamPlayer.stream.get_length()
+	for slider in [$TrackSlider, slider_large]:
 		slider.editable = true
+	slider_large.show()
 	$TrackControls/Play.button_pressed = false
 	$TrackControls/Play.disabled = false
 	$TrackControls/Play/Icon.self_modulate.a = 1
@@ -119,20 +131,33 @@ func _on_track_selected(index):
 var last_path_index:int = -1
 func _on_path_selected(index):
 	if index == last_path_index:
-		$Paths.deselect_all()
-		$Edit.disabled = true
-		$Render.disabled = true
-		owner.path.clear()
-		owner.define_path()
+		unload_all(true)
 		last_path_index = -1
 	else:
+		for line in get_tree().get_nodes_in_group('lines'):
+			line.queue_free()
 		last_path_index = index
-		var selected = $TrackSelection.selected
-		var track_title:String = $TrackSelection.get_item_text(selected)
-		var file_path := 'user://Paths/' + track_title + '/'
-		$Edit.disabled = false
 		$Render.disabled = false
-		Data.load_path(file_path + $Paths.get_item_text(index))
+		owner.get_node('Ball').show()
+		Data.load_path(Data.get_file_path())
+		var path_value = owner.path[owner.frame]
+		if path_value > -1:
+			owner.place_ball(path_value)
+
+func unload_all(scrub := false):
+	$Paths.deselect_all()
+	$Render.disabled = true
+	owner.path.clear()
+	owner.define_path()
+	owner.marker_data.clear()
+	for marker in owner.get_node('Markers').marker_list.values():
+		marker.queue_free()
+	for line in get_tree().get_nodes_in_group('lines'):
+		line.queue_free()
+	owner.get_node('Markers').marker_list.clear()
+	if scrub:
+		scrub(0)
+		owner.set_ball_depth(0)
 
 func _on_paths_item_clicked(index, at_position, mouse_button_index):
 	if index == last_path_index and mouse_button_index == 2:
@@ -210,11 +235,12 @@ var dir:DirAccess
 
 func _ready():
 	get_child(2,true).get_child(3,true).hide()
+	add_button(\"COPY\", true, 'copy')
 	add_button(\"DELETE\", true, 'delete')
 
 func _on_confirmed():
 	var path = 'user://Paths/' + track_title + '/'
-	dir.rename(path + file_name, path + $LineEdit.text)
+	dir.rename(path + file_name + '.bx', path + $LineEdit.text + '.bx')
 	owner.get_node('Menu/Controls').load_paths(track_title)
 	var paths = owner.get_node('Menu/Controls/Paths')
 	for i in paths.item_count:
@@ -223,15 +249,23 @@ func _on_confirmed():
 			owner.get_node('Menu/Controls')._on_path_selected(i)
 
 func _on_custom_action(action):
+	if action == 'copy':
+		$Copy/LineEdit.text = $LineEdit.text
+		$Copy.popup_centered()
+		hide()
 	if action == 'delete':
 		$Delete.dialog_text = \"Delete \" + $LineEdit.text + \"?\"
 		$Delete.popup_centered()
 		hide()
 
+func _on_copy_confirmed():
+	Data.copy_file($Copy/LineEdit.text)
+
 func _on_delete_confirmed():
-	dir.remove('user://Paths/' + track_title + '/' + file_name)
+	dir.remove('user://Paths/' + track_title + '/' + file_name + '.bx')
 	owner.get_node('Menu/Controls').load_paths(track_title)
 	owner.path.clear()
+	owner.frame = 0
 	owner.define_path()
 "
 
@@ -247,12 +281,14 @@ func _ready():
 	if config.has_section_key('path', 'path_max_length'):
 		var value = config.get_value('path', 'path_max_length')
 		_on_path_max_length_value_changed(value)
+		$PathMaxLength.value = value
 	else:
 		_on_path_max_length_value_changed($PathMaxLength.value)
 	
 	if config.has_section_key('path', 'path_thickness'):
 		var value = config.get_value('path', 'path_thickness')
 		_on_path_thickness_value_changed(value)
+		$PathThickness.value = value
 	else:
 		_on_path_thickness_value_changed($PathThickness.value)
 	
@@ -275,11 +311,16 @@ func _ready():
 	if config.has_section_key('path', 'path_area'):
 		var value = config.get_value('path', 'path_area')
 		_on_path_area_value_changed(value)
+		$PathArea.value = value
 	else:
 		_on_path_area_value_changed($PathArea.value)
 
 func _on_path_speed_changed(value):
 	owner.path_speed = value
+	var controls = get_node('../Controls')
+	if controls.get_node('Paths').is_anything_selected():
+		controls.unload_all(true)
+		controls.last_path_index = -1
 	$PathSpeed/Label.text = \"Path Speed: \" + str(value)
 	Data.set_config('path', 'path_speed', value)
 
@@ -306,6 +347,8 @@ func _on_path_area_value_changed(value):
 
 func _on_path_thickness_value_changed(value):
 	owner.get_node('Path').width = value
+	owner.get_node('Markers/Line').width = value
+	owner.get_node('Markers').connect_all_markers()
 	Data.set_config('path', 'path_thickness', value)
 
 func _on_open_tracks_pressed():
@@ -337,9 +380,9 @@ script/source = "extends VBoxContainer
 
 func _ready():
 	match DisplayServer.window_get_mode():
-		DisplayServer.WINDOW_MODE_FULLSCREEN:
-			$OptionButton.select(0)
 		DisplayServer.WINDOW_MODE_WINDOWED:
+			$OptionButton.select(0)
+		DisplayServer.WINDOW_MODE_FULLSCREEN:
 			$OptionButton.select(1)
 		DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
 			$OptionButton.select(2)
@@ -347,9 +390,9 @@ func _ready():
 func _on_option_button_item_selected(index):
 	match index:
 		0:
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
-		1:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		1:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 		2:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
 	Data.set_config('user', 'display_mode', index)
@@ -364,17 +407,22 @@ var previous_color:Color
 
 func _on_color_picker_color_changed(color):
 	match $TabBar.current_tab:
-		0, 1:
+		0, 2:
 			selected.set_self_modulate(color)
-		2:
+		1:
+			selected.set_self_modulate(color)
+			owner.get_node('Markers/Line').set_self_modulate(color)
+			for node in get_tree().get_nodes_in_group('lines'):
+				node.set_self_modulate(color)
+		3:
 			selected.set_self_modulate(color)
 			owner.top_color = color
 		4:
-			selected.set_self_modulate(color)
-			owner.bottom_color = color
-		3:
 			owner.top_color_active = color
 		5:
+			selected.set_self_modulate(color)
+			owner.bottom_color = color
+		6:
 			owner.bottom_color_active = color
 	var title = $TabBar.get_tab_title($TabBar.current_tab)
 	Data.set_config('colors', title, color)
@@ -398,18 +446,37 @@ func _on_tab_bar_tab_changed(tab):
 			selected = owner.get_node('Path')
 			previous_color = selected.self_modulate
 		2:
-			selected = owner.get_node('TopLine')
-			previous_color = owner.top_color
+			selected = owner.get_node('Backdrop')
+			previous_color = selected.self_modulate
 		3:
 			selected = owner.get_node('TopLine')
-			previous_color = owner.top_color_active
+			previous_color = owner.top_color
 		4:
+			selected = owner.get_node('TopLine')
+			previous_color = owner.top_color_active
+		5:
 			selected = owner.get_node('BottomLine')
 			previous_color = owner.bottom_color
-		5:
+		6:
 			selected = owner.get_node('BottomLine')
 			previous_color = owner.bottom_color_active
 	$ColorPicker.color = previous_color
+"
+
+[sub_resource type="GDScript" id="GDScript_a4j0w"]
+script/source = "extends TextureButton
+
+func _on_pressed():
+	var info_panel = owner.get_node('InfoPanel')
+	info_panel.show()
+	$Notification.hide()
+	info_panel.self_modulate.a = 1.65
+
+func _on_mouse_entered():
+	get_parent().self_modulate = Color.DARK_ORANGE
+
+func _on_mouse_exited():
+	get_parent().self_modulate = Color.WHITE
 "
 
 [sub_resource type="GDScript" id="GDScript_q4aw8"]
@@ -494,6 +561,8 @@ func _on_toggled(button_pressed):
 	var exit_pos:float
 	var alpha:float
 	if button_pressed:
+		for node in [get_node('../Record'), get_node('../Play')]:
+			node.modulate.a = 0
 		menu_pos = 0
 		options_pos = 127
 		exit_pos = 245
@@ -504,6 +573,8 @@ func _on_toggled(button_pressed):
 		owner.get_node('Menu/Colors').hide()
 		tween.tween_callback(ui_mouse_filter.bind(true)).set_delay(0.3)
 	else:
+		for node in [get_node('../Record'), get_node('../Play')]:
+			node.modulate.a = 1
 		menu_pos = -menu.size.x
 		options_pos = 0
 		exit_pos = 0
@@ -542,6 +613,13 @@ func _on_custom_action(action):
 		hide()
 "
 
+[sub_resource type="GDScript" id="GDScript_cf1v0"]
+script/source = "extends Button
+
+func _on_pressed():
+	get_parent().hide()
+"
+
 [node name="BounceX" type="Control"]
 layout_mode = 3
 anchors_preset = 15
@@ -553,8 +631,16 @@ mouse_filter = 1
 theme = ExtResource("1_qtjw4")
 script = ExtResource("2_4ci4k")
 
-[node name="Path" type="Line2D" parent="."]
-gradient = SubResource("Gradient_gixs1")
+[node name="Backdrop" type="TextureRect" parent="."]
+self_modulate = Color(0, 0, 0, 0.313726)
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_top = -53.0
+offset_bottom = 53.0
+texture = ExtResource("7_slea2")
 
 [node name="TopLine" type="TextureRect" parent="."]
 custom_minimum_size = Vector2(0, 4)
@@ -586,6 +672,192 @@ texture = ExtResource("6_xdjfl")
 expand_mode = 1
 stretch_mode = 1
 
+[node name="Markers" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("3_votmw")
+
+[node name="Line" type="Line2D" parent="Markers"]
+show_behind_parent = true
+
+[node name="Marker" type="Sprite2D" parent="Markers"]
+visible = false
+position = Vector2(576, 324)
+texture = ExtResource("12_freos")
+
+[node name="Button" type="TextureButton" parent="Markers/Marker"]
+self_modulate = Color(1, 0.498039, 0.313726, 1)
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -30.0
+offset_top = -30.0
+offset_right = -2.0
+offset_bottom = -2.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(14, 14)
+focus_mode = 0
+toggle_mode = true
+texture_normal = ExtResource("4_rocsv")
+ignore_texture_size = true
+stretch_mode = 4
+
+[node name="Selected" type="TextureRect" parent="Markers/Marker/Button"]
+visible = false
+self_modulate = Color(0.498039, 1, 0.831373, 1)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -7.0
+offset_top = -7.0
+offset_right = 7.0
+offset_bottom = 7.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_mj5xg")
+expand_mode = 1
+
+[node name="Path" type="Line2D" parent="."]
+visible = false
+gradient = SubResource("Gradient_gixs1")
+
+[node name="Ball" type="Sprite2D" parent="."]
+visible = false
+position = Vector2(576, 324)
+texture = ExtResource("12_freos")
+
+[node name="MarkersMenu" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -910.0
+offset_bottom = 52.0
+grow_horizontal = 0
+
+[node name="HBox" type="HBoxContainer" parent="MarkersMenu"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 13.0
+offset_top = -20.0
+offset_right = 883.0
+offset_bottom = 20.0
+grow_vertical = 2
+theme_override_constants/separation = 18
+
+[node name="Trans" type="OptionButton" parent="MarkersMenu/HBox"]
+layout_mode = 2
+focus_mode = 0
+item_count = 11
+selected = 1
+popup/item_0/text = "Linear"
+popup/item_0/id = 0
+popup/item_1/text = "Sine"
+popup/item_1/id = 1
+popup/item_2/text = "Quint"
+popup/item_2/id = 2
+popup/item_3/text = "Quart"
+popup/item_3/id = 3
+popup/item_4/text = "Quad"
+popup/item_4/id = 4
+popup/item_5/text = "Expo"
+popup/item_5/id = 5
+popup/item_6/text = "Elastic"
+popup/item_6/id = 6
+popup/item_7/text = "Cubic"
+popup/item_7/id = 7
+popup/item_8/text = "Circ"
+popup/item_8/id = 8
+popup/item_9/text = "Bounce"
+popup/item_9/id = 9
+popup/item_10/text = "Back"
+popup/item_10/id = 10
+
+[node name="Ease" type="OptionButton" parent="MarkersMenu/HBox"]
+visible = false
+layout_mode = 2
+focus_mode = 0
+item_count = 4
+selected = 2
+popup/item_0/text = "Ease In"
+popup/item_0/id = 0
+popup/item_1/text = "Ease Out"
+popup/item_1/id = 1
+popup/item_2/text = "Ease In/Out"
+popup/item_2/id = 2
+popup/item_3/text = "Ease Out/In"
+popup/item_3/id = 3
+
+[node name="EaseUp" type="OptionButton" parent="MarkersMenu/HBox"]
+layout_mode = 2
+focus_mode = 0
+item_count = 4
+selected = 2
+popup/item_0/text = "Ease Up In"
+popup/item_0/id = 0
+popup/item_1/text = "Ease Up Out"
+popup/item_1/id = 1
+popup/item_2/text = "Ease Up In/Out"
+popup/item_2/id = 2
+popup/item_3/text = "Ease Up Out/In"
+popup/item_3/id = 3
+
+[node name="EaseDown" type="OptionButton" parent="MarkersMenu/HBox"]
+layout_mode = 2
+focus_mode = 0
+item_count = 4
+selected = 2
+popup/item_0/text = "Ease Down In"
+popup/item_0/id = 0
+popup/item_1/text = "Ease Down Out"
+popup/item_1/id = 1
+popup/item_2/text = "Ease Down In/Out"
+popup/item_2/id = 2
+popup/item_3/text = "Ease Down Out/In"
+popup/item_3/id = 3
+
+[node name="Frame" type="HBoxContainer" parent="MarkersMenu/HBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarkersMenu/HBox/Frame"]
+layout_mode = 2
+text = "Frame:"
+
+[node name="Input" type="SpinBox" parent="MarkersMenu/HBox/Frame" groups=["input"]]
+layout_mode = 2
+max_value = 999999.0
+
+[node name="Depth" type="HBoxContainer" parent="MarkersMenu/HBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarkersMenu/HBox/Depth"]
+layout_mode = 2
+text = "Depth:"
+
+[node name="Input" type="SpinBox" parent="MarkersMenu/HBox/Depth" groups=["input"]]
+layout_mode = 2
+max_value = 1.0
+step = 0.001
+
+[node name="Delete" type="TextureButton" parent="MarkersMenu/HBox"]
+visible = false
+layout_mode = 2
+focus_mode = 0
+texture_normal = ExtResource("8_mcxme")
+
 [node name="Menu" type="Panel" parent="."]
 layout_mode = 1
 anchors_preset = -1
@@ -606,36 +878,26 @@ theme_override_constants/separation = 12
 script = SubResource("GDScript_4vcmm")
 metadata/_edit_use_anchors_ = true
 
+[node name="KeyMap" type="Button" parent="Menu/Controls"]
+visible = false
+layout_mode = 2
+focus_mode = 0
+text = "Show Key Map"
+alignment = 0
+
 [node name="Record" type="Button" parent="Menu/Controls"]
 layout_mode = 2
 focus_mode = 0
 disabled = true
 toggle_mode = true
-text = "Record  -  [Enter]"
-alignment = 0
-
-[node name="Lap" type="Button" parent="Menu/Controls"]
-visible = false
-layout_mode = 2
-focus_mode = 0
-disabled = true
-toggle_mode = true
-text = "Play  -  [Tab]"
-alignment = 0
-
-[node name="Edit" type="Button" parent="Menu/Controls"]
-layout_mode = 2
-focus_mode = 0
-disabled = true
-toggle_mode = true
-text = "Edit  -  [Tab]"
+text = "Record"
 alignment = 0
 
 [node name="Render" type="Button" parent="Menu/Controls"]
 layout_mode = 2
 focus_mode = 0
 disabled = true
-text = "Render  -  [Backspace]"
+text = "Render"
 alignment = 0
 
 [node name="HSeparator" type="HSeparator" parent="Menu/Controls"]
@@ -710,7 +972,8 @@ stretch_mode = 3
 [node name="TrackSlider" type="HSlider" parent="Menu/Controls"]
 layout_mode = 2
 focus_mode = 0
-step = 0.1
+max_value = 1.0
+step = 0.001
 editable = false
 scrollable = false
 
@@ -729,6 +992,16 @@ size = Vector2i(300, 100)
 script = SubResource("GDScript_snsh4")
 
 [node name="LineEdit" type="LineEdit" parent="Menu/Controls/Paths/EditPath"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 292.0
+offset_bottom = 55.0
+
+[node name="Copy" type="ConfirmationDialog" parent="Menu/Controls/Paths/EditPath"]
+title = "Copy Path?"
+size = Vector2i(300, 100)
+
+[node name="LineEdit" type="LineEdit" parent="Menu/Controls/Paths/EditPath/Copy"]
 offset_left = 8.0
 offset_top = 8.0
 offset_right = 292.0
@@ -847,7 +1120,7 @@ text = "Open Tracks Folder"
 alignment = 0
 
 [node name="AcceptDialog" type="AcceptDialog" parent="Menu/Options/OpenTracks"]
-size = Vector2i(462, 100)
+size = Vector2i(865, 107)
 dialog_text = "After adding tracks, close the app and open it once in 'Edit' mode to import the new audio files.
 Filetypes can be .mp3 .wav or .ogg"
 
@@ -876,11 +1149,11 @@ horizontal_alignment = 1
 layout_mode = 2
 focus_mode = 0
 item_count = 3
-popup/item_0/text = "Fullscreen"
+popup/item_0/text = "Windowed"
 popup/item_0/id = 0
-popup/item_1/text = "Windowed"
+popup/item_1/text = "Fullscreen"
 popup/item_1/id = 1
-popup/item_2/text = "Windowed Exclusive"
+popup/item_2/text = "Exclusive Fullscreen"
 popup/item_2/id = 2
 
 [node name="Colors" type="VBoxContainer" parent="Menu"]
@@ -898,13 +1171,14 @@ metadata/_edit_use_anchors_ = true
 
 [node name="TabBar" type="TabBar" parent="Menu/Colors"]
 layout_mode = 2
-tab_count = 6
+tab_count = 7
 tab_0/title = "Ball"
 tab_1/title = "Path"
-tab_2/title = "Top Line"
-tab_3/title = "Top Active"
-tab_4/title = "Bottom Line"
-tab_5/title = "Bottom Active"
+tab_2/title = "Backdrop"
+tab_3/title = "Top Line"
+tab_4/title = "Top Active"
+tab_5/title = "Bottom Line"
+tab_6/title = "Bottom Active"
 
 [node name="Done" type="Button" parent="Menu/Colors"]
 layout_mode = 2
@@ -927,13 +1201,56 @@ layout_mode = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 9.0
-offset_top = -28.0
-offset_right = 290.0
-offset_bottom = -4.0
+offset_top = -29.0
+offset_right = 137.0
+offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.0"
+text = "BounceX v2.1"
+vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
+
+[node name="Button" type="TextureButton" parent="Menu/Version"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = -0.031
+anchor_top = 0.958
+anchor_right = -0.031
+anchor_bottom = 0.958
+offset_left = -0.0319998
+offset_top = -22.992
+offset_right = 117.968
+offset_bottom = 0.00799942
+script = SubResource("GDScript_a4j0w")
+
+[node name="Notification" type="Panel" parent="Menu/Version/Button"]
+visible = false
+layout_mode = 0
+offset_left = 108.0
+offset_top = -85.0
+offset_right = 292.0
+offset_bottom = 6.0
+
+[node name="Text" type="Label" parent="Menu/Version/Button/Notification"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 1.0
+offset_right = 183.0
+offset_bottom = 55.0
+text = "Click here to see controls and info"
+autowrap_mode = 3
+
+[node name="Arrow" type="Label" parent="Menu/Version/Button/Notification"]
+self_modulate = Color(1, 0.933333, 0.25098, 1)
+layout_mode = 0
+offset_left = -6.0
+offset_top = 70.0
+offset_right = 49.0
+offset_bottom = 111.0
+rotation = -0.568291
+theme_override_font_sizes/font_size = 32
+text = "<<<"
+autowrap_mode = 3
 
 [node name="Header" type="Control" parent="."]
 layout_mode = 1
@@ -1038,15 +1355,11 @@ texture = ExtResource("6_vw5ng")
 [node name="Record" type="Control" parent="Header"]
 visible = false
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -36.5
-offset_top = -10.5
-offset_right = 36.5
-offset_bottom = 10.5
+anchors_preset = 0
+offset_left = 74.5
+offset_top = 20.5
+offset_right = 147.5
+offset_bottom = 41.5
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -1083,15 +1396,11 @@ texture = ExtResource("3_mj5xg")
 [node name="Play" type="Control" parent="Header"]
 visible = false
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -43.0
-offset_top = -10.5
-offset_right = 43.0
-offset_bottom = 10.5
+anchors_preset = 0
+offset_left = 75.0
+offset_top = 20.5
+offset_right = 161.0
+offset_bottom = 41.5
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -1125,137 +1434,147 @@ grow_horizontal = 0
 grow_vertical = 2
 texture = ExtResource("4_xkljy")
 
-[node name="Edit" type="Control" parent="Header"]
+[node name="TrackSliderLarge" type="HSlider" parent="."]
 visible = false
 layout_mode = 1
-anchors_preset = 8
+anchors_preset = 7
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -38.5
-offset_top = -10.5
-offset_right = 38.5
-offset_bottom = 10.5
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Label" type="Label" parent="Header/Edit"]
-layout_mode = 1
-anchors_preset = 4
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_top = -17.5
-offset_right = 49.0
-offset_bottom = 17.5
-grow_vertical = 2
-theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
-theme_override_fonts/font = ExtResource("2_wwilv")
-theme_override_font_sizes/font_size = 26
-text = "EDIT"
-vertical_alignment = 1
-
-[node name="Icon" type="TextureRect" parent="Header/Edit"]
-modulate = Color(0, 1, 1, 1)
-layout_mode = 1
-anchors_preset = 6
-anchor_left = 1.0
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -21.0
-offset_top = -10.5
-offset_bottom = 10.5
-grow_horizontal = 0
-grow_vertical = 2
-texture = ExtResource("5_8cp6s")
-
-[node name="Ball" type="Sprite2D" parent="."]
-position = Vector2(576, 324)
-texture = ExtResource("12_freos")
-
-[node name="Circle" type="Sprite2D" parent="."]
-position = Vector2(576, 324)
-texture = ExtResource("8_53ihq")
-
-[node name="Backstop" type="Control" parent="."]
-layout_mode = 1
-anchor_left = 0.498403
-anchor_top = 0.88
-anchor_right = 0.499
-anchor_bottom = 0.88
-offset_left = -216.16
-offset_top = -69.24
-offset_right = 216.152
-offset_bottom = 68.7599
-grow_horizontal = 2
-grow_vertical = 2
-metadata/_edit_use_anchors_ = true
-
-[node name="Speed" type="HSlider" parent="."]
-top_level = true
-layout_mode = 1
-anchors_preset = -1
-anchor_left = 0.5
-anchor_top = 0.831494
-anchor_right = 0.5
-anchor_bottom = 0.831494
-offset_left = -178.5
-offset_top = -8.00006
-offset_right = 178.5
-offset_bottom = 7.99994
+anchor_bottom = 1.0
+offset_left = -350.0
+offset_top = -58.0
+offset_right = 350.0
+offset_bottom = -42.0
 grow_horizontal = 2
 grow_vertical = 0
 focus_mode = 0
-min_value = 0.1
-max_value = 20.0
-step = 0.1
-value = 2.0
-metadata/_edit_use_anchors_ = true
+max_value = 1.0
+step = 0.001
+editable = false
 
-[node name="Label" type="Label" parent="Speed"]
+[node name="TrackTime" type="Label" parent="TrackSliderLarge"]
 layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -24.5
+offset_left = -27.5
 offset_top = -23.0
-offset_right = 24.5
-offset_bottom = 3.0
+offset_right = 27.5
+offset_bottom = 4.0
 grow_horizontal = 2
-text = "SPEED"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="TrackSliderClone" type="HSlider" parent="."]
-top_level = true
-layout_mode = 1
-anchors_preset = -1
-anchor_left = 0.5
-anchor_top = 0.941062
-anchor_right = 0.5
-anchor_bottom = 0.941062
-offset_left = -178.5
-offset_top = -8.00006
-offset_right = 178.5
-offset_bottom = 7.99994
-grow_horizontal = 2
-grow_vertical = 0
-focus_mode = 0
-step = 0.1
-editable = false
-metadata/_edit_use_anchors_ = true
+text = "00:00"
 
 [node name="RenderComplete" type="AcceptDialog" parent="."]
 title = "Render Complete!"
 size = Vector2i(300, 80)
 script = SubResource("GDScript_xak41")
 
+[node name="InfoPanel" type="Panel" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="KeyMap" type="TextureRect" parent="InfoPanel"]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+anchor_bottom = 0.541667
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("16_2degy")
+expand_mode = 1
+stretch_mode = 4
+metadata/_edit_use_anchors_ = true
+
+[node name="RightClick" type="TextureRect" parent="InfoPanel"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.023
+anchor_top = 0.577
+anchor_right = 0.023
+anchor_bottom = 0.577
+offset_left = 0.503998
+offset_top = 0.103973
+offset_right = 300.504
+offset_bottom = 252.104
+texture = ExtResource("17_cvd54")
+metadata/_edit_use_anchors_ = true
+
+[node name="Label" type="Label" parent="InfoPanel/RightClick"]
+layout_mode = 0
+offset_left = 308.0
+offset_top = 143.0
+offset_right = 572.0
+offset_bottom = 197.0
+text = "Right-click on selected paths
+to show more options"
+
+[node name="Label" type="Label" parent="InfoPanel"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.693
+anchor_top = 0.61
+anchor_right = 0.693
+anchor_bottom = 0.61
+offset_left = -0.335999
+offset_top = -0.279999
+offset_right = 291.664
+offset_bottom = 53.72
+text = "Rendered image sequences
+should be played at 60 FPS"
+
+[node name="Label2" type="Label" parent="InfoPanel"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.646
+anchor_top = 0.724
+anchor_right = 0.646
+anchor_bottom = 0.724
+offset_left = -0.192017
+offset_top = -0.152039
+offset_right = 373.808
+offset_bottom = 80.848
+text = "Renders have a small spacer at the start, so make sure to adjust the timing in your video editor."
+autowrap_mode = 3
+
+[node name="Button" type="Button" parent="InfoPanel"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.743
+anchor_top = 0.886
+anchor_right = 0.743
+anchor_bottom = 0.887
+offset_left = 0.0639648
+offset_top = 0.871948
+offset_right = 126.064
+offset_bottom = 40.224
+text = "Back"
+script = SubResource("GDScript_cf1v0")
+
 [connection signal="gui_input" from="." to="." method="_on_gui_input"]
 [connection signal="resized" from="." to="." method="update_display"]
+[connection signal="mouse_entered" from="Markers/Marker/Button" to="Markers" method="_on_marker_mouse_entered"]
+[connection signal="mouse_exited" from="Markers/Marker/Button" to="Markers" method="_on_marker_mouse_exited"]
+[connection signal="item_selected" from="MarkersMenu/HBox/Trans" to="Markers" method="_on_trans_selected"]
+[connection signal="item_selected" from="MarkersMenu/HBox/Ease" to="Markers" method="_on_easing_selected"]
+[connection signal="item_selected" from="MarkersMenu/HBox/EaseUp" to="Markers" method="_on_up_easing_selected"]
+[connection signal="item_selected" from="MarkersMenu/HBox/EaseDown" to="Markers" method="_on_down_easing_selected"]
+[connection signal="mouse_entered" from="MarkersMenu/HBox/Frame/Input" to="Markers" method="_on_input_mouse_entered"]
+[connection signal="mouse_exited" from="MarkersMenu/HBox/Frame/Input" to="Markers" method="_on_input_mouse_exited"]
+[connection signal="value_changed" from="MarkersMenu/HBox/Frame/Input" to="Markers" method="_on_frame_value_changed"]
+[connection signal="mouse_entered" from="MarkersMenu/HBox/Depth/Input" to="Markers" method="_on_input_mouse_entered"]
+[connection signal="mouse_exited" from="MarkersMenu/HBox/Depth/Input" to="Markers" method="_on_input_mouse_exited"]
+[connection signal="value_changed" from="MarkersMenu/HBox/Depth/Input" to="Markers" method="_on_depth_value_changed"]
+[connection signal="mouse_entered" from="MarkersMenu/HBox/Delete" to="Markers" method="_on_delete_mouse_entered"]
+[connection signal="mouse_exited" from="MarkersMenu/HBox/Delete" to="Markers" method="_on_delete_mouse_exited"]
+[connection signal="pressed" from="MarkersMenu/HBox/Delete" to="Markers" method="_on_delete_pressed"]
+[connection signal="pressed" from="Menu/Controls/KeyMap" to="." method="_on_render_pressed"]
 [connection signal="toggled" from="Menu/Controls/Record" to="." method="_on_record_toggled"]
-[connection signal="toggled" from="Menu/Controls/Lap" to="." method="_on_play_toggled"]
-[connection signal="toggled" from="Menu/Controls/Edit" to="." method="_on_edit_toggled"]
 [connection signal="pressed" from="Menu/Controls/Render" to="." method="_on_render_pressed"]
 [connection signal="item_selected" from="Menu/Controls/TrackSelection" to="Menu/Controls" method="_on_track_selected"]
 [connection signal="toggled" from="Menu/Controls/TrackSelection" to="Menu/Controls" method="_on_track_selection_toggled"]
@@ -1272,6 +1591,7 @@ script = SubResource("GDScript_xak41")
 [connection signal="item_selected" from="Menu/Controls/Paths" to="Menu/Controls" method="_on_path_selected"]
 [connection signal="confirmed" from="Menu/Controls/Paths/EditPath" to="Menu/Controls/Paths/EditPath" method="_on_confirmed"]
 [connection signal="custom_action" from="Menu/Controls/Paths/EditPath" to="Menu/Controls/Paths/EditPath" method="_on_custom_action"]
+[connection signal="confirmed" from="Menu/Controls/Paths/EditPath/Copy" to="Menu/Controls/Paths/EditPath" method="_on_copy_confirmed"]
 [connection signal="confirmed" from="Menu/Controls/Paths/EditPath/Delete" to="Menu/Controls/Paths/EditPath" method="_on_delete_confirmed"]
 [connection signal="value_changed" from="Menu/Options/PathSpeed/HSlider" to="Menu/Options" method="_on_path_speed_changed"]
 [connection signal="value_changed" from="Menu/Options/PathFade/HSlider" to="Menu/Options" method="_on_path_fade_value_changed"]
@@ -1289,6 +1609,9 @@ script = SubResource("GDScript_xak41")
 [connection signal="pressed" from="Menu/Colors/Done" to="Menu/Colors" method="_on_done_pressed"]
 [connection signal="pressed" from="Menu/Colors/Cancel" to="Menu/Colors" method="_on_cancel_pressed"]
 [connection signal="color_changed" from="Menu/Colors/ColorPicker" to="Menu/Colors" method="_on_color_picker_color_changed"]
+[connection signal="mouse_entered" from="Menu/Version/Button" to="Menu/Version/Button" method="_on_mouse_entered"]
+[connection signal="mouse_exited" from="Menu/Version/Button" to="Menu/Version/Button" method="_on_mouse_exited"]
+[connection signal="pressed" from="Menu/Version/Button" to="Menu/Version/Button" method="_on_pressed"]
 [connection signal="mouse_entered" from="Header/ExitButton" to="Header/ExitButton" method="_on_mouse_entered"]
 [connection signal="mouse_exited" from="Header/ExitButton" to="Header/ExitButton" method="_on_mouse_exited"]
 [connection signal="pressed" from="Header/ExitButton" to="Header/ExitButton" method="_on_pressed"]
@@ -1298,7 +1621,7 @@ script = SubResource("GDScript_xak41")
 [connection signal="mouse_entered" from="Header/MenuButton" to="Header/MenuButton" method="_on_mouse_entered"]
 [connection signal="mouse_exited" from="Header/MenuButton" to="Header/MenuButton" method="_on_mouse_exited"]
 [connection signal="toggled" from="Header/MenuButton" to="Header/MenuButton" method="_on_toggled"]
-[connection signal="value_changed" from="Speed" to="." method="_on_speed_value_changed"]
-[connection signal="gui_input" from="TrackSliderClone" to="Menu/Controls" method="_on_track_slider_gui_input"]
-[connection signal="value_changed" from="TrackSliderClone" to="Menu/Controls" method="scrub"]
+[connection signal="gui_input" from="TrackSliderLarge" to="Menu/Controls" method="_on_track_slider_gui_input"]
+[connection signal="value_changed" from="TrackSliderLarge" to="Menu/Controls" method="scrub"]
 [connection signal="custom_action" from="RenderComplete" to="RenderComplete" method="_on_custom_action"]
+[connection signal="pressed" from="InfoPanel/Button" to="InfoPanel/Button" method="_on_pressed"]

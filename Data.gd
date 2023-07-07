@@ -2,6 +2,7 @@ extends Node
 
 var config_path := 'user://Settings.cfg'
 var config := ConfigFile.new()
+var bx:Node
 
 func _ready():
 	var dir = DirAccess.open('res://')
@@ -14,23 +15,52 @@ func _ready():
 	if not dir.dir_exists(paths_dir):
 		dir.make_dir(paths_dir)
 
-func save_path(file_path:String) -> void:
-	var file:FileAccess
-	file = FileAccess.open(file_path, FileAccess.WRITE)
-	var node_path = get_tree().get_root().get_node('BounceX').path
-	for line in node_path:
+func get_file_path() -> String:
+	var track_selection = bx.get_node('Menu/Controls/TrackSelection')
+	var path_selection = bx.get_node('Menu/Controls/Paths')
+	var selected_track = track_selection.selected
+	if selected_track == -1 or not path_selection.is_anything_selected():
+		return ""
+	var selected_path = path_selection.get_selected_items()[0]
+	var track:String = track_selection.get_item_text(selected_track)
+	var file_path := 'user://Paths/' + track + '/'
+	var path:String = path_selection.get_item_text(selected_path)
+	return 'user://Paths/' + track + '/' + path
+
+func save_path(file_path:String = get_file_path()) -> void:
+	if not file_path.ends_with('.bx'):
+		file_path += '.bx'
+	var file := FileAccess.open(file_path, FileAccess.WRITE)
+	file.store_line(JSON.stringify(bx.marker_data))
+	for line in bx.path:
 		file.store_float(line)
 	file.close()
 
 func load_path(file_path:String) -> void:
 	var file:FileAccess
-	file = FileAccess.open(file_path, FileAccess.READ)
-	var path = get_tree().get_root().get_node('BounceX').path
-	path.clear()
+	file = FileAccess.open(file_path + '.bx', FileAccess.READ)
+	var dict:Dictionary = JSON.parse_string(file.get_line())
+	var keys = dict.keys()
+	for i in keys:
+		dict[int(i)] = dict[i]
+		dict.erase(i)
+	bx.marker_data = dict
+	bx.get_node('Markers').set_markers()
+	bx.path.clear()
 	while file.get_position() < file.get_length():
-		var value = file.get_float()
-		path.append(value)
+		bx.path.append(file.get_float())
 	file.close()
+
+func copy_file(new_name:String):
+	var dir = DirAccess.open('user://Paths/')
+	var path = get_file_path()
+	var track_name = path.split('/')[-2]
+	var current_path = path + '.bx'
+	if new_name == path.split('/')[-1]:
+		new_name += "-Copy"
+	var new_path =  'user://Paths/' + track_name + '/' + new_name + '.bx'
+	dir.copy(current_path, new_path)
+	bx.get_node('Menu/Controls').load_paths(track_name)
 
 func timestamp() -> String:
 	var t = Time.get_datetime_dict_from_system()
@@ -46,9 +76,21 @@ func set_config(section:String, key:String, value):
 	config.set_value(section, key, value)
 	config.save(config_path)
 
-func load_config() -> void:
-	var bx = get_tree().get_root().get_node('BounceX')
+func reset_config():
 	config.load(config_path)
+	config.clear()
+	config.set_value('user', 'version', '2.1')
+	config.save(config_path)
+
+func load_config() -> void:
+	config.load(config_path)
+	
+	if config.get_value('user', 'version', "") != '2.1':
+		reset_config()
+		await get_tree().create_timer(0.3).timeout
+		bx.get_node('Menu/Version/Button/Notification').show()
+		bx.get_node('Header/MenuButton').button_pressed = true
+		return
 	
 	if config.has_section_key('user', 'display_mode'):
 		var display = bx.get_node('Menu/Options/DisplayMode')
@@ -67,13 +109,6 @@ func load_config() -> void:
 					bx.get_node('Menu/Controls')._on_track_selected(item)
 					track_selection.selected = item
 	
-	if config.has_section_key('user', 'speed'):
-		bx.get_node('Speed').value = config.get_value('user', 'speed')
-		bx._on_speed_value_changed(config.get_value('user', 'speed'))
-	else:
-		bx.get_node('Speed').value = 2
-		bx._on_speed_value_changed(2)
-	
 	if config.has_section_key('user', 'render_resolution:x'):
 		var x_value = config.get_value('user', 'render_resolution:x')
 		bx.get_node('Menu/Options/RenderResolution/Values/X').value = x_value
@@ -82,9 +117,20 @@ func load_config() -> void:
 		var y_value = config.get_value('user', 'render_resolution:y')
 		bx.get_node('Menu/Options/RenderResolution/Values/Y').value = y_value
 	
+	for direction in ['up', 'down']:
+		if config.has_section_key('easings', direction):
+			var selected = config.get_value('easings', direction)
+			var d_text:String = direction.capitalize()
+			bx.get_node('MarkersMenu/HBox/Ease' + d_text).selected = selected
+	
+	if config.has_section_key('easings', 'trans'):
+		var selected = config.get_value('easings', 'trans')
+		bx.get_node('MarkersMenu/HBox/Trans').selected = selected
+	
 	for setting in [
 		'Ball',
 		'Path',
+		'Backdrop',
 		'Top Line',
 		'Top Active',
 		'Bottom Line',
@@ -96,6 +142,9 @@ func load_config() -> void:
 					bx.get_node('Ball').self_modulate = color
 				'Path':
 					bx.get_node('Path').self_modulate = color
+					bx.get_node('Markers/Line').self_modulate = color
+				'Backdrop':
+					bx.get_node('Backdrop').self_modulate = color
 				'Top Line':
 					bx.top_color = color
 				'Top Active':
