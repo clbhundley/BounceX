@@ -1,4 +1,4 @@
-# BounceX 2.0
+# BounceX 2
 
 Beat marker creation tool made in Godot 4
 
