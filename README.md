@@ -2,8 +2,6 @@
 
 Beat marker creation tool made in Godot 4
 
-Works best with touchscreen or drawing tablet input
-
 # Instructions
 ### <a href="https://godotengine.org/download">Download Godot</a>
 
