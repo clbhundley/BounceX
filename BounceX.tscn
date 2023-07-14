@@ -126,7 +126,9 @@ func _on_track_selected(index):
 	load_paths(track_name)
 	Data.set_config('user', 'track', track_name)
 	owner.path.clear()
+	owner.frame = 0
 	owner.define_path()
+	scrub(0)
 
 var last_path_index:int = -1
 func _on_path_selected(index):
@@ -1206,7 +1208,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.1"
+text = "BounceX v2.1.1"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 
