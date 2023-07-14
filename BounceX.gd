@@ -130,17 +130,20 @@ func _input(event):
 	if input_disabled:
 		return
 	if event.is_action("up") and event.is_pressed():
-		place_ball(1)
 		if record_button.button_pressed and not event.is_echo():
 			set_ball_depth(1)
+		else:
+			place_ball(1)
 	elif event.is_action("mid") and event.is_pressed():
-		place_ball(0.5)
 		if record_button.button_pressed and not event.is_echo():
 			set_ball_depth(0.5)
+		else:
+			place_ball(0.5)
 	elif event.is_action("down") and event.is_pressed():
-		place_ball(0)
 		if record_button.button_pressed and not event.is_echo():
 			set_ball_depth(0)
+		else:
+			place_ball(0)
 	elif event.is_action_pressed("record"):
 		if record_button.button_pressed:
 			record_button.button_pressed = false
@@ -177,9 +180,10 @@ func _input(event):
 			num_input(number)
 
 func position_input(input:int):
-	place_ball(float(input)/10)
 	if record_button.button_pressed:
 		set_ball_depth(float(input)/10)
+	else:
+		place_ball(float(input)/10)
 
 func easing_input(input:int):
 	if input < 4:

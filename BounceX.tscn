@@ -132,6 +132,9 @@ func _on_track_selected(index):
 
 var last_path_index:int = -1
 func _on_path_selected(index):
+	var markers = owner.get_node('Markers')
+	if markers.selected_marker:
+		markers.marker_toggled(false, markers.selected_marker)
 	if index == last_path_index:
 		unload_all(true)
 		last_path_index = -1
@@ -735,7 +738,6 @@ visible = false
 gradient = SubResource("Gradient_gixs1")
 
 [node name="Ball" type="Sprite2D" parent="."]
-visible = false
 position = Vector2(576, 324)
 texture = ExtResource("12_freos")
 
@@ -1208,7 +1210,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.1.1"
+text = "BounceX v2.1.2"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 
