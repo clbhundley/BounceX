@@ -91,12 +91,12 @@ func load_tracks() -> void:
 	dir.list_dir_end()
 	$TrackSelection.selected = selected
 
-func load_paths(track_title:String) -> void:
+func load_paths(track_title:String, scrub:=false) -> void:
 	var dir := DirAccess.open('user://Paths/' + track_title)
 	var list:PackedStringArray
 	$Render.disabled = true
 	$Paths.clear()
-	unload_all()
+	unload_all(scrub)
 	last_path_index = -1
 	dir.list_dir_begin()
 	var file_name = dir.get_next()
@@ -125,18 +125,19 @@ func _on_track_selected(index):
 		dir.make_dir(track_name)
 	load_paths(track_name)
 	Data.set_config('user', 'track', track_name)
-	owner.path.clear()
 	owner.frame = 0
 	owner.define_path()
 	scrub(0)
 
 var last_path_index:int = -1
 func _on_path_selected(index):
-	var markers = owner.get_node('Markers')
-	if markers.selected_marker:
+	var markers:Node = owner.get_node('Markers')
+	if markers.selected_marker and is_instance_valid(markers.selected_marker):
 		markers.marker_toggled(false, markers.selected_marker)
 	if index == last_path_index:
-		unload_all(true)
+		unload_all()
+		owner.marker_data[0] = [0, 0, 0]
+		markers.add_marker(0, 0)
 		last_path_index = -1
 	else:
 		for line in get_tree().get_nodes_in_group('lines'):
@@ -152,8 +153,7 @@ func _on_path_selected(index):
 func unload_all(scrub := false):
 	$Paths.deselect_all()
 	$Render.disabled = true
-	owner.path.clear()
-	owner.define_path()
+	owner.define_path(false)
 	owner.marker_data.clear()
 	for marker in owner.get_node('Markers').marker_list.values():
 		marker.queue_free()
@@ -993,6 +993,8 @@ allow_reselect = true
 [node name="EditPath" type="ConfirmationDialog" parent="Menu/Controls/Paths"]
 title = "Edit Path"
 size = Vector2i(300, 100)
+exclusive = false
+dialog_close_on_escape = false
 script = SubResource("GDScript_snsh4")
 
 [node name="LineEdit" type="LineEdit" parent="Menu/Controls/Paths/EditPath"]
@@ -1124,9 +1126,12 @@ text = "Open Tracks Folder"
 alignment = 0
 
 [node name="AcceptDialog" type="AcceptDialog" parent="Menu/Options/OpenTracks"]
+position = Vector2i(0, 36)
 size = Vector2i(865, 107)
+exclusive = false
 dialog_text = "After adding tracks, close the app and open it once in 'Edit' mode to import the new audio files.
 Filetypes can be .mp3 .wav or .ogg"
+dialog_close_on_escape = false
 
 [node name="OpenRenders" type="Button" parent="Menu/Options"]
 layout_mode = 2
@@ -1210,7 +1215,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.1.2"
+text = "BounceX v2.1.3"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 
@@ -1472,6 +1477,8 @@ text = "00:00"
 [node name="RenderComplete" type="AcceptDialog" parent="."]
 title = "Render Complete!"
 size = Vector2i(300, 80)
+exclusive = false
+dialog_close_on_escape = false
 script = SubResource("GDScript_xak41")
 
 [node name="InfoPanel" type="Panel" parent="."]

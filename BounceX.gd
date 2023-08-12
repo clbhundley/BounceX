@@ -77,14 +77,17 @@ func line_colors(ball:Sprite2D, point:int) -> void:
 	else:
 		$BottomLine.self_modulate = bottom_color
 
-func define_path():
+func define_path(set_ball_pos := true):
 	var frames = ceil(audio.stream.get_length() * 60)
+	path.clear()
 	for i in frames:
 		path.append(-1)
-	place_ball(0)
-	set_ball_depth(clamp(($Ball.position.y - BOTTOM) / (TOP - BOTTOM), 0, 1))
+	if set_ball_pos:
+		place_ball(0)
+		var ball_pos = clamp(($Ball.position.y - BOTTOM) / (TOP - BOTTOM), 0, 1)
+		set_ball_depth(ball_pos)
 
-func ball_percentage() -> float:
+func get_ball_depth() -> float:
 	return abs(($Ball.position.y - BOTTOM) / (TOP - BOTTOM))
 
 func place_ball(depth:float) -> void:
@@ -98,7 +101,7 @@ func set_pos(y_pos) -> void:
 
 func get_ease_direction(depth) -> int:
 	var ease:int
-	if depth >= ball_percentage():
+	if depth >= get_ball_depth():
 		return $MarkersMenu/HBox/EaseUp.selected
 	else:
 		return $MarkersMenu/HBox/EaseDown.selected
@@ -114,7 +117,7 @@ func set_ball_depth(depth:float) -> void:
 
 func _on_gui_input(event):
 	if not record_button.button_pressed:
-		if event is InputEventMouseMotion:
+		if audio.stream and event is InputEventMouseMotion:
 			if event.button_mask & MOUSE_BUTTON_LEFT:
 				connect_sliders_signal()
 				var min = $TrackSliderLarge.min_value
@@ -122,29 +125,14 @@ func _on_gui_input(event):
 				var value = $TrackSliderLarge.value - event.relative.x * 0.00005
 				$TrackSliderLarge.value = clamp(value, min, max)
 	elif event is InputEventMouseButton and event.is_pressed():
-		if event.button_mask & MOUSE_BUTTON_LEFT: 
+		if event.button_mask & MOUSE_BUTTON_LEFT:
 			set_pos(event.position.y)
 
 var input_disabled:bool
 func _input(event):
 	if input_disabled:
 		return
-	if event.is_action("up") and event.is_pressed():
-		if record_button.button_pressed and not event.is_echo():
-			set_ball_depth(1)
-		else:
-			place_ball(1)
-	elif event.is_action("mid") and event.is_pressed():
-		if record_button.button_pressed and not event.is_echo():
-			set_ball_depth(0.5)
-		else:
-			place_ball(0.5)
-	elif event.is_action("down") and event.is_pressed():
-		if record_button.button_pressed and not event.is_echo():
-			set_ball_depth(0)
-		else:
-			place_ball(0)
-	elif event.is_action_pressed("record"):
+	elif event.is_action_pressed("record") and audio.stream:
 		if record_button.button_pressed:
 			record_button.button_pressed = false
 		else:
@@ -154,7 +142,7 @@ func _input(event):
 			record_button.set_pressed_no_signal(false)
 			$Header/Record.hide()
 		play_button.button_pressed = false
-	elif event.is_action_pressed("play"):
+	elif event.is_action_pressed("play") and audio.stream:
 		if record_button.button_pressed:
 			record_button.button_pressed = false
 		elif play_button.button_pressed:
@@ -164,7 +152,7 @@ func _input(event):
 	elif event.is_action_pressed("restart"):
 		if audio.has_stream_playback():
 			$Menu/Controls.scrub(0)
-	elif event.is_action_pressed("render"):
+	elif event.is_action_pressed("render") and not play_button.button_pressed:
 		if not $Menu/Controls/Render.disabled:
 			_on_render_pressed()
 	elif event.is_action_pressed("menu"):
@@ -175,34 +163,44 @@ func _input(event):
 	for ease_number in 8:
 		if event.is_action_pressed('e' + str(ease_number)):
 			easing_input(int(str(ease_number).lstrip('e')))
-	for number in 10:
-		if event.is_action_pressed(str(number)):
-			num_input(number)
+	for trans_number in 11:
+		if event.is_action_pressed('t' + str(trans_number)):
+			trans_input(trans_number)
 
 func position_input(input:int):
 	if record_button.button_pressed:
-		set_ball_depth(float(input)/10)
+		set_ball_depth(float(input) / 10)
+	elif $Markers.selected_marker:
+		$MarkersMenu/HBox/Depth/Input.value = float(input) / 10
 	else:
-		place_ball(float(input)/10)
+		place_ball(float(input) / 10)
 
 func easing_input(input:int):
-	if input < 4:
-		$MarkersMenu/HBox/EaseUp.select(input)
-		$Markers._on_up_easing_selected(input)
+	if $Markers.selected_marker:
+		if input > 3:
+			input -= 4
+		$MarkersMenu/HBox/Ease.select(input)
+		$MarkersMenu/HBox/Ease.emit_signal('item_selected', input)
 	else:
-		$MarkersMenu/HBox/EaseDown.select(input - 4)
-		$Markers._on_down_easing_selected(input - 4)
+		if input < 4:
+			$MarkersMenu/HBox/EaseUp.select(input)
+			$Markers._on_up_easing_selected(input)
+		else:
+			$MarkersMenu/HBox/EaseDown.select(input - 4)
+			$Markers._on_down_easing_selected(input - 4)
 
-func num_input(input:int):
+func trans_input(input:int):
 	$MarkersMenu/HBox/Trans.select(input)
+	$MarkersMenu/HBox/Trans.emit_signal('item_selected', input)
 
 func _on_record_toggled(active:bool):
+	print(active)
 	if active:
 		$Menu/Controls/TrackControls/Play.button_pressed = true
 		$Header/Play.hide()
 		$Header/Record.show()
 		var marker_node = $Markers.selected_marker
-		if marker_node:
+		if marker_node and is_instance_valid(marker_node):
 			marker_node.get_node('Button').button_pressed = false
 			$Markers.marker_toggled(false, marker_node)
 		toggle_path_visible(true)
@@ -276,12 +274,14 @@ func render():
 		audio.stop()
 	
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-	update_display()
 	DisplayServer.window_set_position(Vector2(0, 200))
 	DisplayServer.window_set_flag(resize_disabled, true)
 	DisplayServer.window_set_flag(borderless, true)
 	DisplayServer.window_set_size(Vector2(x_size, y_size))
 	get_viewport().set_transparent_background(true)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	update_display()
 	disconnect("resized", update_display)
 	
 	input_disabled = true
@@ -390,6 +390,7 @@ func render():
 	DisplayServer.window_set_flag(resize_disabled, false)
 	connect("resized", update_display)
 	
+	DisplayServer.window_set_flag(borderless, false)
 	DisplayServer.window_set_mode(window_starting_mode)
 	DisplayServer.window_set_size(window_starting_size)
 	DisplayServer.window_set_position(window_starting_pos)

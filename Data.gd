@@ -39,16 +39,17 @@ func save_path(file_path:String = get_file_path()) -> void:
 func load_path(file_path:String) -> void:
 	var file:FileAccess
 	file = FileAccess.open(file_path + '.bx', FileAccess.READ)
-	var dict:Dictionary = JSON.parse_string(file.get_line())
-	var keys = dict.keys()
+	var marker_data:Dictionary = JSON.parse_string(file.get_line())
+	var keys = marker_data.keys()
 	for i in keys:
-		dict[int(i)] = dict[i]
-		dict.erase(i)
-	bx.marker_data = dict
+		marker_data[int(i)] = marker_data[i]
+		marker_data.erase(i)
+	bx.marker_data = marker_data
+	if marker_data.is_empty():
+		bx.marker_data[0] = [0, 0, 0]
+	bx.define_path(false)
 	bx.get_node('Markers').set_markers()
-	bx.path.clear()
-	while file.get_position() < file.get_length():
-		bx.path.append(file.get_float())
+	bx.get_node('Markers').connect_all_markers()
 	file.close()
 
 func copy_file(new_name:String):
@@ -60,7 +61,7 @@ func copy_file(new_name:String):
 		new_name += "-Copy"
 	var new_path =  'user://Paths/' + track_name + '/' + new_name + '.bx'
 	dir.copy(current_path, new_path)
-	bx.get_node('Menu/Controls').load_paths(track_name)
+	bx.get_node('Menu/Controls').load_paths(track_name, true)
 
 func timestamp() -> String:
 	var t = Time.get_datetime_dict_from_system()

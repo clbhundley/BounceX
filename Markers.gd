@@ -125,7 +125,7 @@ func marker_toggled(button_pressed:bool, marker:Node):
 		frame_input.value_changed.disconnect(_on_frame_value_changed)
 		depth_input.value_changed.disconnect(_on_depth_value_changed)
 		frame_input.value = owner.frame
-		depth_input.value = owner.ball_percentage()
+		depth_input.value = owner.get_ball_depth()
 		frame_input.value_changed.connect(_on_frame_value_changed)
 		depth_input.value_changed.connect(_on_depth_value_changed)
 		marker.get_node('Button/Selected').hide()
@@ -135,7 +135,7 @@ func marker_toggled(button_pressed:bool, marker:Node):
 		delete_button.hide()
 		selected_marker = null
 
-func marker_percentage(marker) -> float:
+func get_marker_depth(marker) -> float:
 	return abs((marker.position.y - owner.BOTTOM) / (owner.TOP - owner.BOTTOM))
 
 func get_marker_index(frame:int) -> int:
@@ -187,7 +187,7 @@ func connect_marker(frame:int) -> void:
 	line.clear_points()
 	var line_frame = previous.get_meta('frame')
 	for i in steps + 1:
-		owner.path[line_frame] = marker_percentage(previous)
+		owner.path[line_frame] = get_marker_depth(previous)
 		line.add_point(previous.position)
 		tween.custom_step(1)
 		previous.position.x += owner.path_speed
