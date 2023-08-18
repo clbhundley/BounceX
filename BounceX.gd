@@ -9,6 +9,9 @@ var top_color_active:Color = Color.AQUAMARINE
 var bottom_color:Color = Color.WHITE
 var bottom_color_active:Color = Color.CORAL
 
+var hold_breath_ball_color:Color = Color.DEEP_PINK
+var hold_breath_path_color:Color = Color.PINK
+
 @onready var audio = $Menu/Controls/AudioStreamPlayer
 @onready var track_slider = $Menu/Controls/TrackSlider
 @onready var play_button = $Menu/Controls/TrackControls/Play
@@ -108,7 +111,7 @@ func get_ease_direction(depth) -> int:
 
 func set_ball_depth(depth:float) -> void:
 	var easing = get_ease_direction(depth)
-	marker_data[frame] = [depth, $MarkersMenu/HBox/Trans.selected, easing]
+	marker_data[frame] = [depth, $MarkersMenu/HBox/Trans.selected, easing, 0]
 	$Markers.add_marker(frame, depth)
 	$Markers.connect_marker(frame)
 	if record_button.button_pressed and $Header/MenuButton.button_pressed:
@@ -194,7 +197,6 @@ func trans_input(input:int):
 	$MarkersMenu/HBox/Trans.emit_signal('item_selected', input)
 
 func _on_record_toggled(active:bool):
-	print(active)
 	if active:
 		$Menu/Controls/TrackControls/Play.button_pressed = true
 		$Header/Play.hide()
@@ -232,8 +234,6 @@ func _on_play_toggled(button_pressed):
 		$Menu/Controls/TrackControls/Play.button_pressed = true
 		toggle_path_visible(true)
 		$Header/Play.show()
-		if record_button.button_pressed:
-			$TrackSliderLarge.hide()
 		if $Markers.is_visible_in_tree():
 			$Ball.show()
 			$Markers.position_markers()
@@ -243,7 +243,6 @@ func _on_play_toggled(button_pressed):
 		$Menu/Controls/TrackControls/Pause.button_pressed = true
 		$Markers.connect_all_markers()
 		$Header/Play.hide()
-		$TrackSliderLarge.show()
 		if $Markers.is_visible_in_tree():
 			$Path.hide()
 
@@ -256,6 +255,10 @@ func toggle_path_visible(active:bool) -> void:
 	for node in [$Ball, $Path]:
 		node.self_modulate.a = max(float(active),0.3)
 
+enum Effects {
+	HOLD_BREATH = 1}
+var active_effects:Dictionary
+@export var flash_curve:Curve
 func render():
 	var selected_take = $Menu/Controls/Paths.get_selected_items()[0]
 	var path_name = $Menu/Controls/Paths.get_item_text(selected_take)
@@ -269,6 +272,66 @@ func render():
 	var resize_disabled = DisplayServer.WINDOW_FLAG_RESIZE_DISABLED
 	var borderless = DisplayServer.WINDOW_FLAG_BORDERLESS
 	var folder_name = path_name.trim_suffix('.bin')
+
+	var ball_color_a:Color = Color.WHITE
+	var ball_color_b:Color = hold_breath_ball_color
+	var line_color_a:Color = Color.WHITE
+	var line_color_b:Color = hold_breath_path_color
+	var flash_total := 120
+	var flash_frames := 120
+	var flash_active:bool
+	
+	const _auxiliary_functions := 8
+	
+	#parse aux data
+	var _aux_data:Dictionary
+	for i in _auxiliary_functions:
+		_aux_data[i + 1] = []
+	for marker_frame in marker_data:
+		var auxiliary:int = marker_data[marker_frame][3]
+		for i in _auxiliary_functions:
+			if auxiliary & 1 << i:
+				var marker_list = marker_data.keys()
+				var index:int = marker_list.find(marker_frame)
+				for marker in range(index, marker_list.size()):
+					if not _aux_data[i + 1].has(index):
+						if int(marker_data[marker_list[marker]][3]) & 1 << i:
+							index = marker
+							if not _aux_data[i + 1].has(index):
+								_aux_data[i + 1].append(index)
+						else:
+							break
+	var _empty_sections:Array
+	for section in _aux_data:
+		if _aux_data[section].is_empty():
+			_empty_sections.append(section)
+	for section in _empty_sections:
+		_aux_data.erase(section)
+	
+	#sequence aux data
+	var _aux_sequenced:Dictionary
+	for section in _aux_data:
+		var sequences:Array
+		var current_sequence:Array
+		var input_array = _aux_data[section]
+		for i in input_array.size():
+			if i == 0 or input_array[i] == input_array[i - 1] + 1:
+				current_sequence.append(input_array[i])
+			else:
+				sequences.append(current_sequence)
+				current_sequence = [input_array[i]]
+		if current_sequence.size() > 0:
+			sequences.append(current_sequence)
+		_aux_sequenced[section] = sequences
+	
+	#format aux data
+	var aux_effects:Dictionary
+	for section in _aux_sequenced:
+		aux_effects[section] = {}
+		for sequence in _aux_sequenced[section]:
+			var start_frame = marker_data.keys()[sequence[0]]
+			var end_frame = marker_data.keys()[sequence[-1]]
+			aux_effects[section][start_frame] = end_frame - start_frame
 	
 	if audio.playing:
 		audio.stop()
@@ -365,6 +428,43 @@ func render():
 				var render_pos = BOTTOM + path[point-distance] * (TOP - BOTTOM)
 				render_ball.position.y = render_pos
 				line_colors(render_ball, point-distance)
+		for effect in aux_effects:
+			for trigger in aux_effects[effect]:
+				if point - distance == int(trigger):
+					match int(effect):
+						Effects.HOLD_BREATH:
+							var effect_length = aux_effects[effect][trigger]
+							if effect_length > flash_frames * 2:
+								active_effects[1] = effect_length
+							else:
+								print("effect must last at least 240 frames")
+		for effect in active_effects:
+			match effect:
+				Effects.HOLD_BREATH:
+					var effect_time = active_effects[effect]
+					var total_time:int = flash_frames
+					if effect_time > flash_total:
+						if flash_frames > 0:
+							var count = 1 - flash_frames / float(flash_total)
+							var sample = flash_curve.sample(count)
+							var blend = ball_color_a.lerp(ball_color_b, sample)
+							render_ball.self_modulate = blend
+							flash_frames -= 1
+						elif flash_frames == 0:
+							$Path.self_modulate = line_color_b
+					elif effect_time <= flash_total:
+						var count = 1 - effect_time / float(flash_total)
+						var sample = flash_curve.sample(count)
+						var blend = ball_color_b.lerp(ball_color_a,sample)
+						render_ball.self_modulate = blend
+					else:
+						flash_frames = flash_total
+						active_effects.erase(effect)
+					if effect_time > 0:
+						active_effects[effect] -= 1
+					elif effect_time == 0:
+						$Path.self_modulate = line_color_a
+			
 		await get_tree().process_frame
 		await get_tree().process_frame
 		$Path.add_point(Vector2($Ball.position.x + step, $Ball.position.y))

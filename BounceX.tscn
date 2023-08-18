@@ -1,10 +1,11 @@
-[gd_scene load_steps=33 format=3 uid="uid://ni5y54wv42nf"]
+[gd_scene load_steps=34 format=3 uid="uid://ddntuwjds6r37"]
 
 [ext_resource type="Theme" uid="uid://4ddly4r83yek" path="res://Theme.tres" id="1_qtjw4"]
 [ext_resource type="Script" path="res://BounceX.gd" id="2_4ci4k"]
 [ext_resource type="FontFile" uid="uid://c2wtnhu46b5xf" path="res://Font/Rubik-Light.ttf" id="2_wwilv"]
 [ext_resource type="Texture2D" uid="uid://cbwqw7m1wqj64" path="res://Textures/Dot Small.svg" id="3_mj5xg"]
 [ext_resource type="Script" path="res://Markers.gd" id="3_votmw"]
+[ext_resource type="Curve" uid="uid://brt3xnflwm2r" path="res://FlashCurve.tres" id="3_wj01o"]
 [ext_resource type="Texture2D" uid="uid://bkabq6ivbs23x" path="res://Textures/Circle Small.svg" id="4_rocsv"]
 [ext_resource type="Texture2D" uid="uid://bqgebmq2ks1mj" path="res://Textures/Play.svg" id="4_tyhll"]
 [ext_resource type="Texture2D" uid="uid://dnlqy6ppe68nr" path="res://Textures/Triangle.svg" id="4_xkljy"]
@@ -408,8 +409,6 @@ script/source = "extends VBoxContainer
 
 var selected:Node
 
-var previous_color:Color
-
 func _on_color_picker_color_changed(color):
 	match $TabBar.current_tab:
 		0, 2:
@@ -417,8 +416,7 @@ func _on_color_picker_color_changed(color):
 		1:
 			selected.set_self_modulate(color)
 			owner.get_node('Markers/Line').set_self_modulate(color)
-			for node in get_tree().get_nodes_in_group('lines'):
-				node.set_self_modulate(color)
+			change_path_color(color)
 		3:
 			selected.set_self_modulate(color)
 			owner.top_color = color
@@ -429,43 +427,59 @@ func _on_color_picker_color_changed(color):
 			owner.bottom_color = color
 		6:
 			owner.bottom_color_active = color
+		7:
+			selected.set_self_modulate(color)
+			owner.hold_breath_ball_color = color
+		8:
+			change_path_color(color)
+			owner.hold_breath_path_color = color
 	var title = $TabBar.get_tab_title($TabBar.current_tab)
 	Data.set_config('colors', title, color)
 
 func _on_done_pressed():
+	var ball_color = Data.config.get_value('colors', 'Ball', Color.WHITE)
+	var path_color = Data.config.get_value('colors', 'Path', Color.WHITE)
+	owner.get_node('Ball').self_modulate = ball_color
+	change_path_color(path_color)
 	get_node('../Options').show()
 	hide()
 
-func _on_cancel_pressed():
-	if selected:
-		selected.set_self_modulate(previous_color)
-	get_node('../Options').show()
-	hide()
+func change_path_color(input_color:Color):
+	owner.get_node('Path').self_modulate = input_color
+	for node in get_tree().get_nodes_in_group('lines'):
+		node.set_self_modulate(input_color)
 
 func _on_tab_bar_tab_changed(tab):
+	var selected_color:Color
 	match tab:
 		0:
 			selected = owner.get_node('Ball')
-			previous_color = selected.self_modulate
+			selected_color = selected.self_modulate
 		1:
 			selected = owner.get_node('Path')
-			previous_color = selected.self_modulate
+			selected_color = selected.self_modulate
 		2:
 			selected = owner.get_node('Backdrop')
-			previous_color = selected.self_modulate
+			selected_color = selected.self_modulate
 		3:
 			selected = owner.get_node('TopLine')
-			previous_color = owner.top_color
+			selected_color = owner.top_color
 		4:
 			selected = owner.get_node('TopLine')
-			previous_color = owner.top_color_active
+			selected_color = owner.top_color_active
 		5:
 			selected = owner.get_node('BottomLine')
-			previous_color = owner.bottom_color
+			selected_color = owner.bottom_color
 		6:
 			selected = owner.get_node('BottomLine')
-			previous_color = owner.bottom_color_active
-	$ColorPicker.color = previous_color
+			selected_color = owner.bottom_color_active
+		7:
+			selected = owner.get_node('Ball')
+			selected_color = owner.hold_breath_ball_color
+		8:
+			selected = owner.get_node('Path')
+			selected_color = owner.hold_breath_path_color
+	$ColorPicker.color = selected_color
 "
 
 [sub_resource type="GDScript" id="GDScript_a4j0w"]
@@ -635,6 +649,7 @@ grow_vertical = 2
 mouse_filter = 1
 theme = ExtResource("1_qtjw4")
 script = ExtResource("2_4ci4k")
+flash_curve = ExtResource("3_wj01o")
 
 [node name="Backdrop" type="TextureRect" parent="."]
 self_modulate = Color(0, 0, 0, 0.313726)
@@ -833,6 +848,12 @@ popup/item_2/id = 2
 popup/item_3/text = "Ease Down Out/In"
 popup/item_3/id = 3
 
+[node name="HoldBreath" type="CheckBox" parent="MarkersMenu/HBox"]
+visible = false
+layout_mode = 2
+focus_mode = 0
+text = "Hold Breath"
+
 [node name="Frame" type="HBoxContainer" parent="MarkersMenu/HBox"]
 layout_mode = 2
 
@@ -861,6 +882,43 @@ visible = false
 layout_mode = 2
 focus_mode = 0
 texture_normal = ExtResource("8_mcxme")
+
+[node name="Panel" type="Panel" parent="MarkersMenu"]
+visible = false
+layout_mode = 0
+offset_left = 36.0
+offset_top = 57.0
+offset_right = 260.0
+offset_bottom = 85.0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarkersMenu/Panel"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = 218.0
+offset_bottom = 22.0
+theme_override_constants/separation = 12
+
+[node name="CheckBox2" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
+layout_mode = 2
+
+[node name="CheckBox3" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
+layout_mode = 2
+
+[node name="CheckBox4" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
+layout_mode = 2
+
+[node name="CheckBox5" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
+layout_mode = 2
+
+[node name="CheckBox6" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
+layout_mode = 2
+
+[node name="CheckBox7" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
+layout_mode = 2
+
+[node name="CheckBox8" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
+layout_mode = 2
 
 [node name="Menu" type="Panel" parent="."]
 layout_mode = 1
@@ -1180,7 +1238,7 @@ metadata/_edit_use_anchors_ = true
 
 [node name="TabBar" type="TabBar" parent="Menu/Colors"]
 layout_mode = 2
-tab_count = 7
+tab_count = 9
 tab_0/title = "Ball"
 tab_1/title = "Path"
 tab_2/title = "Backdrop"
@@ -1188,6 +1246,8 @@ tab_3/title = "Top Line"
 tab_4/title = "Top Active"
 tab_5/title = "Bottom Line"
 tab_6/title = "Bottom Active"
+tab_7/title = "Hold Breath Ball"
+tab_8/title = "Hold Breath Path"
 
 [node name="Done" type="Button" parent="Menu/Colors"]
 layout_mode = 2
@@ -1196,6 +1256,7 @@ text = "Done"
 alignment = 0
 
 [node name="Cancel" type="Button" parent="Menu/Colors"]
+visible = false
 layout_mode = 2
 focus_mode = 0
 text = "Cancel"
@@ -1215,7 +1276,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.1.3"
+text = "BounceX v2.2"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 
@@ -1525,47 +1586,43 @@ offset_bottom = 197.0
 text = "Right-click on selected paths
 to show more options"
 
-[node name="Label" type="Label" parent="InfoPanel"]
-layout_mode = 1
-anchors_preset = -1
-anchor_left = 0.693
-anchor_top = 0.61
-anchor_right = 0.693
-anchor_bottom = 0.61
-offset_left = -0.335999
-offset_top = -0.279999
-offset_right = 291.664
-offset_bottom = 53.72
-text = "Rendered image sequences
-should be played at 60 FPS"
-
-[node name="Label2" type="Label" parent="InfoPanel"]
-layout_mode = 1
-anchors_preset = -1
-anchor_left = 0.646
-anchor_top = 0.724
-anchor_right = 0.646
-anchor_bottom = 0.724
-offset_left = -0.192017
-offset_top = -0.152039
-offset_right = 373.808
-offset_bottom = 80.848
-text = "Renders have a small spacer at the start, so make sure to adjust the timing in your video editor."
-autowrap_mode = 3
-
 [node name="Button" type="Button" parent="InfoPanel"]
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.743
-anchor_top = 0.886
-anchor_right = 0.743
-anchor_bottom = 0.887
-offset_left = 0.0639648
-offset_top = 0.871948
-offset_right = 126.064
-offset_bottom = 40.224
-text = "Back"
+anchor_left = 0.430556
+anchor_top = 0.634259
+anchor_right = 0.540799
+anchor_bottom = 0.700617
+text = "BACK"
 script = SubResource("GDScript_cf1v0")
+metadata/_edit_use_anchors_ = true
+
+[node name="VBoxContainer" type="VBoxContainer" parent="InfoPanel"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.626736
+anchor_top = 0.623457
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 25
+metadata/_edit_use_anchors_ = true
+
+[node name="Label" type="Label" parent="InfoPanel/VBoxContainer"]
+layout_mode = 2
+text = "Rendered image sequences
+should be played at 60 FPS"
+
+[node name="Label2" type="Label" parent="InfoPanel/VBoxContainer"]
+layout_mode = 2
+text = "Renders have a small spacer at the start, so make sure to adjust the timing in your video editor."
+autowrap_mode = 3
+
+[node name="Label3" type="Label" parent="InfoPanel/VBoxContainer"]
+layout_mode = 2
+text = "You can switch windows while rendering"
+autowrap_mode = 3
 
 [connection signal="gui_input" from="." to="." method="_on_gui_input"]
 [connection signal="resized" from="." to="." method="update_display"]
@@ -1575,6 +1632,7 @@ script = SubResource("GDScript_cf1v0")
 [connection signal="item_selected" from="MarkersMenu/HBox/Ease" to="Markers" method="_on_easing_selected"]
 [connection signal="item_selected" from="MarkersMenu/HBox/EaseUp" to="Markers" method="_on_up_easing_selected"]
 [connection signal="item_selected" from="MarkersMenu/HBox/EaseDown" to="Markers" method="_on_down_easing_selected"]
+[connection signal="toggled" from="MarkersMenu/HBox/HoldBreath" to="Markers" method="_on_hold_breath_toggled"]
 [connection signal="mouse_entered" from="MarkersMenu/HBox/Frame/Input" to="Markers" method="_on_input_mouse_entered"]
 [connection signal="mouse_exited" from="MarkersMenu/HBox/Frame/Input" to="Markers" method="_on_input_mouse_exited"]
 [connection signal="value_changed" from="MarkersMenu/HBox/Frame/Input" to="Markers" method="_on_frame_value_changed"]

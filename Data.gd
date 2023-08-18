@@ -44,9 +44,12 @@ func load_path(file_path:String) -> void:
 	for i in keys:
 		marker_data[int(i)] = marker_data[i]
 		marker_data.erase(i)
+	for marker in marker_data: #upgrade paths from versions < 2.2
+		if marker_data[marker].size() < 4:
+			marker_data[marker].append(0)
 	bx.marker_data = marker_data
 	if marker_data.is_empty():
-		bx.marker_data[0] = [0, 0, 0]
+		bx.marker_data[0] = [0, 0, 0, 0]
 	bx.define_path(false)
 	bx.get_node('Markers').set_markers()
 	bx.get_node('Markers').connect_all_markers()
@@ -80,13 +83,13 @@ func set_config(section:String, key:String, value):
 func reset_config():
 	config.load(config_path)
 	config.clear()
-	config.set_value('user', 'version', '2.1')
+	config.set_value('user', 'version', '2.2')
 	config.save(config_path)
 
 func load_config() -> void:
 	config.load(config_path)
 	
-	if config.get_value('user', 'version', "") != '2.1':
+	if config.get_value('user', 'version', "") != '2.2':
 		reset_config()
 		await get_tree().create_timer(0.3).timeout
 		bx.get_node('Menu/Version/Button/Notification').show()
@@ -135,7 +138,9 @@ func load_config() -> void:
 		'Top Line',
 		'Top Active',
 		'Bottom Line',
-		'Bottom Active']:
+		'Bottom Active',
+		'Hold Breath Ball',
+		'Hold Breath Path']:
 		if config.has_section_key('colors', setting):
 			var color:Color = config.get_value('colors', setting)
 			match setting:
@@ -154,3 +159,7 @@ func load_config() -> void:
 					bx.bottom_color = color
 				'Bottom Active':
 					bx.bottom_color_active = color
+				'Hold Breath Ball':
+					bx.hold_breath_ball_color = color
+				'Hold Breath Path':
+					bx.hold_breath_path_color = color

@@ -1,7 +1,7 @@
 extends Control
 
 var marker_list:Dictionary
-var selected_marker:Node
+var selected_marker:Sprite2D
 
 @onready var menu = owner.get_node('MarkersMenu/HBox')
 @onready var frame_input = menu.get_node('Frame/Input')
@@ -12,6 +12,7 @@ var selected_marker:Node
 @onready var ease_down_input = menu.get_node('EaseDown')
 
 @onready var delete_button = menu.get_node('Delete')
+@onready var breath_button = menu.get_node('HoldBreath')
 
 func set_markers():
 	for node in marker_list.values():
@@ -23,11 +24,12 @@ func set_markers():
 			frame,
 			marker_data[frame][0],
 			marker_data[frame][1],
-			marker_data[frame][2])
+			marker_data[frame][2],
+			marker_data[frame][3])
 		connect_marker(frame)
 
-func add_marker(frame, depth, trans=null, ease=null):
-	var marker = $Marker.duplicate()
+func add_marker(frame, depth, trans=null, ease=null, auxiliary=null):
+	var marker:Sprite2D = $Marker.duplicate()
 	marker.show()
 	for node in marker_list.values():
 		if node.get_meta('frame') == frame:
@@ -37,6 +39,9 @@ func add_marker(frame, depth, trans=null, ease=null):
 		trans = owner.get_node('MarkersMenu/HBox/Trans').selected
 	if ease == null:
 		ease = owner.get_ease_direction(depth)
+	if auxiliary:
+		if int(auxiliary) & 1 << 0:
+			marker.self_modulate = Color.HOT_PINK
 	marker_list[frame] = marker
 	var marker_button = marker.get_node('Button')
 	marker_button.toggled.connect(marker_toggled.bind(marker))
@@ -83,8 +88,15 @@ func marker_toggled(button_pressed:bool, marker:Node):
 		ease_input.show()
 		ease_up_input.hide()
 		ease_down_input.hide()
+		breath_button.show()
 		
 		var frame = marker.get_meta('frame')
+		
+		if owner.marker_data[frame][3] == 1:
+			breath_button.set_pressed_no_signal(true)
+		else:
+			breath_button.set_pressed_no_signal(false)
+		
 		var index:int = get_marker_index(frame)
 		
 		if index != 0:
@@ -132,6 +144,7 @@ func marker_toggled(button_pressed:bool, marker:Node):
 		ease_input.hide()
 		ease_up_input.show()
 		ease_down_input.show()
+		breath_button.hide()
 		delete_button.hide()
 		selected_marker = null
 
@@ -272,8 +285,19 @@ func _on_up_easing_selected(index):
 func _on_down_easing_selected(index):
 	Data.set_config('easings', 'down', index)
 
+func _on_hold_breath_toggled(button_pressed):
+	if button_pressed:
+		selected_marker.self_modulate = Color.HOT_PINK
+	else:
+		selected_marker.self_modulate = Color.WHITE
+	var frame = selected_marker.get_meta('frame')
+	owner.marker_data[frame][3] = int(button_pressed)
+	Data.save_path()
+
 func _on_delete_pressed():
 	var frame:int = selected_marker.get_meta('frame')
+	if frame == 0:
+		return
 	clear_ahead(frame)
 	marker_list.erase(frame)
 	owner.marker_data.erase(frame)
