@@ -1276,7 +1276,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.2"
+text = "BounceX v2.2.1"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 

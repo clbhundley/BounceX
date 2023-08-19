@@ -333,6 +333,7 @@ func render():
 			var end_frame = marker_data.keys()[sequence[-1]]
 			aux_effects[section][start_frame] = end_frame - start_frame
 	
+	print("!=----- ",aux_effects)
 	if audio.playing:
 		audio.stop()
 	
@@ -457,13 +458,12 @@ func render():
 						var sample = flash_curve.sample(count)
 						var blend = ball_color_b.lerp(ball_color_a,sample)
 						render_ball.self_modulate = blend
-					else:
-						flash_frames = flash_total
-						active_effects.erase(effect)
 					if effect_time > 0:
 						active_effects[effect] -= 1
 					elif effect_time == 0:
 						$Path.self_modulate = line_color_a
+						flash_frames = flash_total
+						active_effects.erase(effect)
 			
 		await get_tree().process_frame
 		await get_tree().process_frame
