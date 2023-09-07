@@ -1,4 +1,4 @@
-[gd_scene load_steps=34 format=3 uid="uid://ddntuwjds6r37"]
+[gd_scene load_steps=37 format=3 uid="uid://ddntuwjds6r37"]
 
 [ext_resource type="Theme" uid="uid://4ddly4r83yek" path="res://Theme.tres" id="1_qtjw4"]
 [ext_resource type="Script" path="res://BounceX.gd" id="2_4ci4k"]
@@ -16,6 +16,7 @@
 [ext_resource type="Texture2D" uid="uid://bcdbk4tsjnisc" path="res://Textures/Square.svg" id="7_slea2"]
 [ext_resource type="Texture2D" uid="uid://c13twlshihhp5" path="res://Textures/Trash.svg" id="8_mcxme"]
 [ext_resource type="Texture2D" uid="uid://bmlus4dohtrmw" path="res://Textures/Gear.svg" id="8_o0vj8"]
+[ext_resource type="Texture2D" uid="uid://bgcpkp1078rc6" path="res://Textures/AddMarker.svg" id="11_5ucy7"]
 [ext_resource type="Texture2D" uid="uid://bius3v0napj7c" path="res://Textures/Ball.svg" id="12_freos"]
 [ext_resource type="Texture2D" uid="uid://cvdu2l73nu3mw" path="res://Textures/Key Map.svg" id="16_2degy"]
 [ext_resource type="Texture2D" uid="uid://4gt7poc6r8ta" path="res://Textures/Right Click.png" id="17_cvd54"]
@@ -24,28 +25,58 @@
 offsets = PackedFloat32Array(0, 0.5, 1)
 colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0)
 
+[sub_resource type="GDScript" id="GDScript_31oqs"]
+script/source = "extends MenuButton
+
+func _ready():
+	get_popup().connect(\"index_pressed\", item_pressed)
+	get_popup().hide_on_item_selection = false
+	get_popup().hide_on_checkable_item_selection = false
+
+func item_pressed(item:int):
+	var selected_marker = %Markers.selected_marker
+	if not selected_marker:
+		return
+	get_popup().toggle_item_checked(item)
+	var markers:Array
+	markers.append(selected_marker)
+	for marker in %Markers.selected_multi_markers:
+		markers.append(marker)
+	var active_functions:int
+	for index in get_popup().item_count:
+		if get_popup().is_item_checked(index):
+			active_functions += get_popup().get_item_id(index)
+	for marker in markers:
+		var marker_frame = marker.get_meta('frame')
+		owner.marker_data[marker_frame][3] = active_functions
+		if active_functions & 1 << 0:
+			marker.self_modulate = Color.HOT_PINK
+		else:
+			marker.self_modulate = Color.WHITE
+	Data.save_path()
+"
+
 [sub_resource type="GDScript" id="GDScript_4vcmm"]
 script/source = "extends VBoxContainer
-
-@onready var slider_large = owner.get_node('TrackSliderLarge')
 
 func _ready():
 	load_tracks()
 
 func _physics_process(delta):
 	if $AudioStreamPlayer.is_playing():
-		for slider in [$TrackSlider, slider_large]:
+		for slider in [$TrackSlider, %TrackSliderLarge]:
 			if slider.is_connected(\"value_changed\", scrub):
 				slider.disconnect(\"value_changed\",scrub)
 			var track_length = $AudioStreamPlayer.stream.get_length()
 			var playback_pos = $AudioStreamPlayer.get_playback_position()
 			var seconds = str(int(playback_pos) % 60).lpad(2, \"0\")
 			var minutes = str(int(playback_pos) / 60).lpad(2, \"0\")
-			slider_large.get_node('TrackTime').text = minutes + \":\" + seconds
+			var track_time:String = minutes + \":\" + seconds
+			%TrackSliderLarge.get_node('TrackTime').text = track_time
 			slider.set_value(playback_pos / track_length)
 
 func scrub(value):
-	for bar in [$TrackSlider, slider_large]:
+	for bar in [$TrackSlider, %TrackSliderLarge]:
 		if bar.value != value:
 			bar.value = value
 	var stream_length = $AudioStreamPlayer.stream.get_length()
@@ -60,16 +91,15 @@ func scrub(value):
 		$AudioStreamPlayer.stream_paused = true
 	else:
 		$AudioStreamPlayer.seek(stream_position)
-	owner.frame = ceil((owner.path.size() - 1) * value)# * 0.5
+	owner.frame = round((owner.path.size() - 1) * value)# * 0.5
 	owner.get_node('Markers').position_markers()
 	var seconds = str(int(stream_position) % 60).lpad(2, \"0\")
 	var minutes = str(int(stream_position) / 60).lpad(2, \"0\")
-	slider_large.get_node('TrackTime').text = minutes + \":\" + seconds
+	%TrackSliderLarge.get_node('TrackTime').text = minutes + \":\" + seconds
 	if sign(owner.path[owner.frame]) > -1:
-		owner.toggle_path_visible(true)
 		owner.place_ball(owner.path[owner.frame])
 	elif $Paths.is_anything_selected():
-		owner.toggle_path_visible(false)
+		owner.toggle_ball_visible(false)
 
 func _on_track_selection_toggled(button_pressed):
 	if button_pressed:
@@ -114,12 +144,13 @@ func load_paths(track_title:String, scrub:=false) -> void:
 func _on_track_selected(index):
 	var track_name = $TrackSelection.get_item_text(index)
 	$AudioStreamPlayer.stream = load('res://Tracks/' + track_name)
-	for slider in [$TrackSlider, slider_large]:
+	for slider in [$TrackSlider, %TrackSliderLarge]:
 		slider.editable = true
-	slider_large.show()
+	%TrackSliderLarge.show()
 	$TrackControls/Play.button_pressed = false
 	$TrackControls/Play.disabled = false
 	$TrackControls/Play/Icon.self_modulate.a = 1
+	owner.get_node('MarkersMenu/HBox/AddMarker').show()
 	$Record.disabled = false
 	var dir := DirAccess.open('user://Paths')
 	if not dir.dir_exists(track_name):
@@ -137,7 +168,7 @@ func _on_path_selected(index):
 		markers.marker_toggled(false, markers.selected_marker)
 	if index == last_path_index:
 		unload_all()
-		owner.marker_data[0] = [0, 0, 0]
+		owner.marker_data[0] = [0, 0, 0, 0]
 		markers.add_marker(0, 0)
 		last_path_index = -1
 	else:
@@ -179,10 +210,8 @@ func _on_paths_item_clicked(index, at_position, mouse_button_index):
 [sub_resource type="GDScript" id="GDScript_ap78a"]
 script/source = "extends HBoxContainer
 
-@onready var audio = get_node('../AudioStreamPlayer')
-
-const small := Vector2(0.9, 0.9)
-const normal := Vector2(1, 1)
+const size_small := Vector2(0.9, 0.9)
+const size_normal := Vector2(1, 1)
 
 func _ready():
 	$Play.self_modulate.a = 0
@@ -195,8 +224,8 @@ func _on_play_toggled(button_pressed):
 		$Pause.disabled = false
 		$Pause.button_pressed = false
 		$Pause/Icon.self_modulate.a = 1
-		$Pause/Icon.scale = normal
-		owner.play_button.button_pressed = true
+		$Pause/Icon.scale = size_normal
+		$Play.button_pressed = true
 	else:
 		$Play.disabled = false
 		$Play.self_modulate.a = 0
@@ -206,29 +235,28 @@ func _on_pause_toggled(button_pressed):
 		$Pause.disabled = true
 		$Pause.self_modulate.a = 1
 		$Play.button_pressed = false
-		audio.stream_paused = true
-		$Play/Icon.scale = normal
-		owner.toggle_path_visible(true)
-		owner.play_button.button_pressed = false
+		%AudioStreamPlayer.stream_paused = true
+		$Play/Icon.scale = size_normal
+		$Play.button_pressed = false
 	else:
 		$Pause.disabled = false
 		$Pause.self_modulate.a = 0
 
 func _on_play_mouse_entered():
 	if not $Play.disabled and not $Play.button_pressed:
-		$Play/Icon.scale = small
+		$Play/Icon.scale = size_small
 
 func _on_play_mouse_exited():
 	if not $Play.disabled:
-		$Play/Icon.scale = normal
+		$Play/Icon.scale = size_normal
 
 func _on_pause_mouse_entered():
 	if not $Pause.disabled and not $Pause.button_pressed:
-		$Pause/Icon.scale = small
+		$Pause/Icon.scale = size_small
 
 func _on_pause_mouse_exited():
 	if not $Pause.disabled:
-		$Pause/Icon.scale = normal
+		$Pause/Icon.scale = size_normal
 "
 
 [sub_resource type="GDScript" id="GDScript_snsh4"]
@@ -277,8 +305,6 @@ func _on_delete_confirmed():
 
 [sub_resource type="GDScript" id="GDScript_kde6i"]
 script/source = "extends VBoxContainer
-
-@onready var colors:Node = get_node('../Colors')
 
 func _ready():
 	var config:ConfigFile = Data.config
@@ -337,6 +363,7 @@ func _on_path_fade_value_changed(value):
 	Data.set_config('path', 'path_fade', value)
 
 func _on_change_colors_pressed():
+	var colors:Node = get_node('../Colors')
 	colors.get_node('TabBar').current_tab = 0
 	colors._on_tab_bar_tab_changed(0)
 	colors.show()
@@ -388,19 +415,17 @@ func _ready():
 	match DisplayServer.window_get_mode():
 		DisplayServer.WINDOW_MODE_WINDOWED:
 			$OptionButton.select(0)
-		DisplayServer.WINDOW_MODE_FULLSCREEN:
-			$OptionButton.select(1)
 		DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
-			$OptionButton.select(2)
+			$OptionButton.select(1)
 
 func _on_option_button_item_selected(index):
+	var display_mode:int
 	match index:
 		0:
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+			display_mode = DisplayServer.WINDOW_MODE_WINDOWED
 		1:
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
-		2:
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
+			display_mode = DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
+	DisplayServer.window_set_mode(display_mode)
 	Data.set_config('user', 'display_mode', index)
 "
 
@@ -411,7 +436,10 @@ var selected:Node
 
 func _on_color_picker_color_changed(color):
 	match $TabBar.current_tab:
-		0, 2:
+		0:
+			owner.toggle_ball_visible(true)
+			selected.set_self_modulate(color)
+		2:
 			selected.set_self_modulate(color)
 		1:
 			selected.set_self_modulate(color)
@@ -421,13 +449,16 @@ func _on_color_picker_color_changed(color):
 			selected.set_self_modulate(color)
 			owner.top_color = color
 		4:
+			selected.set_self_modulate(color)
 			owner.top_color_active = color
 		5:
 			selected.set_self_modulate(color)
 			owner.bottom_color = color
 		6:
+			selected.set_self_modulate(color)
 			owner.bottom_color_active = color
 		7:
+			owner.toggle_ball_visible(true)
 			selected.set_self_modulate(color)
 			owner.hold_breath_ball_color = color
 		8:
@@ -435,19 +466,6 @@ func _on_color_picker_color_changed(color):
 			owner.hold_breath_path_color = color
 	var title = $TabBar.get_tab_title($TabBar.current_tab)
 	Data.set_config('colors', title, color)
-
-func _on_done_pressed():
-	var ball_color = Data.config.get_value('colors', 'Ball', Color.WHITE)
-	var path_color = Data.config.get_value('colors', 'Path', Color.WHITE)
-	owner.get_node('Ball').self_modulate = ball_color
-	change_path_color(path_color)
-	get_node('../Options').show()
-	hide()
-
-func change_path_color(input_color:Color):
-	owner.get_node('Path').self_modulate = input_color
-	for node in get_tree().get_nodes_in_group('lines'):
-		node.set_self_modulate(input_color)
 
 func _on_tab_bar_tab_changed(tab):
 	var selected_color:Color
@@ -480,6 +498,23 @@ func _on_tab_bar_tab_changed(tab):
 			selected = owner.get_node('Path')
 			selected_color = owner.hold_breath_path_color
 	$ColorPicker.color = selected_color
+
+func change_path_color(input_color:Color):
+	owner.get_node('Path').self_modulate = input_color
+	for node in get_tree().get_nodes_in_group('lines'):
+		node.set_self_modulate(input_color)
+
+func _on_done_pressed():
+	hide()
+
+func _on_visibility_changed():
+	if not is_visible_in_tree():
+		var ball_color = Data.config.get_value('colors', 'Ball', Color.WHITE)
+		var path_color = Data.config.get_value('colors', 'Path', Color.WHITE)
+		owner.get_node('Ball').self_modulate = ball_color
+		owner.toggle_ball_visible(false)
+		change_path_color(path_color)
+		get_node('../Options').show()
 "
 
 [sub_resource type="GDScript" id="GDScript_a4j0w"]
@@ -542,7 +577,6 @@ func _on_toggled(button_pressed):
 		owner.get_node('Menu/Colors').hide()
 		owner.get_node('Menu/Options').hide()
 		owner.get_node('Menu/Controls').show()
-
 "
 
 [sub_resource type="GDScript" id="GDScript_8l1ut"]
@@ -589,7 +623,6 @@ func _on_toggled(button_pressed):
 		self_modulate = '00a86b'
 		if get_node('../OptionsButton').toggled:
 			get_node('../OptionsButton').button_pressed = false
-		owner.get_node('Menu/Colors').hide()
 		tween.tween_callback(ui_mouse_filter.bind(true)).set_delay(0.3)
 	else:
 		for node in [get_node('../Record'), get_node('../Play')]:
@@ -599,7 +632,9 @@ func _on_toggled(button_pressed):
 		exit_pos = 0
 		alpha = 0
 		self_modulate = '74ffffa1'
+		owner.input_disabled = false
 		tween.tween_callback(ui_mouse_filter.bind(false)).set_delay(0.3)
+		tween.tween_callback(owner.get_node('Menu/Colors').hide).set_delay(0.3)
 	tween.tween_property(menu, 'position:x', menu_pos, 0.25)
 	tween.tween_property(options_button, 'position:x', options_pos, 0.3)
 	tween.tween_property(options_button, 'modulate:a', alpha, 0.3)
@@ -613,6 +648,18 @@ func ui_mouse_filter(active:bool) -> void:
 	else:
 		options_button.mouse_filter = MOUSE_FILTER_IGNORE
 		exit_button.mouse_filter = MOUSE_FILTER_IGNORE
+"
+
+[sub_resource type="GDScript" id="GDScript_8wusr"]
+script/source = "extends ConfirmationDialog
+
+func _on_about_to_popup():
+	$HBox/Start/SpinBox.value = owner.frame
+	$HBox/End/SpinBox.max_value = owner.path.size()
+	$HBox/End/SpinBox.value = owner.path.size()
+
+func _on_confirmed():
+	owner.render($HBox/Start/SpinBox.value, $HBox/End/SpinBox.value)
 "
 
 [sub_resource type="GDScript" id="GDScript_xak41"]
@@ -693,6 +740,7 @@ expand_mode = 1
 stretch_mode = 1
 
 [node name="Markers" type="Control" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -732,7 +780,6 @@ stretch_mode = 4
 
 [node name="Selected" type="TextureRect" parent="Markers/Marker/Button"]
 visible = false
-self_modulate = Color(0.498039, 1, 0.831373, 1)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -775,9 +822,10 @@ offset_top = -20.0
 offset_right = 883.0
 offset_bottom = 20.0
 grow_vertical = 2
-theme_override_constants/separation = 18
+theme_override_constants/separation = 15
 
 [node name="Trans" type="OptionButton" parent="MarkersMenu/HBox"]
+custom_minimum_size = Vector2(98, 0)
 layout_mode = 2
 focus_mode = 0
 item_count = 11
@@ -807,6 +855,7 @@ popup/item_10/id = 10
 
 [node name="Ease" type="OptionButton" parent="MarkersMenu/HBox"]
 visible = false
+custom_minimum_size = Vector2(141, 0)
 layout_mode = 2
 focus_mode = 0
 item_count = 4
@@ -821,6 +870,7 @@ popup/item_3/text = "Ease Out/In"
 popup/item_3/id = 3
 
 [node name="EaseUp" type="OptionButton" parent="MarkersMenu/HBox"]
+custom_minimum_size = Vector2(175, 0)
 layout_mode = 2
 focus_mode = 0
 item_count = 4
@@ -835,6 +885,7 @@ popup/item_3/text = "Ease Up Out/In"
 popup/item_3/id = 3
 
 [node name="EaseDown" type="OptionButton" parent="MarkersMenu/HBox"]
+custom_minimum_size = Vector2(204, 0)
 layout_mode = 2
 focus_mode = 0
 item_count = 4
@@ -848,11 +899,38 @@ popup/item_2/id = 2
 popup/item_3/text = "Ease Down Out/In"
 popup/item_3/id = 3
 
-[node name="HoldBreath" type="CheckBox" parent="MarkersMenu/HBox"]
+[node name="AuxiliaryFunctions" type="MenuButton" parent="MarkersMenu/HBox"]
 visible = false
+custom_minimum_size = Vector2(106, 0)
 layout_mode = 2
-focus_mode = 0
-text = "Hold Breath"
+text = "Functions"
+flat = false
+item_count = 8
+popup/item_0/text = "Hold Breath"
+popup/item_0/checkable = 1
+popup/item_0/id = 1
+popup/item_1/text = "Function 2"
+popup/item_1/checkable = 1
+popup/item_1/id = 2
+popup/item_2/text = "Function 3"
+popup/item_2/checkable = 1
+popup/item_2/id = 4
+popup/item_3/text = "Function 4"
+popup/item_3/checkable = 1
+popup/item_3/id = 8
+popup/item_4/text = "Function 5"
+popup/item_4/checkable = 1
+popup/item_4/id = 16
+popup/item_5/text = "Function 6"
+popup/item_5/checkable = 1
+popup/item_5/id = 32
+popup/item_6/text = "Function 7"
+popup/item_6/checkable = 1
+popup/item_6/id = 64
+popup/item_7/text = "Function 8"
+popup/item_7/checkable = 1
+popup/item_7/id = 128
+script = SubResource("GDScript_31oqs")
 
 [node name="Frame" type="HBoxContainer" parent="MarkersMenu/HBox"]
 layout_mode = 2
@@ -883,42 +961,11 @@ layout_mode = 2
 focus_mode = 0
 texture_normal = ExtResource("8_mcxme")
 
-[node name="Panel" type="Panel" parent="MarkersMenu"]
+[node name="AddMarker" type="TextureButton" parent="MarkersMenu/HBox"]
 visible = false
-layout_mode = 0
-offset_left = 36.0
-offset_top = 57.0
-offset_right = 260.0
-offset_bottom = 85.0
-
-[node name="HBoxContainer" type="HBoxContainer" parent="MarkersMenu/Panel"]
-layout_mode = 0
-offset_left = 6.0
-offset_top = 6.0
-offset_right = 218.0
-offset_bottom = 22.0
-theme_override_constants/separation = 12
-
-[node name="CheckBox2" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
 layout_mode = 2
-
-[node name="CheckBox3" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
-layout_mode = 2
-
-[node name="CheckBox4" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
-layout_mode = 2
-
-[node name="CheckBox5" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
-layout_mode = 2
-
-[node name="CheckBox6" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
-layout_mode = 2
-
-[node name="CheckBox7" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
-layout_mode = 2
-
-[node name="CheckBox8" type="CheckBox" parent="MarkersMenu/Panel/HBoxContainer"]
-layout_mode = 2
+focus_mode = 0
+texture_normal = ExtResource("11_5ucy7")
 
 [node name="Menu" type="Panel" parent="."]
 layout_mode = 1
@@ -929,6 +976,7 @@ grow_vertical = 2
 metadata/_edit_use_anchors_ = true
 
 [node name="Controls" type="VBoxContainer" parent="Menu"]
+unique_name_in_owner = true
 layout_mode = 2
 offset_left = 9.0
 offset_top = 71.0
@@ -940,14 +988,8 @@ theme_override_constants/separation = 12
 script = SubResource("GDScript_4vcmm")
 metadata/_edit_use_anchors_ = true
 
-[node name="KeyMap" type="Button" parent="Menu/Controls"]
-visible = false
-layout_mode = 2
-focus_mode = 0
-text = "Show Key Map"
-alignment = 0
-
 [node name="Record" type="Button" parent="Menu/Controls"]
+unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 disabled = true
@@ -966,6 +1008,7 @@ alignment = 0
 layout_mode = 2
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="Menu/Controls"]
+unique_name_in_owner = true
 
 [node name="TrackSelection" type="OptionButton" parent="Menu/Controls"]
 layout_mode = 2
@@ -980,6 +1023,7 @@ alignment = 1
 script = SubResource("GDScript_ap78a")
 
 [node name="Play" type="TextureButton" parent="Menu/Controls/TrackControls"]
+unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 disabled = true
@@ -1006,6 +1050,7 @@ texture = ExtResource("4_tyhll")
 stretch_mode = 3
 
 [node name="Pause" type="TextureButton" parent="Menu/Controls/TrackControls"]
+unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 disabled = true
@@ -1215,13 +1260,12 @@ horizontal_alignment = 1
 [node name="OptionButton" type="OptionButton" parent="Menu/Options/DisplayMode"]
 layout_mode = 2
 focus_mode = 0
-item_count = 3
+item_count = 2
+selected = 1
 popup/item_0/text = "Windowed"
 popup/item_0/id = 0
-popup/item_1/text = "Fullscreen"
+popup/item_1/text = "Exclusive Fullscreen"
 popup/item_1/id = 1
-popup/item_2/text = "Exclusive Fullscreen"
-popup/item_2/id = 2
 
 [node name="Colors" type="VBoxContainer" parent="Menu"]
 visible = false
@@ -1233,8 +1277,15 @@ offset_right = 295.0
 offset_bottom = 770.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/separation = 5
 script = SubResource("GDScript_ywdvr")
 metadata/_edit_use_anchors_ = true
+
+[node name="Done" type="Button" parent="Menu/Colors"]
+layout_mode = 2
+focus_mode = 0
+text = "Done"
+alignment = 0
 
 [node name="TabBar" type="TabBar" parent="Menu/Colors"]
 layout_mode = 2
@@ -1248,19 +1299,6 @@ tab_5/title = "Bottom Line"
 tab_6/title = "Bottom Active"
 tab_7/title = "Hold Breath Ball"
 tab_8/title = "Hold Breath Path"
-
-[node name="Done" type="Button" parent="Menu/Colors"]
-layout_mode = 2
-focus_mode = 0
-text = "Done"
-alignment = 0
-
-[node name="Cancel" type="Button" parent="Menu/Colors"]
-visible = false
-layout_mode = 2
-focus_mode = 0
-text = "Cancel"
-alignment = 0
 
 [node name="ColorPicker" type="ColorPicker" parent="Menu/Colors"]
 layout_mode = 2
@@ -1276,7 +1314,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.2.1"
+text = "BounceX v2.2.2"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 
@@ -1432,6 +1470,7 @@ offset_right = 147.5
 offset_bottom = 41.5
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
 [node name="Label" type="Label" parent="Header/Record"]
 layout_mode = 1
@@ -1461,6 +1500,7 @@ offset_top = -10.5
 offset_bottom = 10.5
 grow_horizontal = 0
 grow_vertical = 2
+mouse_filter = 2
 texture = ExtResource("3_mj5xg")
 
 [node name="Play" type="Control" parent="Header"]
@@ -1473,6 +1513,7 @@ offset_right = 161.0
 offset_bottom = 41.5
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
 [node name="Label" type="Label" parent="Header/Play"]
 layout_mode = 1
@@ -1502,9 +1543,11 @@ offset_top = -10.5
 offset_bottom = 10.5
 grow_horizontal = 0
 grow_vertical = 2
+mouse_filter = 2
 texture = ExtResource("4_xkljy")
 
 [node name="TrackSliderLarge" type="HSlider" parent="."]
+unique_name_in_owner = true
 visible = false
 layout_mode = 1
 anchors_preset = 7
@@ -1534,6 +1577,51 @@ offset_right = 27.5
 offset_bottom = 4.0
 grow_horizontal = 2
 text = "00:00"
+
+[node name="RenderRange" type="ConfirmationDialog" parent="."]
+title = "Render Range:"
+size = Vector2i(330, 122)
+exclusive = false
+dialog_close_on_escape = false
+script = SubResource("GDScript_8wusr")
+
+[node name="HBox" type="HBoxContainer" parent="RenderRange"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 322.0
+offset_bottom = 77.0
+theme_override_constants/separation = 172
+
+[node name="Start" type="Control" parent="RenderRange/HBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="RenderRange/HBox/Start"]
+layout_mode = 2
+offset_right = 458.0
+offset_bottom = 27.0
+text = "Starting Frame:"
+
+[node name="SpinBox" type="SpinBox" parent="RenderRange/HBox/Start"]
+layout_mode = 2
+offset_top = 31.0
+offset_right = 150.0
+offset_bottom = 62.0
+
+[node name="End" type="Control" parent="RenderRange/HBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="RenderRange/HBox/End"]
+layout_mode = 2
+offset_right = 458.0
+offset_bottom = 27.0
+text = "Ending Frame:"
+
+[node name="SpinBox" type="SpinBox" parent="RenderRange/HBox/End"]
+layout_mode = 2
+offset_top = 31.0
+offset_right = 150.0
+offset_bottom = 62.0
+max_value = 1e+07
 
 [node name="RenderComplete" type="AcceptDialog" parent="."]
 title = "Render Complete!"
@@ -1600,13 +1688,15 @@ metadata/_edit_use_anchors_ = true
 [node name="VBoxContainer" type="VBoxContainer" parent="InfoPanel"]
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.626736
-anchor_top = 0.623457
+anchor_left = 0.607035
+anchor_top = 0.590592
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = -0.304138
+offset_top = 0.296143
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 25
+theme_override_constants/separation = 22
 metadata/_edit_use_anchors_ = true
 
 [node name="Label" type="Label" parent="InfoPanel/VBoxContainer"]
@@ -1616,13 +1706,21 @@ should be played at 60 FPS"
 
 [node name="Label2" type="Label" parent="InfoPanel/VBoxContainer"]
 layout_mode = 2
-text = "Renders have a small spacer at the start, so make sure to adjust the timing in your video editor."
+text = "Renders have a small spacer at the start. Make sure to adjust the timing in your video editor."
 autowrap_mode = 3
 
 [node name="Label3" type="Label" parent="InfoPanel/VBoxContainer"]
 layout_mode = 2
 text = "You can switch windows while rendering"
 autowrap_mode = 3
+
+[node name="Label4" type="Label" parent="InfoPanel/VBoxContainer"]
+layout_mode = 2
+text = "Smaller render size = faster renders, so trim down unused vertical space in your render resolution"
+autowrap_mode = 3
+
+[node name="Timer" type="Timer" parent="."]
+wait_time = 1.1
 
 [connection signal="gui_input" from="." to="." method="_on_gui_input"]
 [connection signal="resized" from="." to="." method="update_display"]
@@ -1632,7 +1730,6 @@ autowrap_mode = 3
 [connection signal="item_selected" from="MarkersMenu/HBox/Ease" to="Markers" method="_on_easing_selected"]
 [connection signal="item_selected" from="MarkersMenu/HBox/EaseUp" to="Markers" method="_on_up_easing_selected"]
 [connection signal="item_selected" from="MarkersMenu/HBox/EaseDown" to="Markers" method="_on_down_easing_selected"]
-[connection signal="toggled" from="MarkersMenu/HBox/HoldBreath" to="Markers" method="_on_hold_breath_toggled"]
 [connection signal="mouse_entered" from="MarkersMenu/HBox/Frame/Input" to="Markers" method="_on_input_mouse_entered"]
 [connection signal="mouse_exited" from="MarkersMenu/HBox/Frame/Input" to="Markers" method="_on_input_mouse_exited"]
 [connection signal="value_changed" from="MarkersMenu/HBox/Frame/Input" to="Markers" method="_on_frame_value_changed"]
@@ -1642,7 +1739,9 @@ autowrap_mode = 3
 [connection signal="mouse_entered" from="MarkersMenu/HBox/Delete" to="Markers" method="_on_delete_mouse_entered"]
 [connection signal="mouse_exited" from="MarkersMenu/HBox/Delete" to="Markers" method="_on_delete_mouse_exited"]
 [connection signal="pressed" from="MarkersMenu/HBox/Delete" to="Markers" method="_on_delete_pressed"]
-[connection signal="pressed" from="Menu/Controls/KeyMap" to="." method="_on_render_pressed"]
+[connection signal="mouse_entered" from="MarkersMenu/HBox/AddMarker" to="Markers" method="_on_add_marker_mouse_entered"]
+[connection signal="mouse_exited" from="MarkersMenu/HBox/AddMarker" to="Markers" method="_on_add_marker_mouse_exited"]
+[connection signal="pressed" from="MarkersMenu/HBox/AddMarker" to="Markers" method="_on_add_marker_pressed"]
 [connection signal="toggled" from="Menu/Controls/Record" to="." method="_on_record_toggled"]
 [connection signal="pressed" from="Menu/Controls/Render" to="." method="_on_render_pressed"]
 [connection signal="item_selected" from="Menu/Controls/TrackSelection" to="Menu/Controls" method="_on_track_selected"]
@@ -1674,9 +1773,9 @@ autowrap_mode = 3
 [connection signal="pressed" from="Menu/Options/OpenRenders" to="Menu/Options" method="_on_open_renders_pressed"]
 [connection signal="pressed" from="Menu/Options/OpenPaths" to="Menu/Options" method="_on_open_paths_pressed"]
 [connection signal="item_selected" from="Menu/Options/DisplayMode/OptionButton" to="Menu/Options/DisplayMode" method="_on_option_button_item_selected"]
-[connection signal="tab_changed" from="Menu/Colors/TabBar" to="Menu/Colors" method="_on_tab_bar_tab_changed"]
+[connection signal="visibility_changed" from="Menu/Colors" to="Menu/Colors" method="_on_visibility_changed"]
 [connection signal="pressed" from="Menu/Colors/Done" to="Menu/Colors" method="_on_done_pressed"]
-[connection signal="pressed" from="Menu/Colors/Cancel" to="Menu/Colors" method="_on_cancel_pressed"]
+[connection signal="tab_changed" from="Menu/Colors/TabBar" to="Menu/Colors" method="_on_tab_bar_tab_changed"]
 [connection signal="color_changed" from="Menu/Colors/ColorPicker" to="Menu/Colors" method="_on_color_picker_color_changed"]
 [connection signal="mouse_entered" from="Menu/Version/Button" to="Menu/Version/Button" method="_on_mouse_entered"]
 [connection signal="mouse_exited" from="Menu/Version/Button" to="Menu/Version/Button" method="_on_mouse_exited"]
@@ -1692,5 +1791,7 @@ autowrap_mode = 3
 [connection signal="toggled" from="Header/MenuButton" to="Header/MenuButton" method="_on_toggled"]
 [connection signal="gui_input" from="TrackSliderLarge" to="Menu/Controls" method="_on_track_slider_gui_input"]
 [connection signal="value_changed" from="TrackSliderLarge" to="Menu/Controls" method="scrub"]
+[connection signal="about_to_popup" from="RenderRange" to="RenderRange" method="_on_about_to_popup"]
+[connection signal="confirmed" from="RenderRange" to="RenderRange" method="_on_confirmed"]
 [connection signal="custom_action" from="RenderComplete" to="RenderComplete" method="_on_custom_action"]
 [connection signal="pressed" from="InfoPanel/Button" to="InfoPanel/Button" method="_on_pressed"]

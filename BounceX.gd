@@ -12,11 +12,6 @@ var bottom_color_active:Color = Color.CORAL
 var hold_breath_ball_color:Color = Color.DEEP_PINK
 var hold_breath_path_color:Color = Color.PINK
 
-@onready var audio = $Menu/Controls/AudioStreamPlayer
-@onready var track_slider = $Menu/Controls/TrackSlider
-@onready var play_button = $Menu/Controls/TrackControls/Play
-@onready var record_button = $Menu/Controls/Record
-
 var path:PackedFloat32Array
 var path_max_length:int
 var path_speed:float
@@ -35,35 +30,37 @@ func _ready():
 	$Path.gradient.offsets[1] = 1
 	$Path.width = $Menu/Options/PathThickness.value
 	$Menu.self_modulate.a = 1.65
+	toggle_ball_visible(false)
 	update_display()
 
 func _physics_process(delta):
-	if play_button.button_pressed:
-		if not audio.stream_paused:
+	if %Play.button_pressed:
+		if not %AudioStreamPlayer.stream_paused:
 			if frame+1 < path.size() - 1:
 				if sign(path[frame+1]) > -1:
 					place_ball(path[frame+1])
-					toggle_path_visible(true)
+					toggle_ball_visible(true)
 				elif $Menu/Controls/Paths.is_anything_selected():
-					if not record_button.button_pressed:
-						toggle_path_visible(false)
-				if not record_button.button_pressed:
+					if not %Record.button_pressed:
+						toggle_ball_visible(false)
+				if not %Record.button_pressed:
 					frame += 1
 				if $Markers.is_visible_in_tree():
 					$Markers.position.x -= path_speed
 			else:
-				play_button.button_pressed = false
+				%Play.button_pressed = false
 				$Header/Play.hide()
 				$Header/Record.hide()
-	line_colors($Ball, frame)
+	if not $Menu/Colors.is_visible_in_tree():
+		line_colors($Ball, frame)
 	$Path.add_point(Vector2($Ball.position.x + step, $Ball.position.y))
 	$Path.position.x -= 1 * path_speed
 	step += 1 * path_speed
-	if record_button.button_pressed:
+	if %Record.button_pressed:
 		if frame < path.size() - 1:
 			frame += 1
 		else:
-			record_button.button_pressed = false
+			%Record.button_pressed = false
 	while $Path.get_point_count() > path_max_length:
 		$Path.remove_point(0)
 
@@ -81,7 +78,7 @@ func line_colors(ball:Sprite2D, point:int) -> void:
 		$BottomLine.self_modulate = bottom_color
 
 func define_path(set_ball_pos := true):
-	var frames = ceil(audio.stream.get_length() * 60)
+	var frames = ceil(%AudioStreamPlayer.stream.get_length() * 60)
 	path.clear()
 	for i in frames:
 		path.append(-1)
@@ -90,18 +87,6 @@ func define_path(set_ball_pos := true):
 		var ball_pos = clamp(($Ball.position.y - BOTTOM) / (TOP - BOTTOM), 0, 1)
 		set_ball_depth(ball_pos)
 
-func get_ball_depth() -> float:
-	return abs(($Ball.position.y - BOTTOM) / (TOP - BOTTOM))
-
-func place_ball(depth:float) -> void:
-	$Ball.position.y = BOTTOM + depth * (TOP - BOTTOM)
-
-func set_pos(y_pos) -> void:
-	if not record_button.button_pressed:
-		return
-	var depth = clamp((y_pos - BOTTOM) / (TOP - BOTTOM), 0, 1)
-	set_ball_depth(depth)
-
 func get_ease_direction(depth) -> int:
 	var ease:int
 	if depth >= get_ball_depth():
@@ -109,57 +94,101 @@ func get_ease_direction(depth) -> int:
 	else:
 		return $MarkersMenu/HBox/EaseDown.selected
 
+func toggle_ball_visible(toggled:bool) -> void:
+	$Ball.modulate.a = max(float(toggled), 0.3)
+
+func get_ball_depth() -> float:
+	return abs(($Ball.position.y - BOTTOM) / (TOP - BOTTOM))
+
 func set_ball_depth(depth:float) -> void:
 	var easing = get_ease_direction(depth)
 	marker_data[frame] = [depth, $MarkersMenu/HBox/Trans.selected, easing, 0]
 	$Markers.add_marker(frame, depth)
 	$Markers.connect_marker(frame)
-	if record_button.button_pressed and $Header/MenuButton.button_pressed:
+	if %Record.button_pressed and $Header/MenuButton.button_pressed:
 		$Header/MenuButton.button_pressed = false
 	place_ball(depth)
 
-func _on_gui_input(event):
-	if not record_button.button_pressed:
-		if audio.stream and event is InputEventMouseMotion:
-			if event.button_mask & MOUSE_BUTTON_LEFT:
-				connect_sliders_signal()
-				var min = $TrackSliderLarge.min_value
-				var max = $TrackSliderLarge.max_value
-				var value = $TrackSliderLarge.value - event.relative.x * 0.00005
-				$TrackSliderLarge.value = clamp(value, min, max)
-	elif event is InputEventMouseButton and event.is_pressed():
-		if event.button_mask & MOUSE_BUTTON_LEFT:
-			set_pos(event.position.y)
+func place_ball(depth:float) -> void:
+	$Ball.position.y = BOTTOM + depth * (TOP - BOTTOM)
+
+func frame_scrub(frame_movement:float) -> void:
+	connect_sliders_signal()
+	frame = clamp(frame - frame_movement, 0, path.size() - 10)
+	if sign(path[frame+1]) > -1:
+		place_ball(path[frame+1])
+	$Markers.position.x += path_speed * frame_movement
+	%Controls.scrub(frame / float(path.size() - 1))
+	var slider = $TrackSliderLarge
+	if slider.is_connected("value_changed", %Controls.scrub):
+		slider.disconnect("value_changed", %Controls.scrub)
+	var track_length = %AudioStreamPlayer.stream.get_length()
+	var playback_pos = %AudioStreamPlayer.get_playback_position()
+	var seconds = str(int(playback_pos) % 60).lpad(2, "0")
+	var minutes = str(int(playback_pos) / 60).lpad(2, "0")
+	slider.get_node('TrackTime').text = minutes + ":" + seconds
+	slider.set_value(playback_pos / track_length)
+
+const MOUSE_WHEEL_ACCELERATOR:int = 5
+const DRAG_RESISTANCE:float = 4
+
+var shift_pressed:bool
+var control_pressed:bool
 
 var input_disabled:bool
+
+func _on_gui_input(event):
+	if input_disabled: return
+	if not %Record.button_pressed and %AudioStreamPlayer.stream:
+		if event.is_action_pressed('mouse_wheel_up'):
+			if $Markers.selected_marker:
+				$MarkersMenu/HBox/Frame/Input.value -= 1
+			else:
+				frame_scrub(MOUSE_WHEEL_ACCELERATOR if shift_pressed else 1)
+		elif event.is_action_pressed('mouse_wheel_down'):
+			if $Markers.selected_marker:
+				$MarkersMenu/HBox/Frame/Input.value += 1
+			else:
+				frame_scrub(-MOUSE_WHEEL_ACCELERATOR if shift_pressed else -1)
+		elif event is InputEventMouseMotion:
+			if event.button_mask & MOUSE_BUTTON_LEFT:
+				frame_scrub(event.relative.x / DRAG_RESISTANCE)
+	elif event is InputEventMouseButton and event.is_pressed():
+		if event.button_mask & MOUSE_BUTTON_LEFT and %Record.button_pressed:
+			var depth = (event.position.y - BOTTOM) / (TOP - BOTTOM)
+			set_ball_depth(clamp(depth, 0, 1))
+
 func _input(event):
-	if input_disabled:
-		return
-	elif event.is_action_pressed("record") and audio.stream:
-		if record_button.button_pressed:
-			record_button.button_pressed = false
-		else:
-			record_button.button_pressed = true
+	if input_disabled: return
+	elif event.is_action_pressed("record") and %AudioStreamPlayer.stream:
+		%Record.button_pressed = !%Record.button_pressed
 	elif event.is_action_pressed("cancel"):
-		if record_button.button_pressed:
-			record_button.set_pressed_no_signal(false)
+		if %Record.button_pressed:
+			%Record.button_pressed = false
 			$Header/Record.hide()
-		play_button.button_pressed = false
-	elif event.is_action_pressed("play") and audio.stream:
-		if record_button.button_pressed:
-			record_button.button_pressed = false
-		elif play_button.button_pressed:
-			play_button.button_pressed = false
 		else:
-			play_button.button_pressed = true
+			%Play.button_pressed = false
+	elif event.is_action_pressed("play") and %AudioStreamPlayer.stream:
+		if %Record.button_pressed:
+			%Record.button_pressed = false
+		else:
+			%Play.button_pressed = !%Play.button_pressed
 	elif event.is_action_pressed("restart"):
-		if audio.has_stream_playback():
+		if %AudioStreamPlayer.has_stream_playback():
 			$Menu/Controls.scrub(0)
-	elif event.is_action_pressed("render") and not play_button.button_pressed:
+	elif event.is_action_pressed("render") and not %Play.button_pressed:
 		if not $Menu/Controls/Render.disabled:
 			_on_render_pressed()
 	elif event.is_action_pressed("menu"):
 		$Header/MenuButton.button_pressed = !$Header/MenuButton.button_pressed
+	elif event.is_action_pressed('shift'):
+		shift_pressed = true
+	elif event.is_action_released('shift'):
+		shift_pressed = false
+	elif event.is_action_pressed('control'):
+		control_pressed = true
+	elif event.is_action_released('control'):
+		control_pressed = false
 	for position_number in 11:
 		if event.is_action_pressed('p' + str(position_number)):
 			position_input(int(str(position_number).lstrip('p')))
@@ -171,7 +200,7 @@ func _input(event):
 			trans_input(trans_number)
 
 func position_input(input:int):
-	if record_button.button_pressed:
+	if %Record.button_pressed:
 		set_ball_depth(float(input) / 10)
 	elif $Markers.selected_marker:
 		$MarkersMenu/HBox/Depth/Input.value = float(input) / 10
@@ -198,20 +227,20 @@ func trans_input(input:int):
 
 func _on_record_toggled(active:bool):
 	if active:
-		$Menu/Controls/TrackControls/Play.button_pressed = true
+		%Play.button_pressed = true
 		$Header/Play.hide()
 		$Header/Record.show()
 		var marker_node = $Markers.selected_marker
 		if marker_node and is_instance_valid(marker_node):
 			marker_node.get_node('Button').button_pressed = false
 			$Markers.marker_toggled(false, marker_node)
-		toggle_path_visible(true)
+		toggle_ball_visible(true)
 		if $Markers.marker_list.size() == 1:
 			var depth = $Markers.marker_list[0].get_meta('depth')
 			path[frame] = depth
 			place_ball(depth)
 	else:
-		$Menu/Controls/TrackControls/Pause.button_pressed = true
+		%Pause.button_pressed = true
 		$Header/Record.hide()
 		var track_list = $Menu/Controls/TrackSelection
 		var track_title = track_list.get_item_text(track_list.selected)
@@ -227,39 +256,33 @@ func _on_record_toggled(active:bool):
 
 func _on_play_toggled(button_pressed):
 	if button_pressed:
-		if audio.stream_paused:
-			audio.stream_paused = false
+		if %AudioStreamPlayer.stream_paused:
+			%AudioStreamPlayer.stream_paused = false
 		else:
-			audio.play()
-		$Menu/Controls/TrackControls/Play.button_pressed = true
-		toggle_path_visible(true)
+			%AudioStreamPlayer.play()
+		%Play.button_pressed = true
 		$Header/Play.show()
 		if $Markers.is_visible_in_tree():
 			$Ball.show()
 			$Markers.position_markers()
 	else:
-		if record_button.button_pressed:
-			record_button.button_pressed = false
-		$Menu/Controls/TrackControls/Pause.button_pressed = true
-		$Markers.connect_all_markers()
+		toggle_ball_visible(false)
+		if %Record.button_pressed:
+			%Record.button_pressed = false
+		%Pause.button_pressed = true
 		$Header/Play.hide()
 		if $Markers.is_visible_in_tree():
 			$Path.hide()
 
 func _on_render_pressed():
 	$Header/MenuButton.button_pressed = false
-	await get_tree().create_timer(0.5).timeout
-	render()
-
-func toggle_path_visible(active:bool) -> void:
-	for node in [$Ball, $Path]:
-		node.self_modulate.a = max(float(active),0.3)
+	$RenderRange.popup_centered()
 
 enum Effects {
 	HOLD_BREATH = 1}
 var active_effects:Dictionary
 @export var flash_curve:Curve
-func render():
+func render(starting_frame:int, ending_frame:int):
 	var selected_take = $Menu/Controls/Paths.get_selected_items()[0]
 	var path_name = $Menu/Controls/Paths.get_item_text(selected_take)
 	var selected_track = $Menu/Controls/TrackSelection.selected
@@ -273,10 +296,10 @@ func render():
 	var borderless = DisplayServer.WINDOW_FLAG_BORDERLESS
 	var folder_name = path_name.trim_suffix('.bin')
 
-	var ball_color_a:Color = Color.WHITE
+	var ball_color_a:Color = $Ball.self_modulate
 	var ball_color_b:Color = hold_breath_ball_color
-	var line_color_a:Color = Color.WHITE
-	var line_color_b:Color = hold_breath_path_color
+	var path_color_a:Color = $Path.self_modulate
+	var path_color_b:Color = hold_breath_path_color
 	var flash_total := 120
 	var flash_frames := 120
 	var flash_active:bool
@@ -287,11 +310,12 @@ func render():
 	var _aux_data:Dictionary
 	for i in _auxiliary_functions:
 		_aux_data[i + 1] = []
-	for marker_frame in marker_data:
+	var marker_list = marker_data.keys()
+	marker_list.sort()
+	for marker_frame in marker_list:
 		var auxiliary:int = marker_data[marker_frame][3]
 		for i in _auxiliary_functions:
 			if auxiliary & 1 << i:
-				var marker_list = marker_data.keys()
 				var index:int = marker_list.find(marker_frame)
 				for marker in range(index, marker_list.size()):
 					if not _aux_data[i + 1].has(index):
@@ -329,13 +353,13 @@ func render():
 	for section in _aux_sequenced:
 		aux_effects[section] = {}
 		for sequence in _aux_sequenced[section]:
-			var start_frame = marker_data.keys()[sequence[0]]
-			var end_frame = marker_data.keys()[sequence[-1]]
+			var marker_keys = 1
+			var start_frame = marker_list[sequence[0]]
+			var end_frame = marker_list[sequence[-1]]
 			aux_effects[section][start_frame] = end_frame - start_frame
 	
-	print("!=----- ",aux_effects)
-	if audio.playing:
-		audio.stop()
+	if %AudioStreamPlayer.playing:
+		%AudioStreamPlayer.stop()
 	
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_position(Vector2(0, 200))
@@ -358,6 +382,8 @@ func render():
 	var path_string = "user://Renders/%s/%s/%s.png"
 	
 	var offset = 10
+	
+	toggle_ball_visible(true)
 	var render_ball = $Ball.duplicate()
 	add_child(render_ball)
 	
@@ -405,7 +431,7 @@ func render():
 	var path_distance = x_size + (offset * path_speed)
 	var cutoff = floor(path_distance / path_speed) + cutoff_adjust
 	
-	place_ball(path[0])
+	place_ball(path[frame])
 	render_ball.position.y = $Ball.position.y
 	
 	step = 0
@@ -419,13 +445,12 @@ func render():
 	$Markers.hide()
 	$MarkersMenu.hide()
 	
-	var total_frames:int = path.size() + cutoff
-	for point in total_frames:
-		print("SAVING: ",point," / ", total_frames)
+	for point in range(starting_frame, ending_frame + cutoff):
+		print("SAVING: ",point," / ", (ending_frame + cutoff) - starting_frame)
 		if point+1 < path.size() and path[point+1] > -1:
 			place_ball(path[point+1])
 		if point - distance < path.size() and point > distance:
-			if path[point-distance] > -1:
+			if path[point-distance] > -1 and point-distance >= starting_frame:
 				var render_pos = BOTTOM + path[point-distance] * (TOP - BOTTOM)
 				render_ball.position.y = render_pos
 				line_colors(render_ball, point-distance)
@@ -435,10 +460,12 @@ func render():
 					match int(effect):
 						Effects.HOLD_BREATH:
 							var effect_length = aux_effects[effect][trigger]
-							if effect_length > flash_frames * 2:
+							var required_length = flash_total * 2
+							if effect_length >= required_length:
 								active_effects[1] = effect_length
 							else:
-								print("effect must last at least 240 frames")
+								var err = "effect must last at least %s frames"
+								print(err%required_length)
 		for effect in active_effects:
 			match effect:
 				Effects.HOLD_BREATH:
@@ -452,7 +479,7 @@ func render():
 							render_ball.self_modulate = blend
 							flash_frames -= 1
 						elif flash_frames == 0:
-							$Path.self_modulate = line_color_b
+							$Path.self_modulate = path_color_b
 					elif effect_time <= flash_total:
 						var count = 1 - effect_time / float(flash_total)
 						var sample = flash_curve.sample(count)
@@ -461,7 +488,7 @@ func render():
 					if effect_time > 0:
 						active_effects[effect] -= 1
 					elif effect_time == 0:
-						$Path.self_modulate = line_color_a
+						$Path.self_modulate = path_color_a
 						flash_frames = flash_total
 						active_effects.erase(effect)
 			
@@ -534,5 +561,7 @@ func update_display() -> void:
 	$Markers.connect_all_markers()
 	await get_tree().process_frame
 	$Markers.position_markers()
-	if not path.is_empty():
-		place_ball(frame)
+	if not path.is_empty() and sign(path[frame+1]) > -1:
+		place_ball(path[frame+1])
+	else:
+		place_ball(0)

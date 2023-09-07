@@ -2,6 +2,7 @@ extends Control
 
 var marker_list:Dictionary
 var selected_marker:Sprite2D
+var selected_multi_markers:Array
 
 @onready var menu = owner.get_node('MarkersMenu/HBox')
 @onready var frame_input = menu.get_node('Frame/Input')
@@ -11,8 +12,10 @@ var selected_marker:Sprite2D
 @onready var ease_up_input = menu.get_node('EaseUp')
 @onready var ease_down_input = menu.get_node('EaseDown')
 
+@onready var aux_functions = menu.get_node('AuxiliaryFunctions')
+
 @onready var delete_button = menu.get_node('Delete')
-@onready var breath_button = menu.get_node('HoldBreath')
+@onready var add_marker_button = menu.get_node('AddMarker')
 
 func set_markers():
 	for node in marker_list.values():
@@ -57,10 +60,10 @@ func add_marker(frame, depth, trans=null, ease=null, auxiliary=null):
 
 var mouse_movement:Vector2
 func _on_marker_gui_input(event, input_marker):
-	if owner.play_button.button_pressed:
-		return
+	if %Play.button_pressed: return
 	if not selected_marker or input_marker != selected_marker:
-		return
+		if not selected_multi_markers.has(input_marker):
+			return
 	if 'relative' in event:
 		if event is InputEventMouseMotion:
 			if event.button_mask & MOUSE_BUTTON_LEFT:
@@ -69,61 +72,80 @@ func _on_marker_gui_input(event, input_marker):
 					if selected_marker != marker_list.values().front():
 						frame_input.value += event.relative.x / 5
 				mouse_movement += event.relative
-	elif event.pressed == false and not mouse_over_marker:
-		mouse_movement = Vector2(0,0)
+	elif not event.pressed and not mouse_over_marker:
+		mouse_movement = Vector2(0, 0)
 
 func marker_toggled(button_pressed:bool, marker:Node):
-	if owner.play_button.button_pressed:
-		if not owner.record_button.button_pressed:
-			return
+	if button_pressed and %Play.button_pressed: return
 	if mouse_movement != Vector2(0,0):
 		mouse_movement = Vector2(0,0)
+		if marker == selected_marker:
+			marker.get_node('Button').set_pressed_no_signal(true)
+		else:
+			marker.get_node('Button').set_pressed_no_signal(false)
 		return
+	if not owner.control_pressed:
+		for node in selected_multi_markers:
+			node.get_node('Button/Selected').hide()
+		selected_multi_markers.clear()
 	if button_pressed:
+		if owner.shift_pressed and selected_marker:
+			var end_marker = marker
+			var index_a = get_marker_index(selected_marker.get_meta('frame'))
+			var index_b = get_marker_index(marker.get_meta('frame'))
+			var selected_range
+			if index_a < index_b:
+				selected_range = range(index_a, index_b + 1)
+			elif index_a > index_b:
+				selected_range = range(index_b, index_a + 1)
+			var keys = marker_list.keys()
+			keys.sort()
+			for index in selected_range:
+				if marker_list[keys[index]] != selected_marker:
+					selected_multi_markers.append(marker_list[keys[index]])
+			for node in selected_multi_markers:
+				node.get_node('Button/Selected').self_modulate = Color.PURPLE
+				node.get_node('Button/Selected').show()
+				node.get_node('Button').set_pressed_no_signal(false)
+			set_marker_movement_range()
+			return
+		elif owner.control_pressed and selected_marker:
+			if not selected_multi_markers.has(marker):
+				selected_multi_markers.append(marker)
+				marker.get_node('Button/Selected').self_modulate = Color.PURPLE
+				marker.get_node('Button/Selected').show()
+				marker.get_node('Button').set_pressed_no_signal(false)
+			else:
+				selected_multi_markers.erase(marker)
+				marker.get_node('Button/Selected').hide()
+				marker.get_node('Button').set_pressed_no_signal(false)
+			set_marker_movement_range()
+			return
 		for node in marker_list.values():
 			if node != marker:
 				node.get_node('Button').set_pressed_no_signal(false)
 				node.get_node('Button/Selected').hide()
+		marker.get_node('Button/Selected').self_modulate = Color.AQUAMARINE
 		marker.get_node('Button/Selected').show()
-		ease_input.show()
-		ease_up_input.hide()
-		ease_down_input.hide()
-		breath_button.show()
 		
 		var frame = marker.get_meta('frame')
 		
-		if owner.marker_data[frame][3] == 1:
-			breath_button.set_pressed_no_signal(true)
-		else:
-			breath_button.set_pressed_no_signal(false)
+		var aux_list = aux_functions.get_popup()
+		for i in aux_list.item_count:
+			if int(owner.marker_data[frame][3]) & 1 << i:
+				aux_list.set_item_checked(i, true)
+			else:
+				aux_list.set_item_checked(i, false)
 		
 		var index:int = get_marker_index(frame)
 		
-		if index != 0:
-			delete_button.show()
-		else:
-			delete_button.hide()
-		
 		selected_marker = marker
 		
-		var min_distance:int = 5
+		set_marker_menu_mode(MARKER_MENU.HAS_SELECTION)
+		
+		set_marker_movement_range()
 		
 		frame_input.value_changed.disconnect(_on_frame_value_changed)
-		if index != 0:
-			frame_input.editable = true
-			var previous = get_previous_frame(frame)
-			var min = marker_list[previous].get_meta('frame') + min_distance
-			frame_input.min_value = min
-		else:
-			frame_input.editable = false
-			frame_input.min_value = 0
-		if index < marker_list.size() - 1:
-			var next = get_next_frame(frame)
-			var max = marker_list[next].get_meta('frame') - min_distance
-			frame_input.max_value = max
-		else:
-			frame_input.max_value = owner.path.size() - 1
-		
 		frame_input.value = frame
 		frame_input.value_changed.connect(_on_frame_value_changed)
 		
@@ -141,12 +163,61 @@ func marker_toggled(button_pressed:bool, marker:Node):
 		frame_input.value_changed.connect(_on_frame_value_changed)
 		depth_input.value_changed.connect(_on_depth_value_changed)
 		marker.get_node('Button/Selected').hide()
-		ease_input.hide()
-		ease_up_input.show()
-		ease_down_input.show()
-		breath_button.hide()
-		delete_button.hide()
+		set_marker_menu_mode(MARKER_MENU.NOTHING_SELECTED)
 		selected_marker = null
+
+var min_frames:int = 5
+func set_marker_movement_range():
+	if not selected_marker: return
+	if frame_input.is_connected('value_changed', _on_frame_value_changed):
+		frame_input.value_changed.disconnect(_on_frame_value_changed)
+	frame_input.min_value = 0
+	frame_input.max_value = INF
+	var keys = marker_list.keys()
+	keys.sort()
+	var origin:int = selected_marker.get_meta('frame')
+	var markers:Array
+	var marker_frames:Array
+	markers.append(selected_marker)
+	for marker in selected_multi_markers:
+		markers.append(marker)
+	for marker in markers:
+		marker_frames.append(marker.get_meta('frame'))
+	if marker_frames.has(0):
+		frame_input.editable = false
+		frame_input.min_value = 0
+		frame_input.max_value = 0
+		frame_input.value_changed.connect(_on_frame_value_changed)
+		return
+	for marker in markers:
+		var frame:int = marker.get_meta('frame')
+		var index:int = get_marker_index(frame)
+		if index != 0:
+			frame_input.editable = true
+			var look_back := 1
+			while marker_frames.has(get_previous_frame(frame, look_back)):
+				look_back += 1
+			var new_min = get_previous_frame(frame, look_back) + min_frames
+			var back_movement = frame - new_min
+			if origin - back_movement > frame_input.min_value:
+				frame_input.min_value = origin - back_movement
+			var look_forward := 1
+			var is_last_marker:bool
+			var last_frame = marker_list[keys.back()].get_meta('frame')
+			while marker_frames.has(get_next_frame(frame, look_forward)):
+				if get_next_frame(frame, look_forward) == last_frame:
+					is_last_marker = true
+					break
+				look_forward += 1
+			var new_max:int
+			if is_last_marker:
+				new_max = owner.path.size() - 1
+			else:
+				new_max = get_next_frame(frame, look_forward) - min_frames
+			var forward_movement = new_max - frame
+			if origin + forward_movement < frame_input.max_value:
+				frame_input.max_value = origin + forward_movement
+	frame_input.value_changed.connect(_on_frame_value_changed)
 
 func get_marker_depth(marker) -> float:
 	return abs((marker.position.y - owner.BOTTOM) / (owner.TOP - owner.BOTTOM))
@@ -156,30 +227,20 @@ func get_marker_index(frame:int) -> int:
 	keys.sort()
 	return keys.find(frame)
 
-func get_previous_frame(frame:int) -> int:
+func get_previous_frame(frame:int, look_back:=1) -> int:
 	var keys = marker_list.keys()
 	keys.sort()
-	var index = keys.find(frame)
-	if index - 1 > 0:
-		return keys[index - 1]
-	else:
-		return 0
+	return keys[max(keys.find(frame) - look_back, 0)]
 
-func get_next_frame(frame:int) -> int:
+func get_next_frame(frame:int, look_forward:=1) -> int:
 	var keys = marker_list.keys()
 	keys.sort()
-	var index = keys.find(frame)
-	if index + 1 < marker_list.size():
-		return keys[index + 1]
-	else:
-		return 0
+	return keys[min(keys.find(frame) + look_forward, marker_list.size() - 1)]
 
 func connect_marker(frame:int) -> void:
-	if frame == 0:
-		return
+	if frame == 0: return
 	var index = get_marker_index(frame)
-	if index == -1:
-		return
+	if index == -1: return
 	var previous_frame = get_previous_frame(frame)
 	var marker:Node = marker_list[frame]
 	var previous:Node = marker_list[previous_frame]
@@ -228,56 +289,92 @@ func position_markers():
 	var center:Vector2 = get_viewport_rect().size / 2
 	position.x = center.x - (owner.frame * owner.path_speed)
 
+#redesign to move and delete all at once to prevent errors on quick movement
 func _on_frame_value_changed(value:int):
-	if not selected_marker:
-		return
-	var marker = selected_marker
-	var current_frame = marker.get_meta('frame')
-	marker.position.x = value * owner.path_speed
-	marker.set_meta('frame', value)
-	var orig_frame = owner.marker_data[current_frame].duplicate()
-	owner.marker_data.erase(current_frame)
-	owner.marker_data[value] = orig_frame
-	marker_list.erase(current_frame)
-	marker_list[value] = marker
-	clear_ahead(value)
-	connect_marker(value)
-	connect_marker(get_next_frame(value))
-	place_ball_on_path()
+	if not selected_marker: return
+	var movement = value - selected_marker.get_meta('frame')
+	var markers:Array
+	markers.append(selected_marker)
+	for marker in selected_multi_markers:
+		markers.append(marker)
+	for marker in markers:
+		var orig_frame = marker.get_meta('frame')
+		if not owner.marker_data.has(orig_frame):
+			return
+		var orig_marker_data = owner.marker_data[orig_frame].duplicate()
+		var new_frame = orig_frame + movement
+		marker.position.x += movement * owner.path_speed
+		marker.set_meta('frame', new_frame)
+		owner.marker_data.erase(orig_frame)
+		owner.marker_data[new_frame] = orig_marker_data
+		marker_list.erase(orig_frame)
+		marker_list[new_frame] = marker
+		clear_ahead(new_frame)
+		connect_marker(new_frame)
+		connect_marker(get_next_frame(new_frame))
+		place_ball_on_path()
+	Data.save_path()
 
 func _on_depth_value_changed(value):
-	if not selected_marker:
-		return
-	var marker = selected_marker
-	var marker_frame:int = selected_marker.get_meta('frame')
-	marker.position.y = owner.BOTTOM + value * (owner.TOP - owner.BOTTOM)
-	marker.set_meta('depth', value)
-	owner.marker_data[marker_frame][0] = value
-	connect_marker(marker_frame)
-	connect_marker(get_next_frame(marker_frame))
-	place_ball_on_path()
-	Data.save_path()
+	if not selected_marker: return
+	var movement = value - selected_marker.get_meta('depth')
+	var markers:Array
+	var marker_movement:Dictionary
+	markers.append(selected_marker)
+	for marker in selected_multi_markers:
+		markers.append(marker)
+	var confined_movement:float = movement
+	for marker in markers:
+		var marker_depth = marker.get_meta('depth')
+		var new_pos = marker_depth + movement
+		if new_pos > 1 and 1 - marker_depth < confined_movement:
+			confined_movement = 1 - marker_depth
+		elif new_pos < 0 and -marker_depth > confined_movement:
+			confined_movement = -marker_depth
+	for marker in markers:
+		var marker_frame:int = marker.get_meta('frame')
+		if not owner.marker_data.has(marker_frame):
+			return
+		var marker_depth = marker.get_meta('depth')
+		var new_pos = marker_depth + confined_movement
+		marker.position.y = owner.BOTTOM + new_pos * (owner.TOP - owner.BOTTOM)
+		marker.set_meta('depth', new_pos)
+		owner.marker_data[marker_frame][0] = new_pos
+		connect_marker(marker_frame)
+		connect_marker(get_next_frame(marker_frame))
+		place_ball_on_path()
+		Data.save_path()
 
 func _on_trans_selected(index):
 	Data.set_config('easings', 'trans', index)
 	if not selected_marker:
 		return
-	selected_marker.set_meta('trans', index)
-	var frame = selected_marker.get_meta('frame')
-	owner.marker_data[frame][1] = index
-	connect_marker(frame)
-	place_ball_on_path()
-	Data.save_path()
+	var markers:Array
+	markers.append(selected_marker)
+	for marker in selected_multi_markers:
+		markers.append(marker)
+	for marker in markers:
+		marker.set_meta('trans', index)
+		var frame = marker.get_meta('frame')
+		owner.marker_data[frame][1] = index
+		connect_marker(frame)
+		place_ball_on_path()
+		Data.save_path()
 
 func _on_easing_selected(index):
 	if not selected_marker:
 		return
-	selected_marker.set_meta('ease', index)
-	var frame = selected_marker.get_meta('frame')
-	owner.marker_data[frame][2] = index
-	connect_marker(frame)
-	place_ball_on_path()
-	Data.save_path()
+	var markers:Array
+	markers.append(selected_marker)
+	for marker in selected_multi_markers:
+		markers.append(marker)
+	for marker in markers:
+		marker.set_meta('ease', index)
+		var frame = marker.get_meta('frame')
+		owner.marker_data[frame][2] = index
+		connect_marker(frame)
+		place_ball_on_path()
+		Data.save_path()
 
 func _on_up_easing_selected(index):
 	Data.set_config('easings', 'up', index)
@@ -285,37 +382,100 @@ func _on_up_easing_selected(index):
 func _on_down_easing_selected(index):
 	Data.set_config('easings', 'down', index)
 
-func _on_hold_breath_toggled(button_pressed):
-	if button_pressed:
-		selected_marker.self_modulate = Color.HOT_PINK
-	else:
-		selected_marker.self_modulate = Color.WHITE
-	var frame = selected_marker.get_meta('frame')
-	owner.marker_data[frame][3] = int(button_pressed)
-	Data.save_path()
+enum MARKER_MENU {NOTHING_SELECTED, HAS_SELECTION}
+func set_marker_menu_mode(mode:int):
+	if not selected_marker:
+		mode = MARKER_MENU.NOTHING_SELECTED
+	match mode:
+		MARKER_MENU.NOTHING_SELECTED:
+			ease_input.hide()
+			ease_up_input.show()
+			ease_down_input.show()
+			aux_functions.hide()
+			delete_button.hide()
+		MARKER_MENU.HAS_SELECTION:
+			ease_input.show()
+			ease_up_input.hide()
+			ease_down_input.hide()
+			aux_functions.show()
+			var markers:Array
+			markers.append(selected_marker)
+			for marker in selected_multi_markers:
+				markers.append(marker)
+			if markers.any(frame_is_zero):
+				delete_button.hide()
+			else:
+				delete_button.show()
+
+func frame_is_zero(marker) -> bool:
+	if marker.get_meta('frame') == 0:
+		return true
+	return false
 
 func _on_delete_pressed():
-	var frame:int = selected_marker.get_meta('frame')
-	if frame == 0:
-		return
-	clear_ahead(frame)
-	marker_list.erase(frame)
-	owner.marker_data.erase(frame)
-	selected_marker.queue_free()
-	selected_marker = null
-	for line in get_tree().get_nodes_in_group('lines'):
-		line.queue_free()
+	if not selected_marker: return
+	if selected_multi_markers.is_empty():
+		var frame:int = selected_marker.get_meta('frame')
+		if frame == 0:
+			return
+		clear_ahead(frame)
+		marker_list.erase(frame)
+		owner.marker_data.erase(frame)
+		selected_marker.queue_free()
+		for line in get_tree().get_nodes_in_group('lines'):
+			line.queue_free()
+	else:
+		var markers:Array
+		markers.append(selected_marker)
+		for marker in selected_multi_markers:
+			markers.append(marker)
+		for marker in markers:
+			var frame:int = marker.get_meta('frame')
+			if frame == 0:
+				return
+			marker_list.erase(frame)
+			owner.marker_data.erase(frame)
+			marker.queue_free()
+			for line in get_tree().get_nodes_in_group('lines'):
+				line.queue_free()
+		selected_multi_markers.clear()
 	connect_all_markers()
 	place_ball_on_path()
 	Data.save_path()
 	_on_delete_mouse_exited()
-	delete_button.hide()
+	set_marker_menu_mode(MARKER_MENU.NOTHING_SELECTED)
+	selected_marker = null
 
 func _on_delete_mouse_entered():
 	delete_button.self_modulate = 'ff7474d7'
 
 func _on_delete_mouse_exited():
 	delete_button.self_modulate = Color.WHITE
+
+func _on_add_marker_pressed():
+	if owner.path.is_empty(): return
+	owner.set_ball_depth(owner.get_ball_depth())
+	connect_all_markers()
+	_on_add_marker_mouse_exited()
+	var paths = %Controls.get_node('Paths')
+	if paths.is_anything_selected():
+		Data.save_path()
+	else:
+		var track_list = %Controls.get_node('TrackSelection')
+		var track_title = track_list.get_item_text(track_list.selected)
+		var path_name:String = Data.timestamp()
+		Data.save_path('user://Paths/' + track_title + "/" + path_name + ".bx")
+		%Controls.load_paths(track_title)
+		for i in paths.item_count:
+			if paths.get_item_text(i) == path_name:
+				paths.select(i)
+				%Controls._on_path_selected(i)
+
+func _on_add_marker_mouse_entered():
+	add_marker_button.self_modulate = '4fd6d6'
+
+func _on_add_marker_mouse_exited():
+	add_marker_button.self_modulate = Color.WHITE
 
 var mouse_over_marker:bool
 func _on_marker_mouse_entered():
@@ -346,9 +506,11 @@ func _ready():
 func _input(event):
 	if event.is_action_pressed('cancel') and selected_marker:
 		selected_marker.get_node('Button').button_pressed = false
-	if event.is_action_pressed('delete') and selected_marker:
+	elif event.is_action_pressed('delete') and selected_marker:
 		_on_delete_pressed()
-	if event is InputEventMouseButton and event.is_pressed():
+	elif event.is_action_pressed('insert'):
+		_on_add_marker_pressed()
+	elif event is InputEventMouseButton and event.is_pressed():
 		if event.button_mask & MOUSE_BUTTON_LEFT and not mouse_over_input:
 			var i = [frame_input.get_line_edit(), depth_input.get_line_edit()]
 			for node in i:

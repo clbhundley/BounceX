@@ -82,15 +82,36 @@ func set_config(section:String, key:String, value):
 
 func reset_config():
 	config.load(config_path)
+	var color_settings:Dictionary
+	for setting in [
+		'Ball',
+		'Path',
+		'Backdrop',
+		'Top Line',
+		'Top Active',
+		'Bottom Line',
+		'Bottom Active',
+		'Hold Breath Ball',
+		'Hold Breath Path']:
+		if config.has_section_key('colors', setting):
+			color_settings[setting] = config.get_value('colors', setting)
 	config.clear()
-	config.set_value('user', 'version', '2.2')
+	for setting in color_settings:
+		config.set_value('colors', setting, color_settings[setting])
+	var display = bx.get_node('Menu/Options/DisplayMode')
+	display._on_option_button_item_selected(1)
+	display.get_node('OptionButton').selected = 1
+	config.set_value('user', 'display_mode', 1)
+	config.set_value('user', 'version', '2.2.2')
 	config.save(config_path)
 
 func load_config() -> void:
 	config.load(config_path)
 	
-	if config.get_value('user', 'version', "") != '2.2':
+	if config.get_value('user', 'version', "") != '2.2.2':
+		print("resetting")
 		reset_config()
+		load_colors()
 		await get_tree().create_timer(0.3).timeout
 		bx.get_node('Menu/Version/Button/Notification').show()
 		bx.get_node('Header/MenuButton').button_pressed = true
@@ -106,7 +127,8 @@ func load_config() -> void:
 		var track_title = config.get_value('user', 'track')
 		var track_path = 'res://Tracks/' + track_title
 		if DirAccess.open('res://').file_exists(track_path):
-			bx.audio.stream = load(track_path)
+			var audio = bx.get_node('Menu/Controls/AudioStreamPlayer')
+			audio.stream = load(track_path)
 			var track_selection = bx.get_node('Menu/Controls/TrackSelection')
 			for item in track_selection.item_count:
 				if track_selection.get_item_text(item) == track_title:
@@ -131,6 +153,9 @@ func load_config() -> void:
 		var selected = config.get_value('easings', 'trans')
 		bx.get_node('MarkersMenu/HBox/Trans').selected = selected
 	
+	load_colors()
+
+func load_colors():
 	for setting in [
 		'Ball',
 		'Path',
