@@ -654,6 +654,7 @@ func ui_mouse_filter(active:bool) -> void:
 script/source = "extends ConfirmationDialog
 
 func _on_about_to_popup():
+	$HBox/Start/SpinBox.max_value = owner.path.size()
 	$HBox/Start/SpinBox.value = owner.frame
 	$HBox/End/SpinBox.max_value = owner.path.size()
 	$HBox/End/SpinBox.value = owner.path.size()
@@ -1314,7 +1315,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.2.2"
+text = "BounceX v2.2.3"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 
@@ -1621,7 +1622,6 @@ layout_mode = 2
 offset_top = 31.0
 offset_right = 150.0
 offset_bottom = 62.0
-max_value = 1e+07
 
 [node name="RenderComplete" type="AcceptDialog" parent="."]
 title = "Render Complete!"

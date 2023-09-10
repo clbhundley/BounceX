@@ -431,7 +431,7 @@ func render(starting_frame:int, ending_frame:int):
 	var path_distance = x_size + (offset * path_speed)
 	var cutoff = floor(path_distance / path_speed) + cutoff_adjust
 	
-	place_ball(path[frame])
+	place_ball(path[starting_frame])
 	render_ball.position.y = $Ball.position.y
 	
 	step = 0
