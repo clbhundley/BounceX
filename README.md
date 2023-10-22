@@ -18,3 +18,5 @@ After the editor opens, just close it and restart Godot
 Select BounceX, and press Run
 
 Enjoy
+
+#### <a href="https://discord.gg/fpysCZvrj8">DH Discord</a>
