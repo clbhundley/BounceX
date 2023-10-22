@@ -1,4 +1,4 @@
-[gd_scene load_steps=37 format=3 uid="uid://ddntuwjds6r37"]
+[gd_scene load_steps=38 format=3 uid="uid://ddntuwjds6r37"]
 
 [ext_resource type="Theme" uid="uid://4ddly4r83yek" path="res://Theme.tres" id="1_qtjw4"]
 [ext_resource type="Script" path="res://BounceX.gd" id="2_4ci4k"]
@@ -6,6 +6,7 @@
 [ext_resource type="Texture2D" uid="uid://cbwqw7m1wqj64" path="res://Textures/Dot Small.svg" id="3_mj5xg"]
 [ext_resource type="Script" path="res://Markers.gd" id="3_votmw"]
 [ext_resource type="Curve" uid="uid://brt3xnflwm2r" path="res://FlashCurve.tres" id="3_wj01o"]
+[ext_resource type="Curve" uid="uid://dl3hfhb1q3xfn" path="res://PathFlashCurve.tres" id="4_8tbyk"]
 [ext_resource type="Texture2D" uid="uid://bkabq6ivbs23x" path="res://Textures/Circle Small.svg" id="4_rocsv"]
 [ext_resource type="Texture2D" uid="uid://bqgebmq2ks1mj" path="res://Textures/Play.svg" id="4_tyhll"]
 [ext_resource type="Texture2D" uid="uid://dnlqy6ppe68nr" path="res://Textures/Triangle.svg" id="4_xkljy"]
@@ -698,6 +699,7 @@ mouse_filter = 1
 theme = ExtResource("1_qtjw4")
 script = ExtResource("2_4ci4k")
 flash_curve = ExtResource("3_wj01o")
+path_flash_curve = ExtResource("4_8tbyk")
 
 [node name="Backdrop" type="TextureRect" parent="."]
 self_modulate = Color(0, 0, 0, 0.313726)
@@ -741,7 +743,6 @@ expand_mode = 1
 stretch_mode = 1
 
 [node name="Markers" type="Control" parent="."]
-unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1315,7 +1316,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.2.3"
+text = "BounceX v2.2.4"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 

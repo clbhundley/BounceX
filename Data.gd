@@ -32,8 +32,8 @@ func save_path(file_path:String = get_file_path()) -> void:
 		file_path += '.bx'
 	var file := FileAccess.open(file_path, FileAccess.WRITE)
 	file.store_line(JSON.stringify(bx.marker_data))
-	for line in bx.path:
-		file.store_float(line)
+	#for line in bx.path:
+		#file.store_float(line)
 	file.close()
 
 func load_path(file_path:String) -> void:
@@ -52,7 +52,6 @@ func load_path(file_path:String) -> void:
 		bx.marker_data[0] = [0, 0, 0, 0]
 	bx.define_path(false)
 	bx.get_node('Markers').set_markers()
-	bx.get_node('Markers').connect_all_markers()
 	file.close()
 
 func copy_file(new_name:String):
@@ -109,7 +108,6 @@ func load_config() -> void:
 	config.load(config_path)
 	
 	if config.get_value('user', 'version', "") != '2.2.2':
-		print("resetting")
 		reset_config()
 		load_colors()
 		await get_tree().create_timer(0.3).timeout

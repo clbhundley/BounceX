@@ -237,21 +237,24 @@ func get_next_frame(frame:int, look_forward:=1) -> int:
 	keys.sort()
 	return keys[min(keys.find(frame) + look_forward, marker_list.size() - 1)]
 
-func connect_marker(frame:int) -> void:
-	if frame == 0: return
-	var index = get_marker_index(frame)
-	if index == -1: return
+func connect_marker(frame:int, connect_next:=true) -> void:
+	if frame == 0 or not marker_list.has(frame): return
 	var previous_frame = get_previous_frame(frame)
+	var next_frame = get_next_frame(frame)
 	var marker:Node = marker_list[frame]
 	var previous:Node = marker_list[previous_frame]
 	var starting_position = previous.position
-	for line in get_tree().get_nodes_in_group('lines'):
-		if line.get_meta('index') == index:
-			line.queue_free()
+	if connect_next and next_frame != frame:
+		connect_marker(next_frame, false)
+	if marker.has_meta('line'):
+		var marker_line = marker.get_meta('line')
+		if marker_line != null:
+			remove_child(marker_line)
+			marker_line.queue_free()
 	var line = $Line.duplicate()
-	line.add_to_group('lines')
-	line.set_meta('index', index)
 	add_child(line)
+	line.add_to_group('lines')
+	marker.set_meta('line', line)
 	var tween = get_tree().create_tween()
 	tween.set_trans(marker.get_meta('trans'))
 	tween.set_ease(marker.get_meta('ease'))
@@ -287,6 +290,7 @@ func place_ball_on_path():
 
 func position_markers():
 	var center:Vector2 = get_viewport_rect().size / 2
+	var diff = center.x - (owner.frame * owner.path_speed) - position.x
 	position.x = center.x - (owner.frame * owner.path_speed)
 
 #redesign to move and delete all at once to prevent errors on quick movement
@@ -311,7 +315,6 @@ func _on_frame_value_changed(value:int):
 		marker_list[new_frame] = marker
 		clear_ahead(new_frame)
 		connect_marker(new_frame)
-		connect_marker(get_next_frame(new_frame))
 		place_ball_on_path()
 	Data.save_path()
 
@@ -341,7 +344,6 @@ func _on_depth_value_changed(value):
 		marker.set_meta('depth', new_pos)
 		owner.marker_data[marker_frame][0] = new_pos
 		connect_marker(marker_frame)
-		connect_marker(get_next_frame(marker_frame))
 		place_ball_on_path()
 		Data.save_path()
 
@@ -418,12 +420,17 @@ func _on_delete_pressed():
 		var frame:int = selected_marker.get_meta('frame')
 		if frame == 0:
 			return
+		var next_frame = get_next_frame(frame)
 		clear_ahead(frame)
 		marker_list.erase(frame)
 		owner.marker_data.erase(frame)
-		selected_marker.queue_free()
-		for line in get_tree().get_nodes_in_group('lines'):
+		owner.path[frame] = -1
+		var line = selected_marker.get_meta('line')
+		if line != null:
+			remove_child(line)
 			line.queue_free()
+		selected_marker.queue_free()
+		connect_marker(next_frame, false)
 	else:
 		var markers:Array
 		markers.append(selected_marker)
@@ -433,13 +440,19 @@ func _on_delete_pressed():
 			var frame:int = marker.get_meta('frame')
 			if frame == 0:
 				return
+			var previous_frame = get_previous_frame(frame)
+			var next_frame = get_next_frame(frame)
 			marker_list.erase(frame)
 			owner.marker_data.erase(frame)
-			marker.queue_free()
-			for line in get_tree().get_nodes_in_group('lines'):
+			for point in range(previous_frame, next_frame + 1):
+				owner.path[point] = -1
+			var line = marker.get_meta('line')
+			if line != null:
+				remove_child(line)
 				line.queue_free()
+			marker.queue_free()
+			connect_marker(next_frame, false)
 		selected_multi_markers.clear()
-	connect_all_markers()
 	place_ball_on_path()
 	Data.save_path()
 	_on_delete_mouse_exited()
@@ -455,7 +468,6 @@ func _on_delete_mouse_exited():
 func _on_add_marker_pressed():
 	if owner.path.is_empty(): return
 	owner.set_ball_depth(owner.get_ball_depth())
-	connect_all_markers()
 	_on_add_marker_mouse_exited()
 	var paths = %Controls.get_node('Paths')
 	if paths.is_anything_selected():

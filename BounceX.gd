@@ -102,6 +102,9 @@ func get_ball_depth() -> float:
 
 func set_ball_depth(depth:float) -> void:
 	var easing = get_ease_direction(depth)
+	for i in range(frame - 5, frame + 6):
+		if marker_data.has(i):
+			return
 	marker_data[frame] = [depth, $MarkersMenu/HBox/Trans.selected, easing, 0]
 	$Markers.add_marker(frame, depth)
 	$Markers.connect_marker(frame)
@@ -175,7 +178,7 @@ func _input(event):
 			%Play.button_pressed = !%Play.button_pressed
 	elif event.is_action_pressed("restart"):
 		if %AudioStreamPlayer.has_stream_playback():
-			$Menu/Controls.scrub(0)
+			%Controls.scrub(0)
 	elif event.is_action_pressed("render") and not %Play.button_pressed:
 		if not $Menu/Controls/Render.disabled:
 			_on_render_pressed()
@@ -242,17 +245,20 @@ func _on_record_toggled(active:bool):
 	else:
 		%Pause.button_pressed = true
 		$Header/Record.hide()
-		var track_list = $Menu/Controls/TrackSelection
-		var track_title = track_list.get_item_text(track_list.selected)
-		var path_name:String = Data.timestamp()
-		Data.save_path('user://Paths/' + track_title + "/" + path_name + ".bx")
-		$Menu/Controls.load_paths(track_title)
 		var paths = $Menu/Controls/Paths
 		if not paths.is_anything_selected():
+			var track_list = $Menu/Controls/TrackSelection
+			var track_title = track_list.get_item_text(track_list.selected)
+			var path_name:String = Data.timestamp()
+			var f_name = 'user://Paths/' + track_title + "/" + path_name + ".bx"
+			Data.save_path(f_name)
+			%Controls.load_paths(track_title)
 			for i in paths.item_count:
 				if paths.get_item_text(i) == path_name:
 					paths.select(i)
-					$Menu/Controls._on_path_selected(i)
+					%Controls._on_path_selected(i)
+		else:
+			Data.save_path()
 
 func _on_play_toggled(button_pressed):
 	if button_pressed:
@@ -282,13 +288,16 @@ enum Effects {
 	HOLD_BREATH = 1}
 var active_effects:Dictionary
 @export var flash_curve:Curve
+@export var path_flash_curve:Curve
 func render(starting_frame:int, ending_frame:int):
 	var selected_take = $Menu/Controls/Paths.get_selected_items()[0]
 	var path_name = $Menu/Controls/Paths.get_item_text(selected_take)
 	var selected_track = $Menu/Controls/TrackSelection.selected
 	var track_name = $Menu/Controls/TrackSelection.get_item_text(selected_track)
+	
 	var x_size = $Menu/Options/RenderResolution/Values/X.value
 	var y_size = $Menu/Options/RenderResolution/Values/Y.value
+	
 	var window_starting_mode = DisplayServer.window_get_mode()
 	var window_starting_size = DisplayServer.window_get_size()
 	var window_starting_pos = DisplayServer.window_get_position()
@@ -298,10 +307,13 @@ func render(starting_frame:int, ending_frame:int):
 
 	var ball_color_a:Color = $Ball.self_modulate
 	var ball_color_b:Color = hold_breath_ball_color
+	
 	var path_color_a:Color = $Path.self_modulate
 	var path_color_b:Color = hold_breath_path_color
+	
 	var flash_total := 120
 	var flash_frames := 120
+	
 	var flash_active:bool
 	
 	const _auxiliary_functions := 8
@@ -459,10 +471,10 @@ func render(starting_frame:int, ending_frame:int):
 				if point - distance == int(trigger):
 					match int(effect):
 						Effects.HOLD_BREATH:
-							var effect_length = aux_effects[effect][trigger]
+							var length = aux_effects[effect][trigger]
 							var required_length = flash_total * 2
-							if effect_length >= required_length:
-								active_effects[1] = effect_length
+							if length >= required_length:
+								active_effects[Effects.HOLD_BREATH] = length
 							else:
 								var err = "effect must last at least %s frames"
 								print(err%required_length)
@@ -474,21 +486,24 @@ func render(starting_frame:int, ending_frame:int):
 					if effect_time > flash_total:
 						if flash_frames > 0:
 							var count = 1 - flash_frames / float(flash_total)
-							var sample = flash_curve.sample(count)
-							var blend = ball_color_a.lerp(ball_color_b, sample)
-							render_ball.self_modulate = blend
+							var s1 = flash_curve.sample(count)
+							var s2 = path_flash_curve.sample(count)
+							var ball_blend = ball_color_a.lerp(ball_color_b, s1)
+							var path_blend = path_color_a.lerp(path_color_b, s2)
+							render_ball.self_modulate = ball_blend
+							$Path.self_modulate = path_blend
 							flash_frames -= 1
-						elif flash_frames == 0:
-							$Path.self_modulate = path_color_b
 					elif effect_time <= flash_total:
 						var count = 1 - effect_time / float(flash_total)
-						var sample = flash_curve.sample(count)
-						var blend = ball_color_b.lerp(ball_color_a,sample)
-						render_ball.self_modulate = blend
+						var s1 = flash_curve.sample(count)
+						var s2 = path_flash_curve.sample(count)
+						var ball_blend = ball_color_b.lerp(ball_color_a, s1)
+						var path_blend = path_color_b.lerp(path_color_a, s2)
+						render_ball.self_modulate = ball_blend
+						$Path.self_modulate = path_blend
 					if effect_time > 0:
 						active_effects[effect] -= 1
 					elif effect_time == 0:
-						$Path.self_modulate = path_color_a
 						flash_frames = flash_total
 						active_effects.erase(effect)
 			
@@ -525,7 +540,7 @@ func render(starting_frame:int, ending_frame:int):
 	input_disabled = false
 	await get_tree().process_frame
 	await get_tree().process_frame
-	$Menu/Controls.scrub(0)
+	%Controls.scrub(0)
 	
 	$RenderComplete.track_name = track_name
 	$RenderComplete.folder_name = folder_name
@@ -533,8 +548,8 @@ func render(starting_frame:int, ending_frame:int):
 
 func connect_sliders_signal():
 	for slider in [$Menu/Controls/TrackSlider, $TrackSliderLarge]:
-		if not slider.is_connected("value_changed", $Menu/Controls.scrub):
-			slider.connect("value_changed", $Menu/Controls.scrub)
+		if not slider.is_connected("value_changed", %Controls.scrub):
+			slider.connect("value_changed", %Controls.scrub)
 
 func update_display() -> void:
 	var center:Vector2 = get_viewport_rect().size / 2
@@ -556,9 +571,12 @@ func update_display() -> void:
 	$Backdrop.set_begin($TopLine.get_begin())
 	$Backdrop.set_end($BottomLine.get_end())
 	for marker in $Markers.marker_list.values():
+		var orig_pos = marker.position.y
 		var render_pos = BOTTOM + marker.get_meta('depth') * (TOP - BOTTOM)
+		var position_difference = render_pos - orig_pos
 		marker.position.y = render_pos
-	$Markers.connect_all_markers()
+		if marker.has_meta('line') and marker.get_meta('line'):
+			marker.get_meta('line').position.y += position_difference
 	await get_tree().process_frame
 	$Markers.position_markers()
 	if not path.is_empty() and sign(path[frame+1]) > -1:
