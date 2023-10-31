@@ -415,7 +415,7 @@ func frame_is_zero(marker) -> bool:
 	return false
 
 func _on_delete_pressed():
-	if not selected_marker: return
+	if not selected_marker and selected_multi_markers.is_empty(): return
 	if selected_multi_markers.is_empty():
 		var frame:int = selected_marker.get_meta('frame')
 		if frame == 0:
@@ -432,11 +432,12 @@ func _on_delete_pressed():
 		selected_marker.queue_free()
 		connect_marker(next_frame, false)
 	else:
-		var markers:Array
-		markers.append(selected_marker)
+		var del_markers:Array
+		if selected_marker:
+			del_markers.append(selected_marker)
 		for marker in selected_multi_markers:
-			markers.append(marker)
-		for marker in markers:
+			del_markers.append(marker)
+		for marker in del_markers:
 			var frame:int = marker.get_meta('frame')
 			if frame == 0:
 				return
@@ -516,9 +517,7 @@ func _ready():
 		input.focus_exited.connect(input_focus_exited)
 
 func _input(event):
-	if event.is_action_pressed('cancel') and selected_marker:
-		selected_marker.get_node('Button').button_pressed = false
-	elif event.is_action_pressed('delete') and selected_marker:
+	if event.is_action_pressed('delete'):
 		_on_delete_pressed()
 	elif event.is_action_pressed('insert'):
 		_on_add_marker_pressed()

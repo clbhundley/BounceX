@@ -166,7 +166,9 @@ func _input(event):
 	elif event.is_action_pressed("record") and %AudioStreamPlayer.stream:
 		%Record.button_pressed = !%Record.button_pressed
 	elif event.is_action_pressed("cancel"):
-		if %Record.button_pressed:
+		if $Markers.selected_marker:
+			$Markers.selected_marker.get_node('Button').button_pressed = false
+		elif %Record.button_pressed:
 			%Record.button_pressed = false
 			$Header/Record.hide()
 		else:
