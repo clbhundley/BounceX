@@ -35,13 +35,13 @@ func _ready():
 	get_popup().hide_on_checkable_item_selection = false
 
 func item_pressed(item:int):
-	var selected_marker = %Markers.selected_marker
+	var selected_marker = owner.get_node('Markers').selected_marker
 	if not selected_marker:
 		return
 	get_popup().toggle_item_checked(item)
 	var markers:Array
 	markers.append(selected_marker)
-	for marker in %Markers.selected_multi_markers:
+	for marker in owner.get_node('Markers').selected_multi_markers:
 		markers.append(marker)
 	var active_functions:int
 	for index in get_popup().item_count:
@@ -269,6 +269,8 @@ var file_name:String
 var dir:DirAccess
 
 func _ready():
+	$LineEdit.connect('text_changed', text_filter.bind($LineEdit))
+	$Copy/LineEdit.connect('text_changed', text_filter.bind($Copy/LineEdit))
 	get_child(2,true).get_child(3,true).hide()
 	add_button(\"COPY\", true, 'copy')
 	add_button(\"DELETE\", true, 'delete')
@@ -302,6 +304,15 @@ func _on_delete_confirmed():
 	owner.path.clear()
 	owner.frame = 0
 	owner.define_path()
+
+func text_filter(new_text:String, input_node:Node):
+	var disallowed_chars = ['/', '\\\\', ':', '*', '?', '\"', '<', '>', '|']
+	var filtered_text:String
+	for char in new_text:
+		if not disallowed_chars.has(char):
+			filtered_text += char
+	input_node.set_text(filtered_text)
+	input_node.set_caret_column(input_node.text.length())
 "
 
 [sub_resource type="GDScript" id="GDScript_kde6i"]
@@ -743,7 +754,6 @@ expand_mode = 1
 stretch_mode = 1
 
 [node name="Markers" type="Control" parent="."]
-unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1317,7 +1327,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.2.5"
+text = "BounceX v2.2.6"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 

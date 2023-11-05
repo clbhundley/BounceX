@@ -102,7 +102,8 @@ func get_ball_depth() -> float:
 
 func set_ball_depth(depth:float) -> void:
 	var easing = get_ease_direction(depth)
-	for i in range(frame - 5, frame + 6):
+	var min_frames:int = $Markers.MARKER_SEPARATION_MIN
+	for i in range(frame - min_frames, frame + min_frames + 1):
 		if marker_data.has(i):
 			return
 	marker_data[frame] = [depth, $MarkersMenu/HBox/Trans.selected, easing, 0]
@@ -238,7 +239,6 @@ func _on_record_toggled(active:bool):
 		var marker_node = $Markers.selected_marker
 		if marker_node and is_instance_valid(marker_node):
 			marker_node.get_node('Button').button_pressed = false
-			$Markers.marker_toggled(false, marker_node)
 		toggle_ball_visible(true)
 		if $Markers.marker_list.size() == 1:
 			var depth = $Markers.marker_list[0].get_meta('depth')

@@ -4,6 +4,8 @@ var marker_list:Dictionary
 var selected_marker:Sprite2D
 var selected_multi_markers:Array
 
+const MARKER_SEPARATION_MIN := 5
+
 @onready var menu = owner.get_node('MarkersMenu/HBox')
 @onready var frame_input = menu.get_node('Frame/Input')
 @onready var depth_input = menu.get_node('Depth/Input')
@@ -166,58 +168,43 @@ func marker_toggled(button_pressed:bool, marker:Node):
 		set_marker_menu_mode(MARKER_MENU.NOTHING_SELECTED)
 		selected_marker = null
 
-var min_frames:int = 5
 func set_marker_movement_range():
 	if not selected_marker: return
-	if frame_input.is_connected('value_changed', _on_frame_value_changed):
-		frame_input.value_changed.disconnect(_on_frame_value_changed)
-	frame_input.min_value = 0
-	frame_input.max_value = INF
-	var keys = marker_list.keys()
-	keys.sort()
-	var origin:int = selected_marker.get_meta('frame')
 	var markers:Array
-	var marker_frames:Array
 	markers.append(selected_marker)
 	for marker in selected_multi_markers:
 		markers.append(marker)
-	for marker in markers:
-		marker_frames.append(marker.get_meta('frame'))
-	if marker_frames.has(0):
-		frame_input.editable = false
-		frame_input.min_value = 0
-		frame_input.max_value = 0
+	var keys = marker_list.keys()
+	keys.sort()
+	var indices:Array
+	for i in markers:
+		indices.append(keys.find(i.get_meta('frame')))
+	indices.sort()
+	var sequences:Array
+	var _sequence:Array
+	for i in indices.size():
+		_sequence.append(keys[indices[i]])
+		if i == indices.size() - 1 or indices[i] + 1 != indices[i + 1]:
+			sequences.append(_sequence)
+			_sequence = []
+	var movement_min
+	var movement_max
+	for set in sequences:
+		var min_frame = get_previous_frame(set.front()) + MARKER_SEPARATION_MIN
+		var max_frame = get_next_frame(set.back()) - MARKER_SEPARATION_MIN
+		var movement_left = set.front() - min_frame
+		var movement_right = max_frame - set.back()
+		if not movement_min or movement_left < movement_min:
+			movement_min = movement_left
+		if not movement_max or movement_right < movement_max:
+			movement_max = movement_right
+	var origin:int = selected_marker.get_meta('frame')
+	if frame_input.is_connected('value_changed', _on_frame_value_changed):
+		frame_input.value_changed.disconnect(_on_frame_value_changed)
+	frame_input.min_value = origin - movement_min
+	frame_input.max_value = origin + movement_max
+	if not frame_input.is_connected('value_changed', _on_frame_value_changed):
 		frame_input.value_changed.connect(_on_frame_value_changed)
-		return
-	for marker in markers:
-		var frame:int = marker.get_meta('frame')
-		var index:int = get_marker_index(frame)
-		if index != 0:
-			frame_input.editable = true
-			var look_back := 1
-			while marker_frames.has(get_previous_frame(frame, look_back)):
-				look_back += 1
-			var new_min = get_previous_frame(frame, look_back) + min_frames
-			var back_movement = frame - new_min
-			if origin - back_movement > frame_input.min_value:
-				frame_input.min_value = origin - back_movement
-			var look_forward := 1
-			var is_last_marker:bool
-			var last_frame = marker_list[keys.back()].get_meta('frame')
-			while marker_frames.has(get_next_frame(frame, look_forward)):
-				if get_next_frame(frame, look_forward) == last_frame:
-					is_last_marker = true
-					break
-				look_forward += 1
-			var new_max:int
-			if is_last_marker:
-				new_max = owner.path.size() - 1
-			else:
-				new_max = get_next_frame(frame, look_forward) - min_frames
-			var forward_movement = new_max - frame
-			if origin + forward_movement < frame_input.max_value:
-				frame_input.max_value = origin + forward_movement
-	frame_input.value_changed.connect(_on_frame_value_changed)
 
 func get_marker_depth(marker) -> float:
 	return abs((marker.position.y - owner.BOTTOM) / (owner.TOP - owner.BOTTOM))
