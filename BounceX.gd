@@ -115,6 +115,8 @@ func set_ball_depth(depth:float) -> void:
 
 func place_ball(depth:float) -> void:
 	$Ball.position.y = BOTTOM + depth * (TOP - BOTTOM)
+	if not $Markers.selected_marker:
+		$MarkersMenu/HBox/Depth/Input.value = get_ball_depth()
 
 func frame_scrub(frame_movement:float) -> void:
 	connect_sliders_signal()

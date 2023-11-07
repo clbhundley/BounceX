@@ -35,13 +35,13 @@ func _ready():
 	get_popup().hide_on_checkable_item_selection = false
 
 func item_pressed(item:int):
-	var selected_marker = owner.get_node('Markers').selected_marker
+	var selected_marker = %Markers.selected_marker
 	if not selected_marker:
 		return
 	get_popup().toggle_item_checked(item)
 	var markers:Array
 	markers.append(selected_marker)
-	for marker in owner.get_node('Markers').selected_multi_markers:
+	for marker in %Markers.selected_multi_markers:
 		markers.append(marker)
 	var active_functions:int
 	for index in get_popup().item_count:
@@ -75,6 +75,7 @@ func _physics_process(delta):
 			var track_time:String = minutes + \":\" + seconds
 			%TrackSliderLarge.get_node('TrackTime').text = track_time
 			slider.set_value(playback_pos / track_length)
+			update_marker_menu()
 
 func scrub(value):
 	for bar in [$TrackSlider, %TrackSliderLarge]:
@@ -92,8 +93,9 @@ func scrub(value):
 		$AudioStreamPlayer.stream_paused = true
 	else:
 		$AudioStreamPlayer.seek(stream_position)
-	owner.frame = round((owner.path.size() - 1) * value)# * 0.5
-	owner.get_node('Markers').position_markers()
+	owner.frame = round((owner.path.size() - 1) * value)
+	update_marker_menu()
+	%Markers.position_markers()
 	var seconds = str(int(stream_position) % 60).lpad(2, \"0\")
 	var minutes = str(int(stream_position) / 60).lpad(2, \"0\")
 	%TrackSliderLarge.get_node('TrackTime').text = minutes + \":\" + seconds
@@ -101,6 +103,10 @@ func scrub(value):
 		owner.place_ball(owner.path[owner.frame])
 	elif $Paths.is_anything_selected():
 		owner.toggle_ball_visible(false)
+
+func update_marker_menu():
+	if not %Markers.selected_marker:
+		owner.get_node('MarkersMenu/HBox/Frame/Input').value = owner.frame
 
 func _on_track_selection_toggled(button_pressed):
 	if button_pressed:
@@ -164,13 +170,12 @@ func _on_track_selected(index):
 
 var last_path_index:int = -1
 func _on_path_selected(index):
-	var markers:Node = owner.get_node('Markers')
-	if markers.selected_marker and is_instance_valid(markers.selected_marker):
-		markers.marker_toggled(false, markers.selected_marker)
+	if %Markers.selected_marker and is_instance_valid(%Markers.selected_marker):
+		%Markers.marker_toggled(false, %Markers.selected_marker)
 	if index == last_path_index:
 		unload_all()
 		owner.marker_data[0] = [0, 0, 0, 0]
-		markers.add_marker(0, 0)
+		%Markers.add_marker(0, 0)
 		last_path_index = -1
 	else:
 		for line in get_tree().get_nodes_in_group('lines'):
@@ -188,11 +193,11 @@ func unload_all(scrub := false):
 	$Render.disabled = true
 	owner.define_path(false)
 	owner.marker_data.clear()
-	for marker in owner.get_node('Markers').marker_list.values():
+	for marker in %Markers.marker_list.values():
 		marker.queue_free()
 	for line in get_tree().get_nodes_in_group('lines'):
 		line.queue_free()
-	owner.get_node('Markers').marker_list.clear()
+	%Markers.marker_list.clear()
 	if scrub:
 		scrub(0)
 		owner.set_ball_depth(0)
@@ -361,10 +366,9 @@ func _ready():
 
 func _on_path_speed_changed(value):
 	owner.path_speed = value
-	var controls = get_node('../Controls')
-	if controls.get_node('Paths').is_anything_selected():
-		controls.unload_all(true)
-		controls.last_path_index = -1
+	if %Controls.get_node('Paths').is_anything_selected():
+		%Controls.unload_all(true)
+		%Controls.last_path_index = -1
 	$PathSpeed/Label.text = \"Path Speed: \" + str(value)
 	Data.set_config('path', 'path_speed', value)
 
@@ -392,8 +396,8 @@ func _on_path_area_value_changed(value):
 
 func _on_path_thickness_value_changed(value):
 	owner.get_node('Path').width = value
-	owner.get_node('Markers/Line').width = value
-	owner.get_node('Markers').connect_all_markers()
+	%Markers.get_node('Line').width = value
+	%Markers.connect_all_markers()
 	Data.set_config('path', 'path_thickness', value)
 
 func _on_open_tracks_pressed():
@@ -455,7 +459,7 @@ func _on_color_picker_color_changed(color):
 			selected.set_self_modulate(color)
 		1:
 			selected.set_self_modulate(color)
-			owner.get_node('Markers/Line').set_self_modulate(color)
+			%Markers.get_node('Line').set_self_modulate(color)
 			change_path_color(color)
 		3:
 			selected.set_self_modulate(color)
@@ -688,7 +692,7 @@ func _on_custom_action(action):
 	if action == 'show_render':
 		var path = \"user://Renders/%s/%s/\" % [track_name, folder_name]
 		var global_path = ProjectSettings.globalize_path(path)
-		OS.shell_open(global_path)
+		OS.shell_show_in_file_manager(global_path, false)
 		hide()
 "
 
@@ -754,6 +758,7 @@ expand_mode = 1
 stretch_mode = 1
 
 [node name="Markers" type="Control" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -955,6 +960,7 @@ text = "Frame:"
 [node name="Input" type="SpinBox" parent="MarkersMenu/HBox/Frame" groups=["input"]]
 layout_mode = 2
 max_value = 999999.0
+editable = false
 
 [node name="Depth" type="HBoxContainer" parent="MarkersMenu/HBox"]
 layout_mode = 2
@@ -967,6 +973,7 @@ text = "Depth:"
 layout_mode = 2
 max_value = 1.0
 step = 0.001
+editable = false
 
 [node name="Delete" type="TextureButton" parent="MarkersMenu/HBox"]
 visible = false
@@ -1327,7 +1334,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.2.6"
+text = "BounceX v2.2.7"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 
@@ -1713,12 +1720,12 @@ metadata/_edit_use_anchors_ = true
 
 [node name="Label" type="Label" parent="InfoPanel/VBoxContainer"]
 layout_mode = 2
-text = "Rendered image sequences
-should be played at 60 FPS"
+text = "Rendered image sequences should be played at 60 FPS"
+autowrap_mode = 3
 
 [node name="Label2" type="Label" parent="InfoPanel/VBoxContainer"]
 layout_mode = 2
-text = "Renders have a small spacer at the start. Make sure to adjust the timing in your video editor."
+text = "Use Exclusive Fullscreen for best performance"
 autowrap_mode = 3
 
 [node name="Label3" type="Label" parent="InfoPanel/VBoxContainer"]

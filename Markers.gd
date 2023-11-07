@@ -129,32 +129,23 @@ func marker_toggled(button_pressed:bool, marker:Node):
 				node.get_node('Button/Selected').hide()
 		marker.get_node('Button/Selected').self_modulate = Color.AQUAMARINE
 		marker.get_node('Button/Selected').show()
-		
 		var frame = marker.get_meta('frame')
-		
 		var aux_list = aux_functions.get_popup()
 		for i in aux_list.item_count:
 			if int(owner.marker_data[frame][3]) & 1 << i:
 				aux_list.set_item_checked(i, true)
 			else:
 				aux_list.set_item_checked(i, false)
-		
 		var index:int = get_marker_index(frame)
-		
 		selected_marker = marker
-		
 		set_marker_menu_mode(MARKER_MENU.HAS_SELECTION)
-		
 		set_marker_movement_range()
-		
 		frame_input.value_changed.disconnect(_on_frame_value_changed)
 		frame_input.value = frame
 		frame_input.value_changed.connect(_on_frame_value_changed)
-		
 		depth_input.value_changed.disconnect(_on_depth_value_changed)
 		depth_input.value = marker.get_meta('depth')
 		depth_input.value_changed.connect(_on_depth_value_changed)
-		
 		menu.get_node('Trans').select(marker.get_meta('trans'))
 		menu.get_node('Ease').select(marker.get_meta('ease'))
 	else:
@@ -190,14 +181,25 @@ func set_marker_movement_range():
 	var movement_min
 	var movement_max
 	for set in sequences:
-		var min_frame = get_previous_frame(set.front()) + MARKER_SEPARATION_MIN
-		var max_frame = get_next_frame(set.back()) - MARKER_SEPARATION_MIN
-		var movement_left = set.front() - min_frame
-		var movement_right = max_frame - set.back()
-		if not movement_min or movement_left < movement_min:
-			movement_min = movement_left
-		if not movement_max or movement_right < movement_max:
-			movement_max = movement_right
+		var min_frame
+		var max_frame
+		var previous_frame = get_previous_frame(set.front())
+		if previous_frame == set.front():
+			movement_min = 0
+			movement_max = 0
+		else:
+			min_frame = previous_frame + MARKER_SEPARATION_MIN
+			var next_frame = get_next_frame(set.back())
+			if next_frame != set.back():
+				max_frame = get_next_frame(set.back()) - MARKER_SEPARATION_MIN
+			else:
+				max_frame = owner.path.size() - 1
+			var movement_left = set.front() - min_frame
+			var movement_right = max_frame - set.back()
+			if not movement_min or movement_left < movement_min:
+				movement_min = movement_left
+			if not movement_max or movement_right < movement_max:
+				movement_max = movement_right
 	var origin:int = selected_marker.get_meta('frame')
 	if frame_input.is_connected('value_changed', _on_frame_value_changed):
 		frame_input.value_changed.disconnect(_on_frame_value_changed)
@@ -330,6 +332,8 @@ func _on_depth_value_changed(value):
 		marker.position.y = owner.BOTTOM + new_pos * (owner.TOP - owner.BOTTOM)
 		marker.set_meta('depth', new_pos)
 		owner.marker_data[marker_frame][0] = new_pos
+		if marker_frame == 0:
+			connect_marker(get_next_frame(0))
 		connect_marker(marker_frame)
 		place_ball_on_path()
 		Data.save_path()
@@ -382,11 +386,17 @@ func set_marker_menu_mode(mode:int):
 			ease_down_input.show()
 			aux_functions.hide()
 			delete_button.hide()
+			frame_input.min_value = 0
+			frame_input.max_value = owner.path.size() - 1
+			frame_input.editable = false
+			depth_input.editable = false
 		MARKER_MENU.HAS_SELECTION:
 			ease_input.show()
 			ease_up_input.hide()
 			ease_down_input.hide()
 			aux_functions.show()
+			frame_input.editable = true
+			depth_input.editable = true
 			var markers:Array
 			markers.append(selected_marker)
 			for marker in selected_multi_markers:
@@ -421,13 +431,14 @@ func _on_delete_pressed():
 	else:
 		var del_markers:Array
 		if selected_marker:
-			del_markers.append(selected_marker)
+			if selected_marker.get_meta('frame') != 0:
+				del_markers.append(selected_marker)
 		for marker in selected_multi_markers:
-			del_markers.append(marker)
+			marker.get_node('Button/Selected').hide()
+			if marker.get_meta('frame') != 0:
+				del_markers.append(marker)
 		for marker in del_markers:
 			var frame:int = marker.get_meta('frame')
-			if frame == 0:
-				return
 			var previous_frame = get_previous_frame(frame)
 			var next_frame = get_next_frame(frame)
 			marker_list.erase(frame)
@@ -455,7 +466,7 @@ func _on_delete_mouse_exited():
 
 func _on_add_marker_pressed():
 	if owner.path.is_empty(): return
-	owner.set_ball_depth(owner.get_ball_depth())
+	owner.set_ball_depth(owner.get_ball_depth()) #needs revision
 	_on_add_marker_mouse_exited()
 	var paths = %Controls.get_node('Paths')
 	if paths.is_anything_selected():
