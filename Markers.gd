@@ -17,7 +17,8 @@ const MARKER_SEPARATION_MIN := 5
 @onready var aux_functions = menu.get_node('AuxiliaryFunctions')
 
 @onready var delete_button = menu.get_node('Delete')
-@onready var add_marker_button = menu.get_node('AddMarker')
+@onready var add_marker_button = menu.get_node('Add/AddMarker')
+@onready var generate_cycle_button = menu.get_node('Add/GenerateCycle')
 
 func set_markers():
 	for node in marker_list.values():
@@ -227,7 +228,8 @@ func get_next_frame(frame:int, look_forward:=1) -> int:
 	return keys[min(keys.find(frame) + look_forward, marker_list.size() - 1)]
 
 func connect_marker(frame:int, connect_next:=true) -> void:
-	if frame == 0 or not marker_list.has(frame): return
+	if frame == 0 or not marker_list.has(frame):
+		return
 	var previous_frame = get_previous_frame(frame)
 	var next_frame = get_next_frame(frame)
 	var marker:Node = marker_list[frame]
@@ -482,11 +484,21 @@ func _on_add_marker_pressed():
 				paths.select(i)
 				%Controls._on_path_selected(i)
 
+func _on_generate_cycle_pressed():
+	owner.input_disabled = true
+	owner.get_node('GenerateCycle').show()
+
 func _on_add_marker_mouse_entered():
 	add_marker_button.self_modulate = '4fd6d6'
 
 func _on_add_marker_mouse_exited():
 	add_marker_button.self_modulate = Color.WHITE
+
+func _on_generate_cycle_mouse_entered():
+	generate_cycle_button.self_modulate = '39d443'
+
+func _on_generate_cycle_mouse_exited():
+	generate_cycle_button.self_modulate = Color.WHITE
 
 var mouse_over_marker:bool
 func _on_marker_mouse_entered():

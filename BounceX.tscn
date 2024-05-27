@@ -1,4 +1,4 @@
-[gd_scene load_steps=38 format=3 uid="uid://ddntuwjds6r37"]
+[gd_scene load_steps=41 format=3 uid="uid://ddntuwjds6r37"]
 
 [ext_resource type="Theme" uid="uid://4ddly4r83yek" path="res://Theme.tres" id="1_qtjw4"]
 [ext_resource type="Script" path="res://BounceX.gd" id="2_4ci4k"]
@@ -19,8 +19,10 @@
 [ext_resource type="Texture2D" uid="uid://bmlus4dohtrmw" path="res://Textures/Gear.svg" id="8_o0vj8"]
 [ext_resource type="Texture2D" uid="uid://bgcpkp1078rc6" path="res://Textures/AddMarker.svg" id="11_5ucy7"]
 [ext_resource type="Texture2D" uid="uid://bius3v0napj7c" path="res://Textures/Ball.svg" id="12_freos"]
+[ext_resource type="Texture2D" uid="uid://qn8b5b6gg863" path="res://Textures/cycle 5.svg" id="13_nunpy"]
 [ext_resource type="Texture2D" uid="uid://cvdu2l73nu3mw" path="res://Textures/Key Map.svg" id="16_2degy"]
 [ext_resource type="Texture2D" uid="uid://4gt7poc6r8ta" path="res://Textures/Right Click.png" id="17_cvd54"]
+[ext_resource type="Texture2D" uid="uid://dbcwp6u5c32wb" path="res://Textures/OSSM_VEC.FIN2.svg" id="17_v6cma"]
 
 [sub_resource type="Gradient" id="Gradient_gixs1"]
 offsets = PackedFloat32Array(0, 0.5, 1)
@@ -134,6 +136,7 @@ func load_paths(track_title:String, scrub:=false) -> void:
 	var list:PackedStringArray
 	$Render.disabled = true
 	$Paths.clear()
+	%Markers.selected_multi_markers.clear()
 	unload_all(scrub)
 	last_path_index = -1
 	dir.list_dir_begin()
@@ -157,7 +160,7 @@ func _on_track_selected(index):
 	$TrackControls/Play.button_pressed = false
 	$TrackControls/Play.disabled = false
 	$TrackControls/Play/Icon.self_modulate.a = 1
-	owner.get_node('MarkersMenu/HBox/AddMarker').show()
+	owner.get_node('MarkersMenu/HBox/Add/AddMarker').show()
 	$Record.disabled = false
 	var dir := DirAccess.open('user://Paths')
 	if not dir.dir_exists(track_name):
@@ -623,7 +626,7 @@ func _ready():
 	ui_mouse_filter(false)
 
 func _on_toggled(button_pressed):
-	var tween = get_tree().create_tween()
+	tween = get_tree().create_tween()
 	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART).set_parallel()
 	var menu_pos:float
 	var options_pos:float
@@ -694,6 +697,82 @@ func _on_custom_action(action):
 		var global_path = ProjectSettings.globalize_path(path)
 		OS.shell_show_in_file_manager(global_path, false)
 		hide()
+"
+
+[sub_resource type="GDScript" id="GDScript_cijm8"]
+script/source = "extends Panel
+
+@onready var markers = owner.get_node('Markers')
+@onready var min_frames:int = markers.MARKER_SEPARATION_MIN
+
+var positions:Array
+var phase:int
+
+func _ready():
+	self_modulate.a = 1.6
+
+
+func _on_bpm_value_changed(value):
+	$Inputs/Interval/FrameInterval/SpinBox.value = 60 / (value / 60)
+
+
+func _on_frame_interval_value_changed(value):
+	$Inputs/Interval/BPM/SpinBox.value = 60 / (value / 60)
+
+
+func _on_generate_pressed():
+	var frame_interval = $Inputs/Interval/FrameInterval/SpinBox.value
+	var length = $Inputs/Length/SpinBox.value
+	var height = $Inputs/Positions/Height/SpinBox.value
+	var depth = $Inputs/Positions/Depth/SpinBox.value
+	var starting_frame:int = owner.frame
+	var current_frame:int = starting_frame
+	positions = [depth, height]
+	phase = $Inputs/StartingDirection/OptionButton.selected
+	
+	create_marker(current_frame, positions[phase])
+	for markers in length - 1:
+		current_frame += frame_interval
+		create_marker(current_frame, positions[phase])
+	hide()
+	owner.input_disabled = false
+	
+	var paths = %Controls.get_node('Paths')
+	if paths.is_anything_selected():
+		Data.save_path()
+	else:
+		var track_list = %Controls.get_node('TrackSelection')
+		var track_title = track_list.get_item_text(track_list.selected)
+		var path_name:String = Data.timestamp()
+		Data.save_path('user://Paths/' + track_title + \"/\" + path_name + \".bx\")
+		%Controls.load_paths(track_title)
+		for i in paths.item_count:
+			if paths.get_item_text(i) == path_name:
+				paths.select(i)
+				%Controls._on_path_selected(i)
+
+
+func create_marker(frame:int, depth):
+	phase = abs(phase - 1)
+	if frame >= owner.path.size():
+		return
+	for i in range(frame - min_frames, frame + min_frames + 1):
+		if owner.marker_data.has(i):
+			return
+	var trans = owner.get_node('MarkersMenu/HBox/Trans').selected
+	var ease
+	if phase == 0:
+		ease = owner.get_node('MarkersMenu/HBox/EaseUp').selected
+	elif phase == 1:
+		ease = owner.get_node('MarkersMenu/HBox/EaseDown').selected
+	owner.marker_data[frame] = [depth, trans, ease, 0]
+	markers.add_marker(frame, depth, trans, ease)
+	markers.connect_marker(frame)
+
+
+func _on_cancel_pressed():
+	hide()
+	owner.input_disabled = false
 "
 
 [sub_resource type="GDScript" id="GDScript_cf1v0"]
@@ -818,6 +897,7 @@ visible = false
 gradient = SubResource("Gradient_gixs1")
 
 [node name="Ball" type="Sprite2D" parent="."]
+visible = false
 position = Vector2(576, 324)
 texture = ExtResource("12_freos")
 
@@ -826,7 +906,7 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -910.0
+offset_left = -962.0
 offset_bottom = 52.0
 grow_horizontal = 0
 
@@ -975,17 +1055,25 @@ max_value = 1.0
 step = 0.001
 editable = false
 
+[node name="Add" type="HBoxContainer" parent="MarkersMenu/HBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="AddMarker" type="TextureButton" parent="MarkersMenu/HBox/Add"]
+layout_mode = 2
+focus_mode = 0
+texture_normal = ExtResource("11_5ucy7")
+
+[node name="GenerateCycle" type="TextureButton" parent="MarkersMenu/HBox/Add"]
+layout_mode = 2
+focus_mode = 0
+texture_normal = ExtResource("13_nunpy")
+
 [node name="Delete" type="TextureButton" parent="MarkersMenu/HBox"]
 visible = false
 layout_mode = 2
 focus_mode = 0
 texture_normal = ExtResource("8_mcxme")
-
-[node name="AddMarker" type="TextureButton" parent="MarkersMenu/HBox"]
-visible = false
-layout_mode = 2
-focus_mode = 0
-texture_normal = ExtResource("11_5ucy7")
 
 [node name="Menu" type="Panel" parent="."]
 layout_mode = 1
@@ -1334,7 +1422,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.2.7"
+text = "BounceX v2.3.0"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 
@@ -1649,6 +1737,170 @@ exclusive = false
 dialog_close_on_escape = false
 script = SubResource("GDScript_xak41")
 
+[node name="GenerateCycle" type="Panel" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -220.0
+offset_top = 74.0
+offset_right = 223.0
+offset_bottom = 309.0
+grow_horizontal = 2
+script = SubResource("GDScript_cijm8")
+
+[node name="Title" type="Label" parent="GenerateCycle"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -85.0
+offset_top = 2.0
+offset_right = 85.0
+offset_bottom = 31.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 24
+text = "Generate Cycle:"
+vertical_alignment = 1
+
+[node name="Inputs" type="VBoxContainer" parent="GenerateCycle"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -203.0
+offset_top = -65.5
+offset_right = 203.0
+offset_bottom = 47.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 10
+
+[node name="Interval" type="HBoxContainer" parent="GenerateCycle/Inputs"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="BPM" type="HBoxContainer" parent="GenerateCycle/Inputs/Interval"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="GenerateCycle/Inputs/Interval/BPM"]
+layout_mode = 2
+text = "BPM:"
+vertical_alignment = 1
+
+[node name="SpinBox" type="SpinBox" parent="GenerateCycle/Inputs/Interval/BPM"]
+layout_mode = 2
+min_value = 1.0
+max_value = 720.0
+step = 0.01
+value = 120.0
+
+[node name="Label" type="Label" parent="GenerateCycle/Inputs/Interval"]
+layout_mode = 2
+text = "/"
+
+[node name="FrameInterval" type="HBoxContainer" parent="GenerateCycle/Inputs/Interval"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="GenerateCycle/Inputs/Interval/FrameInterval"]
+layout_mode = 2
+text = "Frame interval:"
+vertical_alignment = 1
+
+[node name="SpinBox" type="SpinBox" parent="GenerateCycle/Inputs/Interval/FrameInterval"]
+layout_mode = 2
+min_value = 5.0
+max_value = 9999.0
+value = 30.0
+
+[node name="Length" type="HBoxContainer" parent="GenerateCycle/Inputs"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="GenerateCycle/Inputs/Length"]
+layout_mode = 2
+text = "Number of markers:"
+vertical_alignment = 1
+
+[node name="SpinBox" type="SpinBox" parent="GenerateCycle/Inputs/Length"]
+layout_mode = 2
+min_value = 1.0
+max_value = 9999.0
+value = 1.0
+
+[node name="Positions" type="HBoxContainer" parent="GenerateCycle/Inputs"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Height" type="HBoxContainer" parent="GenerateCycle/Inputs/Positions"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="GenerateCycle/Inputs/Positions/Height"]
+layout_mode = 2
+text = "Height:"
+vertical_alignment = 1
+
+[node name="SpinBox" type="SpinBox" parent="GenerateCycle/Inputs/Positions/Height"]
+layout_mode = 2
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="Depth" type="HBoxContainer" parent="GenerateCycle/Inputs/Positions"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="GenerateCycle/Inputs/Positions/Depth"]
+layout_mode = 2
+text = "Depth:"
+vertical_alignment = 1
+
+[node name="SpinBox" type="SpinBox" parent="GenerateCycle/Inputs/Positions/Depth"]
+layout_mode = 2
+max_value = 1.0
+step = 0.01
+
+[node name="StartingDirection" type="HBoxContainer" parent="GenerateCycle/Inputs"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="GenerateCycle/Inputs/StartingDirection"]
+layout_mode = 2
+text = "Starting direction:"
+vertical_alignment = 1
+
+[node name="OptionButton" type="OptionButton" parent="GenerateCycle/Inputs/StartingDirection"]
+layout_mode = 2
+item_count = 2
+selected = 0
+popup/item_0/text = "Up"
+popup/item_0/id = 0
+popup/item_1/text = "Down"
+popup/item_1/id = 1
+
+[node name="Buttons" type="HBoxContainer" parent="GenerateCycle"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -89.5
+offset_top = -38.0
+offset_right = 89.5
+offset_bottom = -11.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 20
+
+[node name="Generate" type="Button" parent="GenerateCycle/Buttons"]
+layout_mode = 2
+text = "Generate"
+
+[node name="Cancel" type="Button" parent="GenerateCycle/Buttons"]
+layout_mode = 2
+text = "Cancel"
+
 [node name="InfoPanel" type="Panel" parent="."]
 visible = false
 layout_mode = 1
@@ -1741,6 +1993,46 @@ autowrap_mode = 3
 [node name="Timer" type="Timer" parent="."]
 wait_time = 1.1
 
+[node name="Button2" type="Button" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 242.0
+offset_top = 68.0
+offset_right = 282.0
+offset_bottom = 108.0
+
+[node name="HSlider" type="HSlider" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 248.0
+offset_top = 62.0
+offset_right = 961.0
+offset_bottom = 78.0
+
+[node name="WSButton" type="Button" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 97.0
+offset_top = 11.0
+offset_right = 179.0
+offset_bottom = 84.0
+toggle_mode = true
+
+[node name="OssmVec_fin2" type="TextureRect" parent="WSButton"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -36.0
+offset_top = -31.0
+offset_right = 36.0
+offset_bottom = 31.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("17_v6cma")
+
 [connection signal="gui_input" from="." to="." method="_on_gui_input"]
 [connection signal="resized" from="." to="." method="update_display"]
 [connection signal="mouse_entered" from="Markers/Marker/Button" to="Markers" method="_on_marker_mouse_entered"]
@@ -1755,12 +2047,15 @@ wait_time = 1.1
 [connection signal="mouse_entered" from="MarkersMenu/HBox/Depth/Input" to="Markers" method="_on_input_mouse_entered"]
 [connection signal="mouse_exited" from="MarkersMenu/HBox/Depth/Input" to="Markers" method="_on_input_mouse_exited"]
 [connection signal="value_changed" from="MarkersMenu/HBox/Depth/Input" to="Markers" method="_on_depth_value_changed"]
+[connection signal="mouse_entered" from="MarkersMenu/HBox/Add/AddMarker" to="Markers" method="_on_add_marker_mouse_entered"]
+[connection signal="mouse_exited" from="MarkersMenu/HBox/Add/AddMarker" to="Markers" method="_on_add_marker_mouse_exited"]
+[connection signal="pressed" from="MarkersMenu/HBox/Add/AddMarker" to="Markers" method="_on_add_marker_pressed"]
+[connection signal="mouse_entered" from="MarkersMenu/HBox/Add/GenerateCycle" to="Markers" method="_on_generate_cycle_mouse_entered"]
+[connection signal="mouse_exited" from="MarkersMenu/HBox/Add/GenerateCycle" to="Markers" method="_on_generate_cycle_mouse_exited"]
+[connection signal="pressed" from="MarkersMenu/HBox/Add/GenerateCycle" to="Markers" method="_on_generate_cycle_pressed"]
 [connection signal="mouse_entered" from="MarkersMenu/HBox/Delete" to="Markers" method="_on_delete_mouse_entered"]
 [connection signal="mouse_exited" from="MarkersMenu/HBox/Delete" to="Markers" method="_on_delete_mouse_exited"]
 [connection signal="pressed" from="MarkersMenu/HBox/Delete" to="Markers" method="_on_delete_pressed"]
-[connection signal="mouse_entered" from="MarkersMenu/HBox/AddMarker" to="Markers" method="_on_add_marker_mouse_entered"]
-[connection signal="mouse_exited" from="MarkersMenu/HBox/AddMarker" to="Markers" method="_on_add_marker_mouse_exited"]
-[connection signal="pressed" from="MarkersMenu/HBox/AddMarker" to="Markers" method="_on_add_marker_pressed"]
 [connection signal="toggled" from="Menu/Controls/Record" to="." method="_on_record_toggled"]
 [connection signal="pressed" from="Menu/Controls/Render" to="." method="_on_render_pressed"]
 [connection signal="item_selected" from="Menu/Controls/TrackSelection" to="Menu/Controls" method="_on_track_selected"]
@@ -1813,4 +2108,10 @@ wait_time = 1.1
 [connection signal="about_to_popup" from="RenderRange" to="RenderRange" method="_on_about_to_popup"]
 [connection signal="confirmed" from="RenderRange" to="RenderRange" method="_on_confirmed"]
 [connection signal="custom_action" from="RenderComplete" to="RenderComplete" method="_on_custom_action"]
+[connection signal="value_changed" from="GenerateCycle/Inputs/Interval/BPM/SpinBox" to="GenerateCycle" method="_on_bpm_value_changed"]
+[connection signal="value_changed" from="GenerateCycle/Inputs/Interval/FrameInterval/SpinBox" to="GenerateCycle" method="_on_frame_interval_value_changed"]
+[connection signal="pressed" from="GenerateCycle/Buttons/Generate" to="GenerateCycle" method="_on_generate_pressed"]
+[connection signal="pressed" from="GenerateCycle/Buttons/Cancel" to="GenerateCycle" method="_on_cancel_pressed"]
 [connection signal="pressed" from="InfoPanel/Button" to="InfoPanel/Button" method="_on_pressed"]
+[connection signal="pressed" from="Button2" to="." method="_on_button_2_pressed"]
+[connection signal="value_changed" from="HSlider" to="." method="_on_h_slider_value_changed"]
