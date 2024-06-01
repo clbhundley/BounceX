@@ -238,6 +238,7 @@ func _ready():
 	$Play.self_modulate.a = 0
 	$Pause.self_modulate.a = 0
 
+
 func _on_play_toggled(button_pressed):
 	if button_pressed:
 		$Play.disabled = true
@@ -251,6 +252,7 @@ func _on_play_toggled(button_pressed):
 		$Play.disabled = false
 		$Play.self_modulate.a = 0
 
+
 func _on_pause_toggled(button_pressed):
 	if button_pressed:
 		$Pause.disabled = true
@@ -263,17 +265,21 @@ func _on_pause_toggled(button_pressed):
 		$Pause.disabled = false
 		$Pause.self_modulate.a = 0
 
+
 func _on_play_mouse_entered():
 	if not $Play.disabled and not $Play.button_pressed:
 		$Play/Icon.scale = size_small
+
 
 func _on_play_mouse_exited():
 	if not $Play.disabled:
 		$Play/Icon.scale = size_normal
 
+
 func _on_pause_mouse_entered():
 	if not $Pause.disabled and not $Pause.button_pressed:
 		$Pause/Icon.scale = size_small
+
 
 func _on_pause_mouse_exited():
 	if not $Pause.disabled:
@@ -715,6 +721,7 @@ var folder_name
 
 func _ready():
 	add_button(\"Show Render\", true, 'show_render')
+
 
 func _on_custom_action(action):
 	if action == 'show_render':
