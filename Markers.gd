@@ -542,15 +542,20 @@ func _on_paste_pressed():
 			collision = true
 		for i in range(frame - SEPARATION_MIN + 1, frame + SEPARATION_MIN + 1):
 			if owner.marker_data.has(i):
-				print("has ", i, " cant set ", frame)
 				collision = true
 		
 		if not collision:
 			owner.marker_data[frame] = [depth, trans, ease, 0]
 			add_marker(frame, depth, trans, ease)
 			connect_marker(frame)
-		
-		owner.save_path()
+	
+	if selected_marker:
+		selected_marker.get_node('Button').button_pressed = false
+		for node in selected_multi_markers:
+			node.get_node('Button/Selected').hide()
+		selected_multi_markers.clear()
+	
+	owner.save_path()
 
 
 func _on_delete_mouse_entered():
