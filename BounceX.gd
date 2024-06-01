@@ -30,8 +30,11 @@ var control_pressed:bool
 
 var input_disabled:bool
 
+#add mouse input image
+
 func _init():
 	Data.bx = self
+
 
 func _ready():
 	Data.load_config()
@@ -40,6 +43,7 @@ func _ready():
 	$Menu.self_modulate.a = 1.65
 	toggle_ball_visible(false)
 	update_display()
+
 
 func _physics_process(delta):
 	if %Play.button_pressed:
@@ -72,6 +76,7 @@ func _physics_process(delta):
 	while $Path.get_point_count() > path_max_length:
 		$Path.remove_point(0)
 
+
 func line_colors(ball:Sprite2D, point:int) -> void:
 	if path.size() < 4:
 		return
@@ -85,6 +90,7 @@ func line_colors(ball:Sprite2D, point:int) -> void:
 	else:
 		$BottomLine.self_modulate = bottom_color
 
+
 func define_path(set_ball_pos := true):
 	var frames = ceil(%AudioStreamPlayer.stream.get_length() * 60)
 	path.clear()
@@ -95,6 +101,23 @@ func define_path(set_ball_pos := true):
 		var ball_pos = clamp(($Ball.position.y - BOTTOM) / (TOP - BOTTOM), 0, 1)
 		set_ball_depth(ball_pos)
 
+
+func save_path():
+	var paths = %Controls.get_node('Paths')
+	if paths.is_anything_selected():
+		Data.save_path()
+	else:
+		var track_list = %Controls.get_node('TrackSelection')
+		var track_title = track_list.get_item_text(track_list.selected)
+		var path_name:String = Data.timestamp()
+		Data.save_path('user://Paths/' + track_title + "/" + path_name + ".bx")
+		%Controls.load_paths(track_title)
+		for i in paths.item_count:
+			if paths.get_item_text(i) == path_name:
+				paths.select(i)
+				%Controls._on_path_selected(i)
+
+
 func get_ease_direction(depth) -> int:
 	var ease:int
 	if depth >= get_ball_depth():
@@ -102,15 +125,18 @@ func get_ease_direction(depth) -> int:
 	else:
 		return $MarkersMenu/HBox/EaseDown.selected
 
+
 func toggle_ball_visible(toggled:bool) -> void:
 	$Ball.modulate.a = max(float(toggled), 0.3)
+
 
 func get_ball_depth() -> float:
 	return abs(($Ball.position.y - BOTTOM) / (TOP - BOTTOM))
 
+
 func set_ball_depth(depth:float) -> void:
 	var easing = get_ease_direction(depth)
-	var min_frames:int = $Markers.MARKER_SEPARATION_MIN
+	var min_frames:int = $Markers.SEPARATION_MIN
 	for i in range(frame - min_frames, frame + min_frames + 1):
 		if marker_data.has(i):
 			return
@@ -121,10 +147,12 @@ func set_ball_depth(depth:float) -> void:
 		$Header/MenuButton.button_pressed = false
 	place_ball(depth)
 
+
 func place_ball(depth:float) -> void:
 	$Ball.position.y = BOTTOM + depth * (TOP - BOTTOM)
 	if not $Markers.selected_marker:
 		$MarkersMenu/HBox/Depth/Input.value = get_ball_depth()
+
 
 func frame_scrub(frame_movement:float) -> void:
 	connect_sliders_signal()
@@ -142,6 +170,7 @@ func frame_scrub(frame_movement:float) -> void:
 	var minutes = str(int(playback_pos) / 60).lpad(2, "0")
 	slider.get_node('TrackTime').text = minutes + ":" + seconds
 	slider.set_value(playback_pos / track_length)
+
 
 func _on_gui_input(event):
 	if input_disabled: return
@@ -163,6 +192,7 @@ func _on_gui_input(event):
 		if event.button_mask & MOUSE_BUTTON_LEFT and %Record.button_pressed:
 			var depth = (event.position.y - BOTTOM) / (TOP - BOTTOM)
 			set_ball_depth(clamp(depth, 0, 1))
+
 
 func _input(event):
 	if input_disabled: return
@@ -207,6 +237,7 @@ func _input(event):
 		if event.is_action_pressed('t' + str(trans_number)):
 			trans_input(trans_number)
 
+
 func position_input(input:int):
 	if %Record.button_pressed:
 		set_ball_depth(float(input) / 10)
@@ -214,6 +245,7 @@ func position_input(input:int):
 		$MarkersMenu/HBox/Depth/Input.value = float(input) / 10
 	else:
 		place_ball(float(input) / 10)
+
 
 func easing_input(input:int):
 	if $Markers.selected_marker:
@@ -229,9 +261,11 @@ func easing_input(input:int):
 			$MarkersMenu/HBox/EaseDown.select(input - 4)
 			$Markers._on_down_easing_selected(input - 4)
 
+
 func trans_input(input:int):
 	$MarkersMenu/HBox/Trans.select(input)
 	$MarkersMenu/HBox/Trans.emit_signal('item_selected', input)
+
 
 func _on_record_toggled(active:bool):
 	if active:
@@ -264,6 +298,7 @@ func _on_record_toggled(active:bool):
 		else:
 			Data.save_path()
 
+
 func _on_play_toggled(button_pressed):
 	if button_pressed:
 		if %AudioStreamPlayer.stream_paused:
@@ -284,9 +319,11 @@ func _on_play_toggled(button_pressed):
 		if $Markers.is_visible_in_tree():
 			$Path.hide()
 
+
 func _on_render_pressed():
 	$Header/MenuButton.button_pressed = false
 	$RenderRange.popup_centered()
+
 
 enum Effects {
 	HOLD_BREATH = 1}
@@ -550,10 +587,12 @@ func render(starting_frame:int, ending_frame:int):
 	$RenderComplete.folder_name = folder_name
 	$RenderComplete.popup_centered()
 
+
 func connect_sliders_signal():
 	for slider in [$Menu/Controls/TrackSlider, $TrackSliderLarge]:
 		if not slider.is_connected("value_changed", %Controls.scrub):
 			slider.connect("value_changed", %Controls.scrub)
+
 
 func update_display() -> void:
 	var center:Vector2 = get_viewport_rect().size / 2
@@ -587,17 +626,3 @@ func update_display() -> void:
 		place_ball(path[frame+1])
 	else:
 		place_ball(0)
-
-
-func _on_button_2_pressed():
-	for point in path:
-		place_ball(point)
-		$Path.add_point($Ball.position)
-		$Ball.position.x += 1 * path_speed
-		await get_tree().create_timer(0.1).timeout
-		#$Ball.position.x
-	#$Path.add_point(Vector2($Ball.position.x + step, $Ball.position.y))
-
-func _on_h_slider_value_changed(value):
-	$Path.position.x -= value
-	pass # Replace with function body.

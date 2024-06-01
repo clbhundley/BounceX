@@ -1,4 +1,4 @@
-[gd_scene load_steps=41 format=3 uid="uid://ddntuwjds6r37"]
+[gd_scene load_steps=42 format=3 uid="uid://ddntuwjds6r37"]
 
 [ext_resource type="Theme" uid="uid://4ddly4r83yek" path="res://Theme.tres" id="1_qtjw4"]
 [ext_resource type="Script" path="res://BounceX.gd" id="2_4ci4k"]
@@ -20,9 +20,10 @@
 [ext_resource type="Texture2D" uid="uid://bgcpkp1078rc6" path="res://Textures/AddMarker.svg" id="11_5ucy7"]
 [ext_resource type="Texture2D" uid="uid://bius3v0napj7c" path="res://Textures/Ball.svg" id="12_freos"]
 [ext_resource type="Texture2D" uid="uid://qn8b5b6gg863" path="res://Textures/cycle 5.svg" id="13_nunpy"]
+[ext_resource type="Texture2D" uid="uid://1uor7ar7yyam" path="res://Textures/Copy.svg" id="13_yxa0r"]
+[ext_resource type="Texture2D" uid="uid://dndicopykmmg2" path="res://Textures/Paste.svg" id="14_qcc21"]
 [ext_resource type="Texture2D" uid="uid://cvdu2l73nu3mw" path="res://Textures/Key Map.svg" id="16_2degy"]
 [ext_resource type="Texture2D" uid="uid://4gt7poc6r8ta" path="res://Textures/Right Click.png" id="17_cvd54"]
-[ext_resource type="Texture2D" uid="uid://dbcwp6u5c32wb" path="res://Textures/OSSM_VEC.FIN2.svg" id="17_v6cma"]
 
 [sub_resource type="Gradient" id="Gradient_gixs1"]
 offsets = PackedFloat32Array(0, 0.5, 1)
@@ -65,6 +66,7 @@ script/source = "extends VBoxContainer
 func _ready():
 	load_tracks()
 
+
 func _physics_process(delta):
 	if $AudioStreamPlayer.is_playing():
 		for slider in [$TrackSlider, %TrackSliderLarge]:
@@ -78,6 +80,7 @@ func _physics_process(delta):
 			%TrackSliderLarge.get_node('TrackTime').text = track_time
 			slider.set_value(playback_pos / track_length)
 			update_marker_menu()
+
 
 func scrub(value):
 	for bar in [$TrackSlider, %TrackSliderLarge]:
@@ -106,16 +109,20 @@ func scrub(value):
 	elif $Paths.is_anything_selected():
 		owner.toggle_ball_visible(false)
 
+
 func update_marker_menu():
 	if not %Markers.selected_marker:
 		owner.get_node('MarkersMenu/HBox/Frame/Input').value = owner.frame
+
 
 func _on_track_selection_toggled(button_pressed):
 	if button_pressed:
 		load_tracks()
 
+
 func _on_track_slider_gui_input(event):
 	owner.connect_sliders_signal()
+
 
 func load_tracks() -> void:
 	var dir := DirAccess.open('res://Tracks')
@@ -130,6 +137,7 @@ func load_tracks() -> void:
 		file_name = dir.get_next()
 	dir.list_dir_end()
 	$TrackSelection.selected = selected
+
 
 func load_paths(track_title:String, scrub:=false) -> void:
 	var dir := DirAccess.open('user://Paths/' + track_title)
@@ -151,6 +159,7 @@ func load_paths(track_title:String, scrub:=false) -> void:
 			title.trim_suffix('.bx')
 			$Paths.add_item(title.trim_suffix('.bx'))
 
+
 func _on_track_selected(index):
 	var track_name = $TrackSelection.get_item_text(index)
 	$AudioStreamPlayer.stream = load('res://Tracks/' + track_name)
@@ -170,6 +179,7 @@ func _on_track_selected(index):
 	owner.frame = 0
 	owner.define_path()
 	scrub(0)
+
 
 var last_path_index:int = -1
 func _on_path_selected(index):
@@ -191,6 +201,7 @@ func _on_path_selected(index):
 		if path_value > -1:
 			owner.place_ball(path_value)
 
+
 func unload_all(scrub := false):
 	$Paths.deselect_all()
 	$Render.disabled = true
@@ -204,6 +215,7 @@ func unload_all(scrub := false):
 	if scrub:
 		scrub(0)
 		owner.set_ball_depth(0)
+
 
 func _on_paths_item_clicked(index, at_position, mouse_button_index):
 	if index == last_path_index and mouse_button_index == 2:
@@ -367,6 +379,7 @@ func _ready():
 	else:
 		_on_path_area_value_changed($PathArea.value)
 
+
 func _on_path_speed_changed(value):
 	owner.path_speed = value
 	if %Controls.get_node('Paths').is_anything_selected():
@@ -375,11 +388,13 @@ func _on_path_speed_changed(value):
 	$PathSpeed/Label.text = \"Path Speed: \" + str(value)
 	Data.set_config('path', 'path_speed', value)
 
+
 func _on_path_fade_value_changed(value):
 	$PathFade/Label.text = \"Fade: \" + str(value)
 	owner.get_node('Path').gradient.colors[0].a = 1 - value
 	owner.get_node('Path').gradient.colors[2].a = 1 - value
 	Data.set_config('path', 'path_fade', value)
+
 
 func _on_change_colors_pressed():
 	var colors:Node = get_node('../Colors')
@@ -388,14 +403,17 @@ func _on_change_colors_pressed():
 	colors.show()
 	hide()
 
+
 func _on_path_max_length_value_changed(value):
 	owner.path_max_length = value
 	Data.set_config('path', 'path_max_length', value)
+
 
 func _on_path_area_value_changed(value):
 	owner.path_area = value
 	owner.update_display()
 	Data.set_config('path', 'path_area', value)
+
 
 func _on_path_thickness_value_changed(value):
 	owner.get_node('Path').width = value
@@ -403,14 +421,17 @@ func _on_path_thickness_value_changed(value):
 	%Markers.connect_all_markers()
 	Data.set_config('path', 'path_thickness', value)
 
+
 func _on_open_tracks_pressed():
 	var folder_path = ProjectSettings.globalize_path('res://Tracks')
 	OS.shell_open(folder_path)
 	$OpenTracks/AcceptDialog.popup_centered()
 
+
 func _on_open_renders_pressed():
 	var folder_path = ProjectSettings.globalize_path('user://Renders')
 	OS.shell_open(folder_path)
+
 
 func _on_open_paths_pressed():
 	var folder_path = ProjectSettings.globalize_path('user://Paths')
@@ -486,6 +507,7 @@ func _on_color_picker_color_changed(color):
 	var title = $TabBar.get_tab_title($TabBar.current_tab)
 	Data.set_config('colors', title, color)
 
+
 func _on_tab_bar_tab_changed(tab):
 	var selected_color:Color
 	match tab:
@@ -518,13 +540,16 @@ func _on_tab_bar_tab_changed(tab):
 			selected_color = owner.hold_breath_path_color
 	$ColorPicker.color = selected_color
 
+
 func change_path_color(input_color:Color):
 	owner.get_node('Path').self_modulate = input_color
 	for node in get_tree().get_nodes_in_group('lines'):
 		node.set_self_modulate(input_color)
 
+
 func _on_done_pressed():
 	hide()
+
 
 func _on_visibility_changed():
 	if not is_visible_in_tree():
@@ -703,7 +728,6 @@ func _on_custom_action(action):
 script/source = "extends Panel
 
 @onready var markers = owner.get_node('Markers')
-@onready var min_frames:int = markers.MARKER_SEPARATION_MIN
 
 var positions:Array
 var phase:int
@@ -727,44 +751,37 @@ func _on_generate_pressed():
 	var depth = $Inputs/Positions/Depth/SpinBox.value
 	var starting_frame:int = owner.frame
 	var current_frame:int = starting_frame
-	positions = [depth, height]
-	phase = $Inputs/StartingDirection/OptionButton.selected
-	
+	phase = $Inputs/StartingPosition/Positions/OptionButton.selected
+	if $Inputs/StartingPosition/Flat/CheckBox.button_pressed:
+		if phase == 0:
+			positions = [height, height]
+		elif phase == 1:
+			positions = [depth, depth]
+	else:
+		positions = [height, depth]
 	create_marker(current_frame, positions[phase])
 	for markers in length - 1:
 		current_frame += frame_interval
 		create_marker(current_frame, positions[phase])
 	hide()
 	owner.input_disabled = false
-	
-	var paths = %Controls.get_node('Paths')
-	if paths.is_anything_selected():
-		Data.save_path()
-	else:
-		var track_list = %Controls.get_node('TrackSelection')
-		var track_title = track_list.get_item_text(track_list.selected)
-		var path_name:String = Data.timestamp()
-		Data.save_path('user://Paths/' + track_title + \"/\" + path_name + \".bx\")
-		%Controls.load_paths(track_title)
-		for i in paths.item_count:
-			if paths.get_item_text(i) == path_name:
-				paths.select(i)
-				%Controls._on_path_selected(i)
+	owner.save_path()
 
 
 func create_marker(frame:int, depth):
 	phase = abs(phase - 1)
 	if frame >= owner.path.size():
 		return
-	for i in range(frame - min_frames, frame + min_frames + 1):
+	var min_frames:int = markers.SEPARATION_MIN
+	for i in range(frame - min_frames + 1, frame + min_frames + 1):
 		if owner.marker_data.has(i):
 			return
 	var trans = owner.get_node('MarkersMenu/HBox/Trans').selected
 	var ease
 	if phase == 0:
-		ease = owner.get_node('MarkersMenu/HBox/EaseUp').selected
-	elif phase == 1:
 		ease = owner.get_node('MarkersMenu/HBox/EaseDown').selected
+	elif phase == 1:
+		ease = owner.get_node('MarkersMenu/HBox/EaseUp').selected
 	owner.marker_data[frame] = [depth, trans, ease, 0]
 	markers.add_marker(frame, depth, trans, ease)
 	markers.connect_marker(frame)
@@ -906,7 +923,7 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -962.0
+offset_left = -967.0
 offset_bottom = 52.0
 grow_horizontal = 0
 
@@ -1068,6 +1085,20 @@ texture_normal = ExtResource("11_5ucy7")
 layout_mode = 2
 focus_mode = 0
 texture_normal = ExtResource("13_nunpy")
+
+[node name="Clipboard" type="HBoxContainer" parent="MarkersMenu/HBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Copy" type="TextureButton" parent="MarkersMenu/HBox/Clipboard"]
+layout_mode = 2
+focus_mode = 0
+texture_normal = ExtResource("13_yxa0r")
+
+[node name="Paste" type="TextureButton" parent="MarkersMenu/HBox/Clipboard"]
+layout_mode = 2
+focus_mode = 0
+texture_normal = ExtResource("14_qcc21")
 
 [node name="Delete" type="TextureButton" parent="MarkersMenu/HBox"]
 visible = false
@@ -1422,7 +1453,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.3.0"
+text = "BounceX v2.4.0"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 
@@ -1861,22 +1892,37 @@ layout_mode = 2
 max_value = 1.0
 step = 0.01
 
-[node name="StartingDirection" type="HBoxContainer" parent="GenerateCycle/Inputs"]
+[node name="StartingPosition" type="HBoxContainer" parent="GenerateCycle/Inputs"]
+layout_mode = 2
+theme_override_constants/separation = 40
+
+[node name="Positions" type="HBoxContainer" parent="GenerateCycle/Inputs/StartingPosition"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="GenerateCycle/Inputs/StartingDirection"]
+[node name="Label" type="Label" parent="GenerateCycle/Inputs/StartingPosition/Positions"]
 layout_mode = 2
-text = "Starting direction:"
+text = "Starting position:"
 vertical_alignment = 1
 
-[node name="OptionButton" type="OptionButton" parent="GenerateCycle/Inputs/StartingDirection"]
+[node name="OptionButton" type="OptionButton" parent="GenerateCycle/Inputs/StartingPosition/Positions"]
 layout_mode = 2
 item_count = 2
-selected = 0
-popup/item_0/text = "Up"
+selected = 1
+popup/item_0/text = "Top"
 popup/item_0/id = 0
-popup/item_1/text = "Down"
+popup/item_1/text = "Bottom"
 popup/item_1/id = 1
+
+[node name="Flat" type="HBoxContainer" parent="GenerateCycle/Inputs/StartingPosition"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="GenerateCycle/Inputs/StartingPosition/Flat"]
+layout_mode = 2
+text = "Flat:"
+vertical_alignment = 1
+
+[node name="CheckBox" type="CheckBox" parent="GenerateCycle/Inputs/StartingPosition/Flat"]
+layout_mode = 2
 
 [node name="Buttons" type="HBoxContainer" parent="GenerateCycle"]
 layout_mode = 1
@@ -1990,49 +2036,6 @@ layout_mode = 2
 text = "Smaller render size = faster renders, so trim down unused vertical space in your render resolution"
 autowrap_mode = 3
 
-[node name="Timer" type="Timer" parent="."]
-wait_time = 1.1
-
-[node name="Button2" type="Button" parent="."]
-visible = false
-layout_mode = 0
-offset_left = 242.0
-offset_top = 68.0
-offset_right = 282.0
-offset_bottom = 108.0
-
-[node name="HSlider" type="HSlider" parent="."]
-visible = false
-layout_mode = 0
-offset_left = 248.0
-offset_top = 62.0
-offset_right = 961.0
-offset_bottom = 78.0
-
-[node name="WSButton" type="Button" parent="."]
-visible = false
-layout_mode = 0
-offset_left = 97.0
-offset_top = 11.0
-offset_right = 179.0
-offset_bottom = 84.0
-toggle_mode = true
-
-[node name="OssmVec_fin2" type="TextureRect" parent="WSButton"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -36.0
-offset_top = -31.0
-offset_right = 36.0
-offset_bottom = 31.0
-grow_horizontal = 2
-grow_vertical = 2
-texture = ExtResource("17_v6cma")
-
 [connection signal="gui_input" from="." to="." method="_on_gui_input"]
 [connection signal="resized" from="." to="." method="update_display"]
 [connection signal="mouse_entered" from="Markers/Marker/Button" to="Markers" method="_on_marker_mouse_entered"]
@@ -2053,6 +2056,12 @@ texture = ExtResource("17_v6cma")
 [connection signal="mouse_entered" from="MarkersMenu/HBox/Add/GenerateCycle" to="Markers" method="_on_generate_cycle_mouse_entered"]
 [connection signal="mouse_exited" from="MarkersMenu/HBox/Add/GenerateCycle" to="Markers" method="_on_generate_cycle_mouse_exited"]
 [connection signal="pressed" from="MarkersMenu/HBox/Add/GenerateCycle" to="Markers" method="_on_generate_cycle_pressed"]
+[connection signal="mouse_entered" from="MarkersMenu/HBox/Clipboard/Copy" to="Markers" method="_on_copy_mouse_entered"]
+[connection signal="mouse_exited" from="MarkersMenu/HBox/Clipboard/Copy" to="Markers" method="_on_copy_mouse_exited"]
+[connection signal="pressed" from="MarkersMenu/HBox/Clipboard/Copy" to="Markers" method="_on_copy_pressed"]
+[connection signal="mouse_entered" from="MarkersMenu/HBox/Clipboard/Paste" to="Markers" method="_on_paste_mouse_entered"]
+[connection signal="mouse_exited" from="MarkersMenu/HBox/Clipboard/Paste" to="Markers" method="_on_paste_mouse_exited"]
+[connection signal="pressed" from="MarkersMenu/HBox/Clipboard/Paste" to="Markers" method="_on_paste_pressed"]
 [connection signal="mouse_entered" from="MarkersMenu/HBox/Delete" to="Markers" method="_on_delete_mouse_entered"]
 [connection signal="mouse_exited" from="MarkersMenu/HBox/Delete" to="Markers" method="_on_delete_mouse_exited"]
 [connection signal="pressed" from="MarkersMenu/HBox/Delete" to="Markers" method="_on_delete_pressed"]
@@ -2113,5 +2122,3 @@ texture = ExtResource("17_v6cma")
 [connection signal="pressed" from="GenerateCycle/Buttons/Generate" to="GenerateCycle" method="_on_generate_pressed"]
 [connection signal="pressed" from="GenerateCycle/Buttons/Cancel" to="GenerateCycle" method="_on_cancel_pressed"]
 [connection signal="pressed" from="InfoPanel/Button" to="InfoPanel/Button" method="_on_pressed"]
-[connection signal="pressed" from="Button2" to="." method="_on_button_2_pressed"]
-[connection signal="value_changed" from="HSlider" to="." method="_on_h_slider_value_changed"]
