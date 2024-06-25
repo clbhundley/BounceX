@@ -6,6 +6,8 @@ var selected_multi_markers:Array
 
 var clipboard:Dictionary
 
+var selecting_to_edge:bool
+
 const SEPARATION_MIN := 5
 
 @onready var menu = owner.get_node('MarkersMenu/HBox')
@@ -33,8 +35,12 @@ func _input(event):
 		_on_paste_pressed()
 	if event.is_action_pressed('delete'):
 		_on_delete_pressed()
-	elif event.is_action_pressed('insert'):
+	if event.is_action_pressed('insert'):
 		_on_add_marker_pressed()
+	if event.is_action_pressed('select_to_start') and not owner.shift_pressed:
+		select_to(1)
+	if event.is_action_pressed('select_to_end') and not owner.shift_pressed:
+		select_to(-1)
 	elif event is InputEventMouseButton and event.is_pressed():
 		if event.button_mask & MOUSE_BUTTON_LEFT and not mouse_over_input:
 			var i = [frame_input.get_line_edit(), depth_input.get_line_edit()]
@@ -113,12 +119,12 @@ func marker_toggled(button_pressed:bool, marker:Node):
 		else:
 			marker.get_node('Button').set_pressed_no_signal(false)
 		return
-	if not owner.control_pressed:
+	if not owner.control_pressed and not selecting_to_edge:
 		for node in selected_multi_markers:
 			node.get_node('Button/Selected').hide()
 		selected_multi_markers.clear()
 	if button_pressed:
-		if owner.shift_pressed and selected_marker:
+		if owner.shift_pressed and selected_marker or selecting_to_edge:
 			var end_marker = marker
 			var index_a = get_marker_index(selected_marker.get_meta('frame'))
 			var index_b = get_marker_index(marker.get_meta('frame'))
@@ -321,7 +327,26 @@ func position_markers():
 	position.x = center.x - (owner.frame * owner.path_speed)
 
 
-#redesign to move and delete all at once to prevent errors on quick movement
+func select_to(index:int):
+	if not selected_marker:
+		return
+	var selected_frame = selected_marker.get_meta('frame')
+	if selected_frame == 0 and index == 1:
+		return
+	var selected_marker_copy = selected_marker
+	selected_marker.get_node('Button').button_pressed = false
+	selected_multi_markers.clear()
+	selected_marker = selected_marker_copy
+	selected_marker.get_node('Button').button_pressed = true
+	var sorted_markers:Array = marker_list.keys()
+	sorted_markers.sort()
+	selecting_to_edge = true
+	var target_frame = sorted_markers[index]
+	if selected_frame != target_frame:
+		marker_toggled(true, marker_list[target_frame])
+	selecting_to_edge = false
+
+
 func _on_frame_value_changed(value:int):
 	if not selected_marker: return
 	var movement = value - selected_marker.get_meta('frame')
@@ -329,6 +354,19 @@ func _on_frame_value_changed(value:int):
 	markers.append(selected_marker)
 	for marker in selected_multi_markers:
 		markers.append(marker)
+	
+	var orig_frames:Array
+	var new_frames:Array
+	for marker in markers:
+		var orig_frame = marker.get_meta('frame')
+		var new_frame = orig_frame + movement
+		orig_frames.append(orig_frame)
+		new_frames.append(orig_frame + movement)
+	
+	for frame in new_frames:
+		if orig_frames.has(frame):
+			return
+	
 	for marker in markers:
 		var orig_frame = marker.get_meta('frame')
 		if not owner.marker_data.has(orig_frame):
@@ -341,8 +379,10 @@ func _on_frame_value_changed(value:int):
 		owner.marker_data[new_frame] = orig_marker_data
 		marker_list.erase(orig_frame)
 		marker_list[new_frame] = marker
-		clear_ahead(new_frame)
-		connect_marker(new_frame)
+	for marker in markers:
+		var frame = marker.get_meta('frame')
+		clear_ahead(frame)
+		connect_marker(frame)
 		place_ball_on_path()
 	Data.save_path()
 

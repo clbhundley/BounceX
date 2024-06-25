@@ -13,7 +13,6 @@ var hold_breath_ball_color:Color = Color.DEEP_PINK
 var hold_breath_path_color:Color = Color.PINK
 
 var path:PackedFloat32Array
-var path_max_length:int
 var path_speed:float
 var path_area:int
 
@@ -30,8 +29,6 @@ var control_pressed:bool
 
 var input_disabled:bool
 
-#add mouse input image
-
 func _init():
 	Data.bx = self
 
@@ -43,6 +40,15 @@ func _ready():
 	$Menu.self_modulate.a = 1.65
 	toggle_ball_visible(false)
 	update_display()
+	var text_input_nodes = [
+		$MarkersMenu/HBox/Frame/Input,
+		$MarkersMenu/HBox/Depth/Input,
+		$Menu/Options/PathArea,
+		$Menu/Options/PathThickness,
+		$Menu/Options/RenderResolution/Values/X,
+		$Menu/Options/RenderResolution/Values/Y]
+	for node in text_input_nodes:
+		node.get_child(0, true).focus_mode = FOCUS_CLICK
 
 
 func _physics_process(delta):
@@ -65,16 +71,11 @@ func _physics_process(delta):
 				$Header/Record.hide()
 	if not $Menu/Colors.is_visible_in_tree():
 		line_colors($Ball, frame)
-	$Path.add_point(Vector2($Ball.position.x + step, $Ball.position.y))
-	$Path.position.x -= 1 * path_speed
-	step += 1 * path_speed
 	if %Record.button_pressed:
 		if frame < path.size() - 1:
 			frame += 1
 		else:
 			%Record.button_pressed = false
-	while $Path.get_point_count() > path_max_length:
-		$Path.remove_point(0)
 
 
 func line_colors(ball:Sprite2D, point:int) -> void:
@@ -201,6 +202,7 @@ func _input(event):
 	elif event.is_action_pressed("cancel"):
 		if $Markers.selected_marker:
 			$Markers.selected_marker.get_node('Button').button_pressed = false
+			$Markers.selected_multi_markers.clear()
 		elif %Record.button_pressed:
 			%Record.button_pressed = false
 			$Header/Record.hide()
@@ -211,9 +213,6 @@ func _input(event):
 			%Record.button_pressed = false
 		else:
 			%Play.button_pressed = !%Play.button_pressed
-	elif event.is_action_pressed("restart"):
-		if %AudioStreamPlayer.has_stream_playback():
-			%Controls.scrub(0)
 	elif event.is_action_pressed("render") and not %Play.button_pressed:
 		if not $Menu/Controls/Render.disabled:
 			_on_render_pressed()
@@ -227,6 +226,12 @@ func _input(event):
 		control_pressed = true
 	elif event.is_action_released('control'):
 		control_pressed = false
+	elif event.is_action_pressed("go_to_start"):
+		if %AudioStreamPlayer.has_stream_playback():
+			%Controls.scrub(0)
+	elif event.is_action_pressed("go_to_end"):
+		if %AudioStreamPlayer.has_stream_playback():
+			%Controls.scrub(1)
 	for position_number in 11:
 		if event.is_action_pressed('p' + str(position_number)):
 			position_input(int(str(position_number).lstrip('p')))

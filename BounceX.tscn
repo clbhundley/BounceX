@@ -345,15 +345,21 @@ func text_filter(new_text:String, input_node:Node):
 script/source = "extends VBoxContainer
 
 func _ready():
+	var text_input_nodes = [
+		$PathArea,
+		$PathThickness,
+		$RenderResolution/Values/X,
+		$RenderResolution/Values/Y]
+	for node in text_input_nodes:
+		node.get_child(0, true).connect(
+			\"focus_entered\",
+			_on_input_focus_entered.bind(node))
+		node.get_child(0, true).connect(
+			\"focus_exited\",
+			_on_input_focus_exited.bind(node))
+	
 	var config:ConfigFile = Data.config
 	config.load(Data.config_path)
-	
-	if config.has_section_key('path', 'path_max_length'):
-		var value = config.get_value('path', 'path_max_length')
-		_on_path_max_length_value_changed(value)
-		$PathMaxLength.value = value
-	else:
-		_on_path_max_length_value_changed($PathMaxLength.value)
 	
 	if config.has_section_key('path', 'path_thickness'):
 		var value = config.get_value('path', 'path_thickness')
@@ -410,22 +416,22 @@ func _on_change_colors_pressed():
 	hide()
 
 
-func _on_path_max_length_value_changed(value):
-	owner.path_max_length = value
-	Data.set_config('path', 'path_max_length', value)
-
-
 func _on_path_area_value_changed(value):
 	owner.path_area = value
 	owner.update_display()
 	Data.set_config('path', 'path_area', value)
+	$DebounceTimer.start()
 
 
 func _on_path_thickness_value_changed(value):
 	owner.get_node('Path').width = value
 	%Markers.get_node('Line').width = value
-	%Markers.connect_all_markers()
 	Data.set_config('path', 'path_thickness', value)
+	$DebounceTimer.start()
+
+
+func _on_debounce_timer_timeout():
+	%Markers.connect_all_markers()
 
 
 func _on_open_tracks_pressed():
@@ -442,6 +448,39 @@ func _on_open_renders_pressed():
 func _on_open_paths_pressed():
 	var folder_path = ProjectSettings.globalize_path('user://Paths')
 	OS.shell_open(folder_path)
+
+
+var input_zone_active:bool
+var input_zone_begin:Vector2
+var input_zone_end:Vector2
+
+func _on_input_focus_entered(node:Control):
+	owner.input_disabled = true
+	input_zone_active = true
+	var global_pos = node.global_position
+	input_zone_begin = global_pos
+	input_zone_end = global_pos + node.size
+
+
+func _on_input_focus_exited(node:Control):
+	owner.input_disabled = false
+	input_zone_active = false
+
+func _input(event):
+	if not input_zone_active:
+		return
+	var release_focus:bool
+	if event is InputEventMouseButton and event.is_pressed():
+		var pos = event.global_position
+		if pos.x < input_zone_begin.x or pos.x > input_zone_end.x:
+			release_focus = true
+		if pos.y < input_zone_begin.y or pos.y > input_zone_end.y:
+			release_focus = true
+	elif event.is_action_pressed('ui_accept'):
+		get_viewport().set_input_as_handled()
+		release_focus = true
+	if release_focus:
+		get_viewport().gui_get_focus_owner().release_focus()
 "
 
 [sub_resource type="GDScript" id="GDScript_575x6"]
@@ -616,7 +655,6 @@ func _on_mouse_exited():
 
 func _on_toggled(button_pressed):
 	if button_pressed:
-		owner.input_disabled = true
 		self_modulate = '4040ff'
 		self_modulate.a = 2.8
 		owner.get_node('Menu/Controls').hide()
@@ -708,6 +746,7 @@ func _on_about_to_popup():
 	$HBox/Start/SpinBox.value = owner.frame
 	$HBox/End/SpinBox.max_value = owner.path.size()
 	$HBox/End/SpinBox.value = owner.path.size()
+
 
 func _on_confirmed():
 	owner.render($HBox/Start/SpinBox.value, $HBox/End/SpinBox.value)
@@ -1279,6 +1318,10 @@ theme_override_constants/separation = 12
 script = SubResource("GDScript_kde6i")
 metadata/_edit_use_anchors_ = true
 
+[node name="DebounceTimer" type="Timer" parent="Menu/Options"]
+wait_time = 0.2
+one_shot = true
+
 [node name="PathSpeed" type="VBoxContainer" parent="Menu/Options"]
 layout_mode = 2
 
@@ -1314,20 +1357,13 @@ layout_mode = 2
 min_value = 1.0
 max_value = 10000.0
 value = 200.0
-prefix = "Path Area:"
+prefix = "Path Vertical Area:"
 
 [node name="PathThickness" type="SpinBox" parent="Menu/Options"]
 layout_mode = 2
 min_value = 1.0
 value = 8.0
 prefix = "Path Thickness:"
-
-[node name="PathMaxLength" type="SpinBox" parent="Menu/Options"]
-layout_mode = 2
-min_value = 1.0
-max_value = 10000.0
-value = 250.0
-prefix = "Path Max Length:"
 
 [node name="RenderResolution" type="VBoxContainer" parent="Menu/Options"]
 layout_mode = 2
@@ -1360,7 +1396,7 @@ horizontal_alignment = 1
 [node name="Y" type="SpinBox" parent="Menu/Options/RenderResolution/Values"]
 layout_mode = 2
 max_value = 10000.0
-value = 1080.0
+value = 500.0
 
 [node name="ChangeColors" type="Button" parent="Menu/Options"]
 layout_mode = 2
@@ -1460,7 +1496,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.4.0"
+text = "BounceX v2.4.1"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 
@@ -1475,6 +1511,7 @@ offset_left = -0.0319998
 offset_top = -22.992
 offset_right = 117.968
 offset_bottom = 0.00799942
+focus_mode = 0
 script = SubResource("GDScript_a4j0w")
 
 [node name="Notification" type="Panel" parent="Menu/Version/Button"]
@@ -2091,11 +2128,11 @@ autowrap_mode = 3
 [connection signal="custom_action" from="Menu/Controls/Paths/EditPath" to="Menu/Controls/Paths/EditPath" method="_on_custom_action"]
 [connection signal="confirmed" from="Menu/Controls/Paths/EditPath/Copy" to="Menu/Controls/Paths/EditPath" method="_on_copy_confirmed"]
 [connection signal="confirmed" from="Menu/Controls/Paths/EditPath/Delete" to="Menu/Controls/Paths/EditPath" method="_on_delete_confirmed"]
+[connection signal="timeout" from="Menu/Options/DebounceTimer" to="Menu/Options" method="_on_debounce_timer_timeout"]
 [connection signal="value_changed" from="Menu/Options/PathSpeed/HSlider" to="Menu/Options" method="_on_path_speed_changed"]
 [connection signal="value_changed" from="Menu/Options/PathFade/HSlider" to="Menu/Options" method="_on_path_fade_value_changed"]
 [connection signal="value_changed" from="Menu/Options/PathArea" to="Menu/Options" method="_on_path_area_value_changed"]
 [connection signal="value_changed" from="Menu/Options/PathThickness" to="Menu/Options" method="_on_path_thickness_value_changed"]
-[connection signal="value_changed" from="Menu/Options/PathMaxLength" to="Menu/Options" method="_on_path_max_length_value_changed"]
 [connection signal="value_changed" from="Menu/Options/RenderResolution/Values/X" to="Menu/Options/RenderResolution" method="_on_x_value_changed"]
 [connection signal="value_changed" from="Menu/Options/RenderResolution/Values/Y" to="Menu/Options/RenderResolution" method="_on_y_value_changed"]
 [connection signal="pressed" from="Menu/Options/ChangeColors" to="Menu/Options" method="_on_change_colors_pressed"]
