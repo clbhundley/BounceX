@@ -3,23 +3,23 @@
 [ext_resource type="Theme" uid="uid://4ddly4r83yek" path="res://Theme.tres" id="1_qtjw4"]
 [ext_resource type="Script" path="res://BounceX.gd" id="2_4ci4k"]
 [ext_resource type="FontFile" uid="uid://c2wtnhu46b5xf" path="res://Font/Rubik-Light.ttf" id="2_wwilv"]
-[ext_resource type="Texture2D" uid="uid://cbwqw7m1wqj64" path="res://Textures/Dot Small.svg" id="3_mj5xg"]
+[ext_resource type="Texture2D" uid="uid://cbwqw7m1wqj64" path="res://Textures/Dot.svg" id="3_mj5xg"]
 [ext_resource type="Script" path="res://Markers.gd" id="3_votmw"]
-[ext_resource type="Curve" uid="uid://brt3xnflwm2r" path="res://FlashCurve.tres" id="3_wj01o"]
-[ext_resource type="Curve" uid="uid://dl3hfhb1q3xfn" path="res://PathFlashCurve.tres" id="4_8tbyk"]
-[ext_resource type="Texture2D" uid="uid://bkabq6ivbs23x" path="res://Textures/Circle Small.svg" id="4_rocsv"]
+[ext_resource type="Curve" uid="uid://brt3xnflwm2r" path="res://Curves/FlashCurve.tres" id="3_wj01o"]
+[ext_resource type="Curve" uid="uid://dl3hfhb1q3xfn" path="res://Curves/PathFlashCurve.tres" id="4_8tbyk"]
+[ext_resource type="Texture2D" uid="uid://bkabq6ivbs23x" path="res://Textures/Circle.svg" id="4_rocsv"]
 [ext_resource type="Texture2D" uid="uid://bqgebmq2ks1mj" path="res://Textures/Play.svg" id="4_tyhll"]
-[ext_resource type="Texture2D" uid="uid://dnlqy6ppe68nr" path="res://Textures/Triangle.svg" id="4_xkljy"]
+[ext_resource type="Texture2D" uid="uid://dnlqy6ppe68nr" path="res://Textures/Play Small.svg" id="4_xkljy"]
 [ext_resource type="Texture2D" uid="uid://dnc4n3dtd5v83" path="res://Textures/Pause.svg" id="5_r8mq7"]
 [ext_resource type="Texture2D" uid="uid://c7tcg80cl58pp" path="res://Textures/Menu.svg" id="6_vw5ng"]
 [ext_resource type="Texture2D" uid="uid://404qr06t6u7x" path="res://Textures/Line.svg" id="6_xdjfl"]
 [ext_resource type="Texture2D" uid="uid://cdlwfv4b2xdt7" path="res://Textures/X.svg" id="7_jv2cd"]
 [ext_resource type="Texture2D" uid="uid://bcdbk4tsjnisc" path="res://Textures/Square.svg" id="7_slea2"]
-[ext_resource type="Texture2D" uid="uid://c13twlshihhp5" path="res://Textures/Trash.svg" id="8_mcxme"]
+[ext_resource type="Texture2D" uid="uid://c13twlshihhp5" path="res://Textures/Delete.svg" id="8_mcxme"]
 [ext_resource type="Texture2D" uid="uid://bmlus4dohtrmw" path="res://Textures/Gear.svg" id="8_o0vj8"]
-[ext_resource type="Texture2D" uid="uid://bgcpkp1078rc6" path="res://Textures/AddMarker.svg" id="11_5ucy7"]
+[ext_resource type="Texture2D" uid="uid://bgcpkp1078rc6" path="res://Textures/Add Marker.svg" id="11_5ucy7"]
 [ext_resource type="Texture2D" uid="uid://bius3v0napj7c" path="res://Textures/Ball.svg" id="12_freos"]
-[ext_resource type="Texture2D" uid="uid://qn8b5b6gg863" path="res://Textures/cycle 5.svg" id="13_nunpy"]
+[ext_resource type="Texture2D" uid="uid://qn8b5b6gg863" path="res://Textures/Generate Cycle.svg" id="13_nunpy"]
 [ext_resource type="Texture2D" uid="uid://1uor7ar7yyam" path="res://Textures/Copy.svg" id="13_yxa0r"]
 [ext_resource type="Texture2D" uid="uid://dndicopykmmg2" path="res://Textures/Paste.svg" id="14_qcc21"]
 [ext_resource type="Texture2D" uid="uid://cvdu2l73nu3mw" path="res://Textures/Key Map.svg" id="16_2degy"]
@@ -36,6 +36,7 @@ func _ready():
 	get_popup().connect(\"index_pressed\", item_pressed)
 	get_popup().hide_on_item_selection = false
 	get_popup().hide_on_checkable_item_selection = false
+
 
 func item_pressed(item:int):
 	var selected_marker = %Markers.selected_marker
@@ -112,7 +113,7 @@ func scrub(value):
 
 func update_marker_menu():
 	if not %Markers.selected_marker:
-		owner.get_node('MarkersMenu/HBox/Frame/Input').value = owner.frame
+		%MarkersMenu/HBox/Frame/Input.value = owner.frame
 
 
 func _on_track_selection_toggled(button_pressed):
@@ -169,7 +170,6 @@ func _on_track_selected(index):
 	$TrackControls/Play.button_pressed = false
 	$TrackControls/Play.disabled = false
 	$TrackControls/Play/Icon.self_modulate.a = 1
-	owner.get_node('MarkersMenu/HBox/Add/AddMarker').show()
 	$Record.disabled = false
 	var dir := DirAccess.open('user://Paths')
 	if not dir.dir_exists(track_name):
@@ -214,7 +214,7 @@ func unload_all(scrub := false):
 	%Markers.marker_list.clear()
 	if scrub:
 		scrub(0)
-		owner.set_ball_depth(0)
+		owner.place_marker(0)
 
 
 func _on_paths_item_clicked(index, at_position, mouse_button_index):
@@ -301,6 +301,7 @@ func _ready():
 	add_button(\"COPY\", true, 'copy')
 	add_button(\"DELETE\", true, 'delete')
 
+
 func _on_confirmed():
 	var path = 'user://Paths/' + track_title + '/'
 	dir.rename(path + file_name + '.bx', path + $LineEdit.text + '.bx')
@@ -310,6 +311,7 @@ func _on_confirmed():
 		if paths.get_item_text(i) == $LineEdit.text:
 			paths.select(i)
 			owner.get_node('Menu/Controls')._on_path_selected(i)
+
 
 func _on_custom_action(action):
 	if action == 'copy':
@@ -321,8 +323,10 @@ func _on_custom_action(action):
 		$Delete.popup_centered()
 		hide()
 
+
 func _on_copy_confirmed():
 	Data.copy_file($Copy/LineEdit.text)
+
 
 func _on_delete_confirmed():
 	dir.remove('user://Paths/' + track_title + '/' + file_name + '.bx')
@@ -330,6 +334,7 @@ func _on_delete_confirmed():
 	owner.path.clear()
 	owner.frame = 0
 	owner.define_path()
+
 
 func text_filter(new_text:String, input_node:Node):
 	var disallowed_chars = ['/', '\\\\', ':', '*', '?', '\"', '<', '>', '|']
@@ -349,8 +354,18 @@ func _ready():
 		$PathArea,
 		$PathThickness,
 		$RenderResolution/Values/X,
-		$RenderResolution/Values/Y]
+		$RenderResolution/Values/Y,
+		%MarkersMenu/HBox/Frame/Input,
+		%MarkersMenu/HBox/Depth/Input]
 	for node in text_input_nodes:
+		node.get_child(0, true).focus_mode = FOCUS_CLICK
+	
+	var options_text_input_nodes = [
+		$PathArea,
+		$PathThickness,
+		$RenderResolution/Values/X,
+		$RenderResolution/Values/Y]
+	for node in options_text_input_nodes:
 		node.get_child(0, true).connect(
 			\"focus_entered\",
 			_on_input_focus_entered.bind(node))
@@ -402,7 +417,7 @@ func _on_path_speed_changed(value):
 
 
 func _on_path_fade_value_changed(value):
-	$PathFade/Label.text = \"Fade: \" + str(value)
+	$PathFade/Label.text = \"Path Edge Fade: \" + str(value)
 	owner.get_node('Path').gradient.colors[0].a = 1 - value
 	owner.get_node('Path').gradient.colors[2].a = 1 - value
 	Data.set_config('path', 'path_fade', value)
@@ -628,8 +643,10 @@ script/source = "extends TextureButton
 func _on_mouse_entered():
 	self_modulate = 'ff4040'
 
+
 func _on_mouse_exited():
 	self_modulate = 'ff7474d7'
+
 
 func _on_pressed():
 	modulate.a = 2.2
@@ -647,43 +664,34 @@ func _on_mouse_entered():
 	else:
 		self_modulate.a = 1.8
 
+
 func _on_mouse_exited():
 	if not button_pressed:
 		self_modulate.a = 0.8
 	else:
 		self_modulate.a = 2.8
 
+
 func _on_toggled(button_pressed):
 	if button_pressed:
 		self_modulate = '4040ff'
 		self_modulate.a = 2.8
-		owner.get_node('Menu/Controls').hide()
-		owner.get_node('Menu/Options').show()
+		%Controls.hide()
+		%Options.show()
 	else:
 		owner.input_disabled = false
 		self_modulate = 'ffff40cc'
 		owner.get_node('Menu/Colors').hide()
-		owner.get_node('Menu/Options').hide()
-		owner.get_node('Menu/Controls').show()
+		%Options.hide()
+		%Controls.show()
 "
 
 [sub_resource type="GDScript" id="GDScript_8l1ut"]
 script/source = "extends TextureButton
 
-func _on_mouse_entered():
-	if button_pressed:
-		self_modulate.a = 0.8
-	else:
-		self_modulate = '4fd6d6'
-
-func _on_mouse_exited():
-	if button_pressed:
-		self_modulate.a = 1
-	else:
-		self_modulate = '74ffffa1'
-
 var tween:Tween
-@onready var menu = get_node('../../Menu')
+
+@onready var menu = owner.get_node('Menu')
 @onready var options_button = get_node('../OptionsButton')
 @onready var exit_button = get_node('../ExitButton')
 
@@ -693,6 +701,21 @@ func _ready():
 	exit_button.modulate.a = 0
 	exit_button.position.x = 0
 	ui_mouse_filter(false)
+
+
+func _on_mouse_entered():
+	if button_pressed:
+		self_modulate.a = 0.8
+	else:
+		self_modulate = '4fd6d6'
+
+
+func _on_mouse_exited():
+	if button_pressed:
+		self_modulate.a = 1
+	else:
+		self_modulate = '74ffffa1'
+
 
 func _on_toggled(button_pressed):
 	tween = get_tree().create_tween()
@@ -722,12 +745,13 @@ func _on_toggled(button_pressed):
 		self_modulate = '74ffffa1'
 		owner.input_disabled = false
 		tween.tween_callback(ui_mouse_filter.bind(false)).set_delay(0.3)
-		tween.tween_callback(owner.get_node('Menu/Colors').hide).set_delay(0.3)
+		tween.tween_callback(menu.get_node('Colors').hide).set_delay(0.3)
 	tween.tween_property(menu, 'position:x', menu_pos, 0.25)
 	tween.tween_property(options_button, 'position:x', options_pos, 0.3)
 	tween.tween_property(options_button, 'modulate:a', alpha, 0.3)
 	tween.tween_property(exit_button, 'position:x', exit_pos, 0.3)
 	tween.tween_property(exit_button, 'modulate:a', alpha, 0.4)
+
 
 func ui_mouse_filter(active:bool) -> void:
 	if active:
@@ -742,6 +766,7 @@ func ui_mouse_filter(active:bool) -> void:
 script/source = "extends ConfirmationDialog
 
 func _on_about_to_popup():
+	owner.input_disabled = true
 	$HBox/Start/SpinBox.max_value = owner.path.size()
 	$HBox/Start/SpinBox.value = owner.frame
 	$HBox/End/SpinBox.max_value = owner.path.size()
@@ -749,7 +774,12 @@ func _on_about_to_popup():
 
 
 func _on_confirmed():
+	owner.input_disabled = false
 	owner.render($HBox/Start/SpinBox.value, $HBox/End/SpinBox.value)
+
+
+func _on_canceled():
+	owner.input_disabled = false
 "
 
 [sub_resource type="GDScript" id="GDScript_xak41"]
@@ -772,8 +802,6 @@ func _on_custom_action(action):
 
 [sub_resource type="GDScript" id="GDScript_cijm8"]
 script/source = "extends Panel
-
-@onready var markers = owner.get_node('Markers')
 
 var positions:Array
 var phase:int
@@ -806,7 +834,7 @@ func _on_generate_pressed():
 	else:
 		positions = [height, depth]
 	create_marker(current_frame, positions[phase])
-	for markers in length - 1:
+	for i in length - 1:
 		current_frame += frame_interval
 		create_marker(current_frame, positions[phase])
 	hide()
@@ -818,19 +846,19 @@ func create_marker(frame:int, depth):
 	phase = abs(phase - 1)
 	if frame >= owner.path.size():
 		return
-	var min_frames:int = markers.SEPARATION_MIN
+	var min_frames:int = %Markers.SEPARATION_MIN
 	for i in range(frame - min_frames + 1, frame + min_frames + 1):
 		if owner.marker_data.has(i):
 			return
-	var trans = owner.get_node('MarkersMenu/HBox/Trans').selected
+	var trans = %MarkersMenu/HBox/Trans.selected
 	var ease
 	if phase == 0:
-		ease = owner.get_node('MarkersMenu/HBox/EaseDown').selected
+		ease = %MarkersMenu/HBox/EaseDown.selected
 	elif phase == 1:
-		ease = owner.get_node('MarkersMenu/HBox/EaseUp').selected
+		ease = %MarkersMenu/HBox/EaseUp.selected
 	owner.marker_data[frame] = [depth, trans, ease, 0]
-	markers.add_marker(frame, depth, trans, ease)
-	markers.connect_marker(frame)
+	%Markers.add_marker(frame, depth, trans, ease)
+	%Markers.connect_marker(frame)
 
 
 func _on_cancel_pressed():
@@ -965,6 +993,7 @@ position = Vector2(576, 324)
 texture = ExtResource("12_freos")
 
 [node name="MarkersMenu" type="Panel" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
@@ -1118,17 +1147,19 @@ max_value = 1.0
 step = 0.001
 editable = false
 
-[node name="Add" type="HBoxContainer" parent="MarkersMenu/HBox"]
+[node name="Create" type="HBoxContainer" parent="MarkersMenu/HBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="AddMarker" type="TextureButton" parent="MarkersMenu/HBox/Add"]
+[node name="AddMarker" type="TextureButton" parent="MarkersMenu/HBox/Create"]
 layout_mode = 2
+tooltip_text = "Add Marker"
 focus_mode = 0
 texture_normal = ExtResource("11_5ucy7")
 
-[node name="GenerateCycle" type="TextureButton" parent="MarkersMenu/HBox/Add"]
+[node name="GenerateCycle" type="TextureButton" parent="MarkersMenu/HBox/Create"]
 layout_mode = 2
+tooltip_text = "Generate Cycle"
 focus_mode = 0
 texture_normal = ExtResource("13_nunpy")
 
@@ -1138,17 +1169,20 @@ theme_override_constants/separation = 8
 
 [node name="Copy" type="TextureButton" parent="MarkersMenu/HBox/Clipboard"]
 layout_mode = 2
+tooltip_text = "Copy"
 focus_mode = 0
 texture_normal = ExtResource("13_yxa0r")
 
 [node name="Paste" type="TextureButton" parent="MarkersMenu/HBox/Clipboard"]
 layout_mode = 2
+tooltip_text = "Paste"
 focus_mode = 0
 texture_normal = ExtResource("14_qcc21")
 
 [node name="Delete" type="TextureButton" parent="MarkersMenu/HBox"]
 visible = false
 layout_mode = 2
+tooltip_text = "Delete"
 focus_mode = 0
 texture_normal = ExtResource("8_mcxme")
 
@@ -1305,6 +1339,7 @@ offset_bottom = 55.0
 title = "Delete?"
 
 [node name="Options" type="VBoxContainer" parent="Menu"]
+unique_name_in_owner = true
 visible = false
 layout_mode = 1
 anchors_preset = -1
@@ -1342,7 +1377,7 @@ layout_mode = 2
 
 [node name="Label" type="Label" parent="Menu/Options/PathFade"]
 layout_mode = 2
-text = "Fade: 1"
+text = "Path Edge Fade: 1"
 horizontal_alignment = 1
 
 [node name="HSlider" type="HSlider" parent="Menu/Options/PathFade"]
@@ -1396,7 +1431,7 @@ horizontal_alignment = 1
 [node name="Y" type="SpinBox" parent="Menu/Options/RenderResolution/Values"]
 layout_mode = 2
 max_value = 10000.0
-value = 500.0
+value = 300.0
 
 [node name="ChangeColors" type="Button" parent="Menu/Options"]
 layout_mode = 2
@@ -1496,7 +1531,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.4.1"
+text = "BounceX v2.4.2"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 
@@ -1528,7 +1563,7 @@ offset_left = 28.0
 offset_top = 1.0
 offset_right = 183.0
 offset_bottom = 55.0
-text = "Click here to see controls and info"
+text = "Click here to see controls"
 autowrap_mode = 3
 
 [node name="Arrow" type="Label" parent="Menu/Version/Button/Notification"]
@@ -1903,7 +1938,7 @@ vertical_alignment = 1
 layout_mode = 2
 min_value = 1.0
 max_value = 9999.0
-value = 1.0
+value = 25.0
 
 [node name="Positions" type="HBoxContainer" parent="GenerateCycle/Inputs"]
 layout_mode = 2
@@ -2033,28 +2068,15 @@ offset_top = 143.0
 offset_right = 572.0
 offset_bottom = 197.0
 text = "Right-click on selected paths
-to show more options"
-
-[node name="Button" type="Button" parent="InfoPanel"]
-layout_mode = 1
-anchors_preset = -1
-anchor_left = 0.430556
-anchor_top = 0.634259
-anchor_right = 0.540799
-anchor_bottom = 0.700617
-text = "BACK"
-script = SubResource("GDScript_cf1v0")
-metadata/_edit_use_anchors_ = true
+to show more options."
 
 [node name="VBoxContainer" type="VBoxContainer" parent="InfoPanel"]
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.607035
-anchor_top = 0.590592
+anchor_left = 0.550347
+anchor_top = 0.614198
 anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -0.304138
-offset_top = 0.296143
+anchor_bottom = 0.722222
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 22
@@ -2062,23 +2084,31 @@ metadata/_edit_use_anchors_ = true
 
 [node name="Label" type="Label" parent="InfoPanel/VBoxContainer"]
 layout_mode = 2
-text = "Rendered image sequences should be played at 60 FPS"
+text = "Rendered image sequences should be played at 60 FPS."
 autowrap_mode = 3
 
 [node name="Label2" type="Label" parent="InfoPanel/VBoxContainer"]
 layout_mode = 2
-text = "Use Exclusive Fullscreen for best performance"
+text = "Use Exclusive Fullscreen display mode for best performance."
 autowrap_mode = 3
 
-[node name="Label3" type="Label" parent="InfoPanel/VBoxContainer"]
-layout_mode = 2
-text = "You can switch windows while rendering"
-autowrap_mode = 3
-
-[node name="Label4" type="Label" parent="InfoPanel/VBoxContainer"]
-layout_mode = 2
-text = "Smaller render size = faster renders, so trim down unused vertical space in your render resolution"
-autowrap_mode = 3
+[node name="Button" type="Button" parent="InfoPanel"]
+custom_minimum_size = Vector2(127, 43)
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -178.0
+offset_top = -74.0
+offset_right = -51.0
+offset_bottom = -31.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "BACK"
+script = SubResource("GDScript_cf1v0")
+metadata/_edit_use_anchors_ = true
 
 [connection signal="gui_input" from="." to="." method="_on_gui_input"]
 [connection signal="resized" from="." to="." method="update_display"]
@@ -2094,12 +2124,12 @@ autowrap_mode = 3
 [connection signal="mouse_entered" from="MarkersMenu/HBox/Depth/Input" to="Markers" method="_on_input_mouse_entered"]
 [connection signal="mouse_exited" from="MarkersMenu/HBox/Depth/Input" to="Markers" method="_on_input_mouse_exited"]
 [connection signal="value_changed" from="MarkersMenu/HBox/Depth/Input" to="Markers" method="_on_depth_value_changed"]
-[connection signal="mouse_entered" from="MarkersMenu/HBox/Add/AddMarker" to="Markers" method="_on_add_marker_mouse_entered"]
-[connection signal="mouse_exited" from="MarkersMenu/HBox/Add/AddMarker" to="Markers" method="_on_add_marker_mouse_exited"]
-[connection signal="pressed" from="MarkersMenu/HBox/Add/AddMarker" to="Markers" method="_on_add_marker_pressed"]
-[connection signal="mouse_entered" from="MarkersMenu/HBox/Add/GenerateCycle" to="Markers" method="_on_generate_cycle_mouse_entered"]
-[connection signal="mouse_exited" from="MarkersMenu/HBox/Add/GenerateCycle" to="Markers" method="_on_generate_cycle_mouse_exited"]
-[connection signal="pressed" from="MarkersMenu/HBox/Add/GenerateCycle" to="Markers" method="_on_generate_cycle_pressed"]
+[connection signal="mouse_entered" from="MarkersMenu/HBox/Create/AddMarker" to="Markers" method="_on_add_marker_mouse_entered"]
+[connection signal="mouse_exited" from="MarkersMenu/HBox/Create/AddMarker" to="Markers" method="_on_add_marker_mouse_exited"]
+[connection signal="pressed" from="MarkersMenu/HBox/Create/AddMarker" to="Markers" method="_on_add_marker_pressed"]
+[connection signal="mouse_entered" from="MarkersMenu/HBox/Create/GenerateCycle" to="Markers" method="_on_generate_cycle_mouse_entered"]
+[connection signal="mouse_exited" from="MarkersMenu/HBox/Create/GenerateCycle" to="Markers" method="_on_generate_cycle_mouse_exited"]
+[connection signal="pressed" from="MarkersMenu/HBox/Create/GenerateCycle" to="Markers" method="_on_generate_cycle_pressed"]
 [connection signal="mouse_entered" from="MarkersMenu/HBox/Clipboard/Copy" to="Markers" method="_on_copy_mouse_entered"]
 [connection signal="mouse_exited" from="MarkersMenu/HBox/Clipboard/Copy" to="Markers" method="_on_copy_mouse_exited"]
 [connection signal="pressed" from="MarkersMenu/HBox/Clipboard/Copy" to="Markers" method="_on_copy_pressed"]
@@ -2159,6 +2189,7 @@ autowrap_mode = 3
 [connection signal="gui_input" from="TrackSliderLarge" to="Menu/Controls" method="_on_track_slider_gui_input"]
 [connection signal="value_changed" from="TrackSliderLarge" to="Menu/Controls" method="scrub"]
 [connection signal="about_to_popup" from="RenderRange" to="RenderRange" method="_on_about_to_popup"]
+[connection signal="canceled" from="RenderRange" to="RenderRange" method="_on_canceled"]
 [connection signal="confirmed" from="RenderRange" to="RenderRange" method="_on_confirmed"]
 [connection signal="custom_action" from="RenderComplete" to="RenderComplete" method="_on_custom_action"]
 [connection signal="value_changed" from="GenerateCycle/Inputs/Interval/BPM/SpinBox" to="GenerateCycle" method="_on_bpm_value_changed"]

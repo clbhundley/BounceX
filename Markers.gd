@@ -10,16 +10,8 @@ var selecting_to_edge:bool
 
 const SEPARATION_MIN := 5
 
-@onready var menu = owner.get_node('MarkersMenu/HBox')
-@onready var frame_input = menu.get_node('Frame/Input')
-@onready var depth_input = menu.get_node('Depth/Input')
-
-@onready var ease_input = menu.get_node('Ease')
-@onready var ease_up_input = menu.get_node('EaseUp')
-@onready var ease_down_input = menu.get_node('EaseDown')
-
-@onready var aux_functions_button = menu.get_node('AuxiliaryFunctions')
-@onready var delete_button = menu.get_node('Delete')
+@onready var frame_input = %MarkersMenu/HBox/Frame/Input
+@onready var depth_input = %MarkersMenu/HBox/Depth/Input
 
 func _ready():
 	var inputs = [frame_input.get_line_edit(), depth_input.get_line_edit()]
@@ -71,7 +63,7 @@ func add_marker(frame, depth, trans=null, ease=null, auxiliary=0):
 			node.queue_free()
 	var index = get_marker_index(frame)
 	if trans == null:
-		trans = owner.get_node('MarkersMenu/HBox/Trans').selected
+		trans = %MarkersMenu/HBox/Trans.selected
 	if ease == null:
 		ease = owner.get_ease_direction(depth)
 	if auxiliary:
@@ -94,12 +86,12 @@ func add_marker(frame, depth, trans=null, ease=null, auxiliary=0):
 
 var mouse_movement:Vector2
 func _on_marker_gui_input(event, input_marker):
-	if %Play.button_pressed: return
+	if %Play.button_pressed:
+		return
 	if not selected_marker or input_marker != selected_marker:
 		if not selected_multi_markers.has(input_marker):
 			return
-	if 'relative' in event:
-		if event is InputEventMouseMotion:
+	if event is InputEventMouseMotion:
 			if event.button_mask & MOUSE_BUTTON_LEFT:
 				depth_input.value -= event.relative.y / 200
 				if marker_list.values().front():
@@ -111,7 +103,8 @@ func _on_marker_gui_input(event, input_marker):
 
 
 func marker_toggled(button_pressed:bool, marker:Node):
-	if button_pressed and %Play.button_pressed: return
+	if button_pressed and %Play.button_pressed:
+		return
 	if mouse_movement != Vector2(0,0):
 		mouse_movement = Vector2(0,0)
 		if marker == selected_marker:
@@ -163,7 +156,7 @@ func marker_toggled(button_pressed:bool, marker:Node):
 		marker.get_node('Button/Selected').self_modulate = Color.AQUAMARINE
 		marker.get_node('Button/Selected').show()
 		var frame = marker.get_meta('frame')
-		var aux_list = aux_functions_button.get_popup()
+		var aux_list = %MarkersMenu/HBox/AuxiliaryFunctions.get_popup()
 		for i in aux_list.item_count:
 			if int(owner.marker_data[frame][3]) & 1 << i:
 				aux_list.set_item_checked(i, true)
@@ -179,8 +172,8 @@ func marker_toggled(button_pressed:bool, marker:Node):
 		depth_input.value_changed.disconnect(_on_depth_value_changed)
 		depth_input.value = marker.get_meta('depth')
 		depth_input.value_changed.connect(_on_depth_value_changed)
-		menu.get_node('Trans').select(marker.get_meta('trans'))
-		menu.get_node('Ease').select(marker.get_meta('ease'))
+		%MarkersMenu/HBox/Trans.select(marker.get_meta('trans'))
+		%MarkersMenu/HBox/Ease.select(marker.get_meta('ease'))
 	else:
 		frame_input.value_changed.disconnect(_on_frame_value_changed)
 		depth_input.value_changed.disconnect(_on_depth_value_changed)
@@ -194,7 +187,8 @@ func marker_toggled(button_pressed:bool, marker:Node):
 
 
 func set_marker_movement_range():
-	if not selected_marker: return
+	if not selected_marker:
+		return
 	var markers:Array
 	markers.append(selected_marker)
 	for marker in selected_multi_markers:
@@ -348,7 +342,8 @@ func select_to(index:int):
 
 
 func _on_frame_value_changed(value:int):
-	if not selected_marker: return
+	if not selected_marker:
+		return
 	var movement = value - selected_marker.get_meta('frame')
 	var markers:Array
 	markers.append(selected_marker)
@@ -388,7 +383,8 @@ func _on_frame_value_changed(value:int):
 
 
 func _on_depth_value_changed(value):
-	if not selected_marker: return
+	if not selected_marker:
+		return
 	var movement = value - selected_marker.get_meta('depth')
 	var markers:Array
 	var marker_movement:Dictionary
@@ -466,20 +462,20 @@ func set_marker_menu_mode(mode:int):
 		mode = MARKER_MENU.NOTHING_SELECTED
 	match mode:
 		MARKER_MENU.NOTHING_SELECTED:
-			ease_input.hide()
-			ease_up_input.show()
-			ease_down_input.show()
-			aux_functions_button.hide()
-			delete_button.hide()
+			%MarkersMenu/HBox/Ease.hide()
+			%MarkersMenu/HBox/EaseUp.show()
+			%MarkersMenu/HBox/EaseDown.show()
+			%MarkersMenu/HBox/AuxiliaryFunctions.hide()
+			%MarkersMenu/HBox/Delete.hide()
 			frame_input.min_value = 0
 			frame_input.max_value = owner.path.size() - 1
 			frame_input.editable = false
 			depth_input.editable = false
 		MARKER_MENU.HAS_SELECTION:
-			ease_input.show()
-			ease_up_input.hide()
-			ease_down_input.hide()
-			aux_functions_button.show()
+			%MarkersMenu/HBox/Ease.show()
+			%MarkersMenu/HBox/EaseUp.hide()
+			%MarkersMenu/HBox/EaseDown.hide()
+			%MarkersMenu/HBox/AuxiliaryFunctions.show()
 			frame_input.editable = true
 			depth_input.editable = true
 			var markers:Array
@@ -487,9 +483,9 @@ func set_marker_menu_mode(mode:int):
 			for marker in selected_multi_markers:
 				markers.append(marker)
 			if markers.any(frame_is_zero):
-				delete_button.hide()
+				%MarkersMenu/HBox/Delete.hide()
 			else:
-				delete_button.show()
+				%MarkersMenu/HBox/Delete.show()
 
 
 func frame_is_zero(marker) -> bool:
@@ -499,39 +495,42 @@ func frame_is_zero(marker) -> bool:
 
 
 func _on_add_marker_mouse_entered():
-	menu.get_node('Add/AddMarker').self_modulate = '4fd6d6'
+	%MarkersMenu/HBox/Create/AddMarker.self_modulate = '4fd6d6'
 
 
 func _on_add_marker_mouse_exited():
-	menu.get_node('Add/AddMarker').self_modulate = Color.WHITE
+	%MarkersMenu/HBox/Create/AddMarker.self_modulate = Color.WHITE
 
 
 func _on_add_marker_pressed():
-	if owner.path.is_empty(): return
-	owner.set_ball_depth(owner.get_ball_depth()) #needs revision
+	if owner.path.is_empty():
+		return
+	owner.place_marker(owner.get_ball_depth())
 	_on_add_marker_mouse_exited()
 	owner.save_path()
 
 
 func _on_generate_cycle_mouse_entered():
-	menu.get_node('Add/GenerateCycle').self_modulate = '39d443'
+	%MarkersMenu/HBox/Create/GenerateCycle.self_modulate = '39d443'
 
 
 func _on_generate_cycle_mouse_exited():
-	menu.get_node('Add/GenerateCycle').self_modulate = Color.WHITE
+	%MarkersMenu/HBox/Create/GenerateCycle.self_modulate = Color.WHITE
 
 
 func _on_generate_cycle_pressed():
+	if owner.path.is_empty():
+		return
 	owner.input_disabled = true
 	owner.get_node('GenerateCycle').show()
 
 
 func _on_copy_mouse_entered():
-	menu.get_node('Clipboard/Copy').self_modulate = '4fd6d6'
+	%MarkersMenu/HBox/Clipboard/Copy.self_modulate = '4fd6d6'
 
 
 func _on_copy_mouse_exited():
-	menu.get_node('Clipboard/Copy').self_modulate = Color.WHITE
+	%MarkersMenu/HBox/Clipboard/Copy.self_modulate = Color.WHITE
 
 
 func _on_copy_pressed():
@@ -562,11 +561,11 @@ func _on_copy_pressed():
 
 
 func _on_paste_mouse_entered():
-	menu.get_node('Clipboard/Paste').self_modulate = '39d443'
+	%MarkersMenu/HBox/Clipboard/Paste.self_modulate = '39d443'
 
 
 func _on_paste_mouse_exited():
-	menu.get_node('Clipboard/Paste').self_modulate = Color.WHITE
+	%MarkersMenu/HBox/Clipboard/Paste.self_modulate = Color.WHITE
 
 
 func _on_paste_pressed():
@@ -599,15 +598,16 @@ func _on_paste_pressed():
 
 
 func _on_delete_mouse_entered():
-	delete_button.self_modulate = 'ff7474d7'
+	%MarkersMenu/HBox/Delete.self_modulate = 'ff7474d7'
 
 
 func _on_delete_mouse_exited():
-	delete_button.self_modulate = Color.WHITE
+	%MarkersMenu/HBox/Delete.self_modulate = Color.WHITE
 
 
 func _on_delete_pressed():
-	if not selected_marker and selected_multi_markers.is_empty(): return
+	if not selected_marker and selected_multi_markers.is_empty():
+		return
 	if selected_multi_markers.is_empty():
 		var frame:int = selected_marker.get_meta('frame')
 		if frame == 0:

@@ -4,7 +4,6 @@ var config_path := 'user://Settings.cfg'
 var config := ConfigFile.new()
 var bx:Node
 
-
 func _ready():
 	var dir = DirAccess.open('res://')
 	if not dir.dir_exists('Tracks'):

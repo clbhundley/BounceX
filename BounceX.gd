@@ -29,6 +29,10 @@ var control_pressed:bool
 
 var input_disabled:bool
 
+enum Effects {
+	HOLD_BREATH = 1
+}
+
 func _init():
 	Data.bx = self
 
@@ -36,19 +40,10 @@ func _init():
 func _ready():
 	Data.load_config()
 	$Path.gradient.offsets[1] = 1
-	$Path.width = $Menu/Options/PathThickness.value
+	$Path.width = %Options/PathThickness.value
 	$Menu.self_modulate.a = 1.65
 	toggle_ball_visible(false)
 	update_display()
-	var text_input_nodes = [
-		$MarkersMenu/HBox/Frame/Input,
-		$MarkersMenu/HBox/Depth/Input,
-		$Menu/Options/PathArea,
-		$Menu/Options/PathThickness,
-		$Menu/Options/RenderResolution/Values/X,
-		$Menu/Options/RenderResolution/Values/Y]
-	for node in text_input_nodes:
-		node.get_child(0, true).focus_mode = FOCUS_CLICK
 
 
 func _physics_process(delta):
@@ -70,7 +65,7 @@ func _physics_process(delta):
 				$Header/Play.hide()
 				$Header/Record.hide()
 	if not $Menu/Colors.is_visible_in_tree():
-		line_colors($Ball, frame)
+		line_colors(frame)
 	if %Record.button_pressed:
 		if frame < path.size() - 1:
 			frame += 1
@@ -78,7 +73,7 @@ func _physics_process(delta):
 			%Record.button_pressed = false
 
 
-func line_colors(ball:Sprite2D, point:int) -> void:
+func line_colors(point:int) -> void:
 	if path.size() < 4:
 		return
 	var previous = [path[point], path[point-1], path[point-2], path[point-3]]
@@ -100,7 +95,7 @@ func define_path(set_ball_pos := true):
 	if set_ball_pos:
 		place_ball(0)
 		var ball_pos = clamp(($Ball.position.y - BOTTOM) / (TOP - BOTTOM), 0, 1)
-		set_ball_depth(ball_pos)
+		place_marker(ball_pos)
 
 
 func save_path():
@@ -135,7 +130,13 @@ func get_ball_depth() -> float:
 	return abs(($Ball.position.y - BOTTOM) / (TOP - BOTTOM))
 
 
-func set_ball_depth(depth:float) -> void:
+func place_ball(depth:float) -> void:
+	$Ball.position.y = BOTTOM + depth * (TOP - BOTTOM)
+	if not $Markers.selected_marker:
+		$MarkersMenu/HBox/Depth/Input.value = get_ball_depth()
+
+
+func place_marker(depth:float) -> void:
 	var easing = get_ease_direction(depth)
 	var min_frames:int = $Markers.SEPARATION_MIN
 	for i in range(frame - min_frames, frame + min_frames + 1):
@@ -147,12 +148,6 @@ func set_ball_depth(depth:float) -> void:
 	if %Record.button_pressed and $Header/MenuButton.button_pressed:
 		$Header/MenuButton.button_pressed = false
 	place_ball(depth)
-
-
-func place_ball(depth:float) -> void:
-	$Ball.position.y = BOTTOM + depth * (TOP - BOTTOM)
-	if not $Markers.selected_marker:
-		$MarkersMenu/HBox/Depth/Input.value = get_ball_depth()
 
 
 func frame_scrub(frame_movement:float) -> void:
@@ -174,7 +169,8 @@ func frame_scrub(frame_movement:float) -> void:
 
 
 func _on_gui_input(event):
-	if input_disabled: return
+	if input_disabled:
+		return
 	if not %Record.button_pressed and %AudioStreamPlayer.stream:
 		if event.is_action_pressed('mouse_wheel_up'):
 			if $Markers.selected_marker:
@@ -192,13 +188,16 @@ func _on_gui_input(event):
 	elif event is InputEventMouseButton and event.is_pressed():
 		if event.button_mask & MOUSE_BUTTON_LEFT and %Record.button_pressed:
 			var depth = (event.position.y - BOTTOM) / (TOP - BOTTOM)
-			set_ball_depth(clamp(depth, 0, 1))
+			place_marker(clamp(depth, 0, 1))
 
 
 func _input(event):
-	if input_disabled: return
+	if input_disabled:
+		return
+	
 	elif event.is_action_pressed("record") and %AudioStreamPlayer.stream:
 		%Record.button_pressed = !%Record.button_pressed
+	
 	elif event.is_action_pressed("cancel"):
 		if $Markers.selected_marker:
 			$Markers.selected_marker.get_node('Button').button_pressed = false
@@ -208,48 +207,56 @@ func _input(event):
 			$Header/Record.hide()
 		else:
 			%Play.button_pressed = false
+	
 	elif event.is_action_pressed("play") and %AudioStreamPlayer.stream:
 		if %Record.button_pressed:
 			%Record.button_pressed = false
 		else:
 			%Play.button_pressed = !%Play.button_pressed
-	elif event.is_action_pressed("render") and not %Play.button_pressed:
-		if not $Menu/Controls/Render.disabled:
-			_on_render_pressed()
+	
 	elif event.is_action_pressed("menu"):
 		$Header/MenuButton.button_pressed = !$Header/MenuButton.button_pressed
+	
 	elif event.is_action_pressed('shift'):
 		shift_pressed = true
 	elif event.is_action_released('shift'):
 		shift_pressed = false
+	
 	elif event.is_action_pressed('control'):
 		control_pressed = true
 	elif event.is_action_released('control'):
 		control_pressed = false
+	
 	elif event.is_action_pressed("go_to_start"):
 		if %AudioStreamPlayer.has_stream_playback():
 			%Controls.scrub(0)
 	elif event.is_action_pressed("go_to_end"):
 		if %AudioStreamPlayer.has_stream_playback():
 			%Controls.scrub(1)
-	for position_number in 11:
-		if event.is_action_pressed('p' + str(position_number)):
-			position_input(int(str(position_number).lstrip('p')))
-	for ease_number in 8:
-		if event.is_action_pressed('e' + str(ease_number)):
-			easing_input(int(str(ease_number).lstrip('e')))
-	for trans_number in 11:
-		if event.is_action_pressed('t' + str(trans_number)):
-			trans_input(trans_number)
+	
+	for depth in 11:
+		if event.is_action_pressed('depth_' + str(depth)):
+			depth_input(depth)
+	for transition in 11:
+		if event.is_action_pressed('trans_' + str(transition)):
+			trans_input(transition)
+	for easing in 8:
+		if event.is_action_pressed('ease_' + str(easing)):
+			easing_input(easing)
 
 
-func position_input(input:int):
+func depth_input(input:int):
 	if %Record.button_pressed:
-		set_ball_depth(float(input) / 10)
+		place_marker(float(input) / 10)
 	elif $Markers.selected_marker:
 		$MarkersMenu/HBox/Depth/Input.value = float(input) / 10
 	else:
 		place_ball(float(input) / 10)
+
+
+func trans_input(input:int):
+	$MarkersMenu/HBox/Trans.select(input)
+	$MarkersMenu/HBox/Trans.emit_signal('item_selected', input)
 
 
 func easing_input(input:int):
@@ -265,11 +272,6 @@ func easing_input(input:int):
 		else:
 			$MarkersMenu/HBox/EaseDown.select(input - 4)
 			$Markers._on_down_easing_selected(input - 4)
-
-
-func trans_input(input:int):
-	$MarkersMenu/HBox/Trans.select(input)
-	$MarkersMenu/HBox/Trans.emit_signal('item_selected', input)
 
 
 func _on_record_toggled(active:bool):
@@ -330,8 +332,6 @@ func _on_render_pressed():
 	$RenderRange.popup_centered()
 
 
-enum Effects {
-	HOLD_BREATH = 1}
 var active_effects:Dictionary
 @export var flash_curve:Curve
 @export var path_flash_curve:Curve
@@ -341,8 +341,8 @@ func render(starting_frame:int, ending_frame:int):
 	var selected_track = $Menu/Controls/TrackSelection.selected
 	var track_name = $Menu/Controls/TrackSelection.get_item_text(selected_track)
 	
-	var x_size = $Menu/Options/RenderResolution/Values/X.value
-	var y_size = $Menu/Options/RenderResolution/Values/Y.value
+	var x_size = %Options/RenderResolution/Values/X.value
+	var y_size = %Options/RenderResolution/Values/Y.value
 	
 	var window_starting_mode = DisplayServer.window_get_mode()
 	var window_starting_size = DisplayServer.window_get_size()
@@ -442,60 +442,57 @@ func render(starting_frame:int, ending_frame:int):
 	var offset = 10
 	
 	toggle_ball_visible(true)
-	var render_ball = $Ball.duplicate()
-	add_child(render_ball)
+	var path_origin := Vector2(get_rect().size.x, $Ball.position.y)
 	
-	$Ball.position.x = get_rect().size.x
 	$Path.position.x = offset
 	$Path.clear_points()
-	$Ball.hide()
 	
 	$Path.gradient.offsets[1] = 0.5
 	$TrackSliderLarge.hide()
 	
 	$Header/MenuButton.hide()
 	
-	var distance_adjust:int #f it im over it
+	var _distance_adjust:int
 	match int(path_speed):
 		7:
-			distance_adjust = -1
+			_distance_adjust = -1
 		4:
-			distance_adjust = 1
+			_distance_adjust = 1
 		3:
-			distance_adjust = 2
+			_distance_adjust = 2
 		2:
-			distance_adjust = 3
+			_distance_adjust = 3
 		1:
-			distance_adjust = 9
-	var ball_distance = $Ball.position.x - render_ball.position.x
-	var distance = ceil(ball_distance / path_speed) + distance_adjust
+			_distance_adjust = 9
+	var _ball_distance = path_origin.x - $Ball.position.x
+	var distance = ceil(_ball_distance / path_speed) + _distance_adjust
 	
-	var cutoff_adjust:int
+	var _cutoff_adjust:int
 	match int(path_speed):
 		10:
-			cutoff_adjust = -8
+			_cutoff_adjust = -8
 		9, 8:
-			cutoff_adjust = -7
+			_cutoff_adjust = -7
 		7, 6, 5:
-			cutoff_adjust = -6
+			_cutoff_adjust = -6
 		4:
-			cutoff_adjust = -5
+			_cutoff_adjust = -5
 		3:
-			cutoff_adjust = -3
+			_cutoff_adjust = -3
 		2:
-			cutoff_adjust = 0
+			_cutoff_adjust = 0
 		1:
-			cutoff_adjust = 8
-	var path_distance = x_size + (offset * path_speed)
-	var cutoff = floor(path_distance / path_speed) + cutoff_adjust
+			_cutoff_adjust = 8
+	var _path_distance = x_size + (offset * path_speed)
+	var cutoff = floor(_path_distance / path_speed) + _cutoff_adjust
 	
 	place_ball(path[starting_frame])
-	render_ball.position.y = $Ball.position.y
+	path_origin.y = $Ball.position.y
 	
 	step = 0
 	
 	while $Path.get_point_count() < cutoff:
-		$Path.add_point(Vector2($Ball.position.x + step, $Ball.position.y))
+		$Path.add_point(Vector2(path_origin.x + step, path_origin.y))
 		$Path.position.x -= 1 * path_speed
 		step += 1 * path_speed
 	
@@ -506,12 +503,12 @@ func render(starting_frame:int, ending_frame:int):
 	for point in range(starting_frame, ending_frame + cutoff):
 		print("SAVING: ",point," / ", (ending_frame + cutoff) - starting_frame)
 		if point+1 < path.size() and path[point+1] > -1:
-			place_ball(path[point+1])
+			path_origin.y = BOTTOM + path[point+1] * (TOP - BOTTOM)
 		if point - distance < path.size() and point > distance:
 			if path[point-distance] > -1 and point-distance >= starting_frame:
 				var render_pos = BOTTOM + path[point-distance] * (TOP - BOTTOM)
-				render_ball.position.y = render_pos
-				line_colors(render_ball, point-distance)
+				$Ball.position.y = render_pos
+				line_colors(point - distance)
 		for effect in aux_effects:
 			for trigger in aux_effects[effect]:
 				if point - distance == int(trigger):
@@ -536,7 +533,7 @@ func render(starting_frame:int, ending_frame:int):
 							var s2 = path_flash_curve.sample(count)
 							var ball_blend = ball_color_a.lerp(ball_color_b, s1)
 							var path_blend = path_color_a.lerp(path_color_b, s2)
-							render_ball.self_modulate = ball_blend
+							$Ball.self_modulate = ball_blend
 							$Path.self_modulate = path_blend
 							flash_frames -= 1
 					elif effect_time <= flash_total:
@@ -545,7 +542,7 @@ func render(starting_frame:int, ending_frame:int):
 						var s2 = path_flash_curve.sample(count)
 						var ball_blend = ball_color_b.lerp(ball_color_a, s1)
 						var path_blend = path_color_b.lerp(path_color_a, s2)
-						render_ball.self_modulate = ball_blend
+						$Ball.self_modulate = ball_blend
 						$Path.self_modulate = path_blend
 					if effect_time > 0:
 						active_effects[effect] -= 1
@@ -555,7 +552,7 @@ func render(starting_frame:int, ending_frame:int):
 			
 		await get_tree().process_frame
 		await get_tree().process_frame
-		$Path.add_point(Vector2($Ball.position.x + step, $Ball.position.y))
+		$Path.add_point(Vector2(path_origin.x + step, path_origin.y))
 		$Path.position.x -= 1 * path_speed
 		step += 1 * path_speed
 		while $Path.get_point_count() > cutoff:
@@ -567,14 +564,11 @@ func render(starting_frame:int, ending_frame:int):
 	$Path.gradient.offsets[1] = 1
 	$Header/MenuButton.show()
 	$TrackSliderLarge.show()
-	$Ball.show()
 	$Path.hide()
 	$Markers.show()
 	$MarkersMenu.show()
 	
 	set_physics_process(true)
-	remove_child(render_ball)
-	render_ball.queue_free()
 	DisplayServer.window_set_flag(resize_disabled, false)
 	connect("resized", update_display)
 	
