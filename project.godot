@@ -17,7 +17,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 config/name="BounceX"
 config/version="2.5.2"
 run/main_scene="res://bouncex.tscn"
-config/features=PackedStringArray("4.6", "Mobile")
+config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 config/windows_native_icon="res://icon.ico"
 

@@ -706,9 +706,10 @@ text = "Don't show this notification again"
 
 [node name="TrackSelection" type="OptionButton" parent="Menu/Controls/Tracks" unique_id=1501996220]
 custom_minimum_size = Vector2(241, 0)
+custom_maximum_size = Vector2(241, -1)
 layout_mode = 2
 focus_mode = 0
-text_overrun_behavior = 2
+text_overrun_behavior = 1
 clip_text = true
 
 [node name="TrackControls" type="HBoxContainer" parent="Menu/Controls" unique_id=1287349246]
