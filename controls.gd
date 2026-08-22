@@ -210,7 +210,7 @@ func load_tracks() -> void:
 
 func _on_track_selected(index: int) -> void:
 	var track_name = $Tracks/TrackSelection.get_item_text(index)
-	var file_path := Data.tracks_dir.path_join(track_name)
+	var file_path:String = Data.tracks_dir.path_join(track_name)
 	if Data.is_video_file(file_path):
 		owner.is_video_track = true
 		$AudioStreamPlayer.stream = null
@@ -364,7 +364,7 @@ func _dismiss_file_dialog() -> void:
 
 
 func _on_files_dropped(paths: PackedStringArray) -> void:
-	var valid_exts := ["mp3", "wav", "ogg"] + Data.VIDEO_EXTENSIONS
+	var valid_exts:Array = ["mp3", "wav", "ogg"] + Data.VIDEO_EXTENSIONS
 	var filtered: PackedStringArray
 	for p in paths:
 		if p.get_extension().to_lower() in valid_exts:
@@ -379,7 +379,7 @@ func _on_track_files_selected(source_paths: PackedStringArray) -> void:
 	
 	for source_path in source_paths:
 		var file_name  := source_path.get_file()
-		var dest_path  := Data.tracks_dir.path_join(file_name)
+		var dest_path:String = Data.tracks_dir.path_join(file_name)
 		var final_name := file_name
 		
 		if FileAccess.file_exists(dest_path):

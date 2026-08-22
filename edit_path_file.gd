@@ -59,13 +59,13 @@ func delete_path() -> void:
 
 
 func copy_path() -> void:
-	var current_path := Data.get_file_path()
+	var current_path: String = Data.get_file_path()
 	var track_name   := current_path.get_base_dir().get_file()
 	var base_name    := current_path.get_basename().get_file()
 	var new_path_name: String = $CopyConfirmation/VBox/Input.text
 	if new_path_name == base_name:
 		new_path_name += " - copy"
-	var dir_path := Data.paths_dir.path_join(track_name)
+	var dir_path: String = Data.paths_dir.path_join(track_name)
 	if _path_exists(dir_path, new_path_name):
 		$CopyConfirmation/VBox/Input.text = new_path_name + " - copy"
 		return
@@ -92,7 +92,7 @@ func export_funscript() -> void:
 	if owner.has_method("_get_track_duration"):
 		duration = int(round(owner._get_track_duration()))
 
-	var dir_path := Data.paths_dir.path_join(track_title)
+	var dir_path: String = Data.paths_dir.path_join(track_title)
 	var out_path := dir_path.path_join(file_name + ".funscript")
 	Funscript.export(owner.marker_data, owner.path_meta, out_path, invert, duration)
 

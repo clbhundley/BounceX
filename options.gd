@@ -103,7 +103,7 @@ func _load_waveform_config() -> void:
 		if   n.display_mode == 1: wv_scroll = n
 		elif n.display_mode == 0: wv_static = n
 	
-	var config := Data.config
+	var config: ConfigFile = Data.config
 	
 	if wv_scroll:
 		if config.has_section_key('waveform', 'scroll_active'):
