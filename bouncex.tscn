@@ -1739,6 +1739,7 @@ vertical_alignment = 1
 layout_mode = 2
 min_value = 5.0
 max_value = 9999.0
+step = 0.01
 value = 30.0
 
 [node name="Length" type="HBoxContainer" parent="GenerateCycle/Inputs" unique_id=1219288857]

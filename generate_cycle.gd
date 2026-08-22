@@ -16,7 +16,8 @@ func _on_frame_interval_value_changed(value):
 
 
 func _on_generate_pressed():
-	var frame_interval = $Inputs/Interval/FrameInterval/SpinBox.value
+	var bpm = $Inputs/Interval/BPM/SpinBox.value
+	var frame_interval: float = 3600.0 / bpm
 	var length = $Inputs/Length/SpinBox.value
 	var height = $Inputs/Positions/Height/SpinBox.value
 	var depth = $Inputs/Positions/Depth/SpinBox.value
@@ -31,8 +32,10 @@ func _on_generate_pressed():
 	else:
 		positions = [height, depth]
 	create_marker(current_frame, positions[phase])
+	var accumulator: float = 0.0
 	for i in length - 1:
-		current_frame += frame_interval
+		accumulator += frame_interval
+		current_frame = starting_frame + roundi(accumulator)
 		create_marker(current_frame, positions[phase])
 	owner.input_disabled = false
 	owner.save_path()
