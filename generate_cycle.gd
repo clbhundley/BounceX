@@ -1,27 +1,35 @@
 extends Panel
 
+const FRAMES_PER_MINUTE := 60.0 * 60.0
+
 var positions: Array
 var phase: int
 
+var interval_frames: float
+
+@onready var bpm_input = $Inputs/Interval/BPM/SpinBox
+@onready var frame_interval_input = $Inputs/Interval/FrameInterval/SpinBox
+
 func _ready():
 	self_modulate.a = 1.6
+	interval_frames = FRAMES_PER_MINUTE / bpm_input.value
 
 
 func _on_bpm_value_changed(value):
-	$Inputs/Interval/FrameInterval/SpinBox.value = 60 / (value / 60)
+	interval_frames = FRAMES_PER_MINUTE / value
+	frame_interval_input.set_value_no_signal(interval_frames)
 
 
 func _on_frame_interval_value_changed(value):
-	$Inputs/Interval/BPM/SpinBox.value = 60 / (value / 60)
+	interval_frames = value
+	bpm_input.set_value_no_signal(FRAMES_PER_MINUTE / value)
 
 
 func _on_generate_pressed():
-	var frame_interval = $Inputs/Interval/FrameInterval/SpinBox.value
-	var length = $Inputs/Length/SpinBox.value
+	var length: int = int($Inputs/Length/SpinBox.value)
 	var height = $Inputs/Positions/Height/SpinBox.value
 	var depth = $Inputs/Positions/Depth/SpinBox.value
 	var starting_frame: int = owner.frame
-	var current_frame: int = starting_frame
 	phase = $Inputs/StartingPosition/Positions/OptionButton.selected
 	if $Inputs/StartingPosition/Flat/CheckBox.button_pressed:
 		if phase == 0:
@@ -30,9 +38,9 @@ func _on_generate_pressed():
 			positions = [depth, depth]
 	else:
 		positions = [height, depth]
-	create_marker(current_frame, positions[phase])
-	for i in length - 1:
-		current_frame += frame_interval
+	create_marker(starting_frame, positions[phase])
+	for i in range(1, length):
+		var current_frame: int = starting_frame + roundi(interval_frames * i)
 		create_marker(current_frame, positions[phase])
 	owner.input_disabled = false
 	owner.save_path()
