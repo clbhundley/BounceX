@@ -77,6 +77,12 @@ static var _cbr_seek_offset:  float = 0.0     # seconds sliced off the front (0 
 # ── Primary-instance tracking ─────────────────────────────────────────────────
 static var _primary = null
 
+## Slicing the source bytes to seek an MP3 costs the whole remainder of the
+## file, so coalesce the seeks a scrub produces and pay it once.
+const SEEK_DEBOUNCE := 0.06
+var _seek_timer: Timer
+var _seek_pending: float = -1.0
+
 # ── Input state (per-instance) ────────────────────────────────────────────────
 var _dragging := false
 
@@ -94,6 +100,11 @@ func _ready() -> void:
 	add_to_group("WaveformView")
 	if not is_instance_valid(_primary):
 		_primary = self
+	_seek_timer = Timer.new()
+	_seek_timer.wait_time = SEEK_DEBOUNCE
+	_seek_timer.one_shot = true
+	_seek_timer.timeout.connect(_on_seek_timeout)
+	add_child(_seek_timer)
 
 
 func _exit_tree() -> void:
@@ -557,6 +568,25 @@ func _input(event: InputEvent) -> void:
 ## Audio-only seek to normalized position t ∈ [0, 1].
 ## Frame / marker / ball sync is the caller's responsibility.
 func seek_audio(t: float) -> void:
+	if _cbr_avg_bytes > 0.0 and _mp3_data.size() > 0 and \
+	   %AudioStreamPlayer.stream is AudioStreamMP3:
+		# Defer the slice: a scrub asks for many positions and only the last
+		# one is ever heard.
+		_seek_pending = t
+		_seek_timer.start()
+		return
+	_seek_audio_now(t)
+
+
+func _on_seek_timeout() -> void:
+	if _seek_pending < 0.0:
+		return
+	var t := _seek_pending
+	_seek_pending = -1.0
+	_seek_audio_now(t)
+
+
+func _seek_audio_now(t: float) -> void:
 	if _cbr_avg_bytes > 0.0 and _mp3_data.size() > 0 and \
 	   %AudioStreamPlayer.stream is AudioStreamMP3:
 		# Fast path: slice from CBR byte offset (no frame sync — caller handles it)
