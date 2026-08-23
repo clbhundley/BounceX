@@ -365,12 +365,18 @@ func _dismiss_file_dialog() -> void:
 
 func _on_files_dropped(paths: PackedStringArray) -> void:
 	var valid_exts:Array = ["mp3", "wav", "ogg"] + Data.VIDEO_EXTENSIONS
-	var filtered: PackedStringArray
+	var tracks: PackedStringArray
+	var path_files: PackedStringArray
 	for p in paths:
-		if p.get_extension().to_lower() in valid_exts:
-			filtered.append(p)
-	if not filtered.is_empty():
-		_on_track_files_selected(filtered)
+		var ext := p.get_extension().to_lower()
+		if ext in valid_exts:
+			tracks.append(p)
+		elif ext == "bx" or ext == "funscript":
+			path_files.append(p)
+	if not tracks.is_empty():
+		_on_track_files_selected(tracks)
+	if not path_files.is_empty():
+		_on_path_files_dropped(path_files)
 
 
 func _on_track_files_selected(source_paths: PackedStringArray) -> void:
@@ -512,3 +518,159 @@ func _show_waveforms() -> void:
 		%TrackSliderLarge.hide()
 	if Data.config.get_value('waveform', 'scroll_active', true):
 		owner.get_node("WaveformScrolling").show()
+
+
+# ── Path file importer ────────────────────────────────────────────────────────
+
+func _on_path_files_dropped(source_paths: PackedStringArray) -> void:
+	var track_selection := $Tracks/TrackSelection
+	if track_selection.selected == -1:
+		_show_notice("Select a track before importing paths.")
+		return
+	var track_title := track_selection.get_item_text(track_selection.selected)
+	var funscripts: PackedStringArray
+	var imported := 0
+	for source_path in source_paths:
+		if source_path.get_extension().to_lower() == "funscript":
+			funscripts.append(source_path)
+		elif _copy_path_file(source_path, track_title) != "":
+			imported += 1
+	if imported:
+		load_paths(track_title)
+	if not funscripts.is_empty():
+		_show_funscript_import(funscripts[0], track_title)
+
+
+func _copy_path_file(source_path: String, track_title: String) -> String:
+	var source := FileAccess.open(source_path, FileAccess.READ)
+	if not source:
+		return ""
+	var contents := source.get_buffer(source.get_length())
+	source.close()
+	var dest_path := _unique_path_file(track_title, source_path.get_file().get_basename())
+	var dest := FileAccess.open(dest_path, FileAccess.WRITE)
+	if not dest:
+		return ""
+	dest.store_buffer(contents)
+	dest.close()
+	return dest_path
+
+
+func _unique_path_file(track_title: String, base_name: String) -> String:
+	var dir_path: String = Data.paths_dir.path_join(track_title)
+	DirAccess.make_dir_recursive_absolute(dir_path)
+	var file_name := base_name
+	var n := 2
+	while FileAccess.file_exists(dir_path.path_join(file_name + ".bx")):
+		file_name = "%s (%d)" % [base_name, n]
+		n += 1
+	return dir_path.path_join(file_name + ".bx")
+
+
+func _show_funscript_import(source_path: String, track_title: String) -> void:
+	var file := FileAccess.open(source_path, FileAccess.READ)
+	if not file:
+		_show_notice("Could not read that funscript.")
+		return
+	var parsed = JSON.parse_string(file.get_as_text())
+	file.close()
+	if not parsed is Dictionary or not parsed.get("actions") is Array:
+		_show_notice("That file is not a valid funscript.")
+		return
+	
+	var dialog := ConfirmationDialog.new()
+	dialog.theme = load("res://theme_basic.tres")
+	dialog.title = "Import Funscript"
+	dialog.ok_button_text = "Import"
+	
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override('separation', 10)
+	dialog.add_child(vbox)
+	
+	var source_label := Label.new()
+	source_label.text = "%s\n%d actions" % [
+		source_path.get_file(), parsed["actions"].size()]
+	vbox.add_child(source_label)
+	
+	var threshold_box := HBoxContainer.new()
+	threshold_box.add_theme_constant_override('separation', 20)
+	var threshold_label := Label.new()
+	threshold_label.text = "Smoothing:"
+	threshold_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	threshold_box.add_child(threshold_label)
+	var threshold_input := SpinBox.new()
+	threshold_input.min_value = 0.0
+	threshold_input.max_value = 0.5
+	threshold_input.step = 0.01
+	threshold_input.value = 0.08
+	threshold_box.add_child(threshold_input)
+	vbox.add_child(threshold_box)
+	
+	var preview := Label.new()
+	vbox.add_child(preview)
+	
+	var separation_min: int = %Markers.SEPARATION_MIN
+	var max_frame: int = owner.path.size()
+	# Lambdas capture locals by value, so the preview mutates this dictionary
+	# in place rather than reassigning it, keeping the confirm handler in sync.
+	var markers := {}
+	var update_preview := func(value: float) -> void:
+		markers.clear()
+		markers.merge(Funscript.to_marker_data(
+			parsed, value, separation_min, max_frame))
+		preview.text = "%d actions  ->  %d markers" % [
+			parsed["actions"].size(), markers.size()]
+	threshold_input.value_changed.connect(update_preview)
+	update_preview.call(threshold_input.value)
+	
+	dialog.confirmed.connect(func() -> void:
+		_write_imported_path(
+			source_path, track_title, markers, Funscript.source_meta(parsed))
+		dialog.queue_free())
+	dialog.canceled.connect(func(): dialog.queue_free())
+	add_child(dialog)
+	dialog.popup_centered()
+
+
+func _write_imported_path(
+		source_path: String,
+		track_title: String,
+		markers: Dictionary,
+		source_meta: Dictionary) -> void:
+	if markers.is_empty():
+		_show_notice("That funscript produced no markers.")
+		return
+	var dest_path := _unique_path_file(
+		track_title, source_path.get_file().get_basename())
+	var data := {
+		"meta": {
+			"version": 2.0,
+			"marker_fields": ["depth", "trans", "ease", "auxiliary"],
+			"related_media": track_title.get_basename(),
+		},
+		"markers": markers,
+		"funscript_source": source_meta,
+	}
+	var file := FileAccess.open(dest_path, FileAccess.WRITE)
+	if not file:
+		_show_notice("Could not write the imported path.")
+		return
+	file.store_line(JSON.stringify(data))
+	file.close()
+	load_paths(track_title)
+	var path_name := dest_path.get_file().get_basename()
+	for i in $Paths.item_count:
+		if $Paths.get_item_text(i) == path_name:
+			$Paths.select(i)
+			_on_path_selected(i)
+			break
+
+
+func _show_notice(message: String) -> void:
+	var dialog := AcceptDialog.new()
+	dialog.theme = load("res://theme_basic.tres")
+	dialog.dialog_text = message
+	dialog.confirmed.connect(func(): dialog.queue_free())
+	dialog.canceled.connect(func(): dialog.queue_free())
+	add_child(dialog)
+	dialog.popup_centered()
