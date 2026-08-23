@@ -587,9 +587,29 @@ func _show_funscript_import(source_path: String, track_title: String) -> void:
 	vbox.add_theme_constant_override('separation', 10)
 	dialog.add_child(vbox)
 	
+	var separation_min: int = %Markers.SEPARATION_MIN
+	var max_frame: int = owner.path.size()
+	var out_of_range := 0
+	var first_at := INF
+	var last_at := 0.0
+	for action in parsed["actions"]:
+		if not action is Dictionary or not action.has("at"):
+			continue
+		var at := float(action["at"])
+		first_at = minf(first_at, at)
+		last_at = maxf(last_at, at)
+		if max_frame > 0 and roundi(at * 60.0 / 1000.0) >= max_frame:
+			out_of_range += 1
+	if first_at == INF:
+		first_at = 0.0
+	
 	var source_label := Label.new()
-	source_label.text = "%s\n%d actions" % [
-		source_path.get_file(), parsed["actions"].size()]
+	source_label.text = "%s\n%d actions  ·  %s - %s\nTrack length: %s" % [
+		source_path.get_file(),
+		parsed["actions"].size(),
+		_format_time(first_at / 1000.0),
+		_format_time(last_at / 1000.0),
+		_format_time(max_frame / 60.0)]
 	vbox.add_child(source_label)
 	
 	var threshold_box := HBoxContainer.new()
@@ -609,8 +629,6 @@ func _show_funscript_import(source_path: String, track_title: String) -> void:
 	var preview := Label.new()
 	vbox.add_child(preview)
 	
-	var separation_min: int = %Markers.SEPARATION_MIN
-	var max_frame: int = owner.path.size()
 	# Lambdas capture locals by value, so the preview mutates this dictionary
 	# in place rather than reassigning it, keeping the confirm handler in sync.
 	var markers := {}
@@ -620,6 +638,8 @@ func _show_funscript_import(source_path: String, track_title: String) -> void:
 			parsed, value, separation_min, max_frame))
 		preview.text = "%d actions  ->  %d markers" % [
 			parsed["actions"].size(), markers.size()]
+		if out_of_range:
+			preview.text += "\n%d actions land past the end of the track." % out_of_range
 	threshold_input.value_changed.connect(update_preview)
 	update_preview.call(threshold_input.value)
 	
@@ -674,3 +694,8 @@ func _show_notice(message: String) -> void:
 	dialog.canceled.connect(func(): dialog.queue_free())
 	add_child(dialog)
 	dialog.popup_centered()
+
+
+func _format_time(seconds: float) -> String:
+	var total := int(seconds)
+	return "%d:%02d:%02d" % [total / 3600, (total / 60) % 60, total % 60]
