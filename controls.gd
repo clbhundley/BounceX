@@ -698,4 +698,6 @@ func _show_notice(message: String) -> void:
 
 func _format_time(seconds: float) -> String:
 	var total := int(seconds)
-	return "%d:%02d:%02d" % [total / 3600, (total / 60) % 60, total % 60]
+	if total >= 3600:
+		return "%d:%02d:%02d" % [total / 3600, (total / 60) % 60, total % 60]
+	return "%d:%02d" % [total / 60, total % 60]
