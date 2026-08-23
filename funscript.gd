@@ -1,5 +1,10 @@
 class_name Funscript
 
+## Shorter than the briefest hold found in hand-authored paths, so every pause
+## an author would write survives import while sampling artefacts do not.
+const HOLD_MIN_FRAMES := 20
+
+
 static func export(marker_data: Dictionary, path_meta: Dictionary, out_path: String, invert: bool, duration: int = 0) -> void:
 	var actions := []
 	var sorted_frames := marker_data.keys()
@@ -88,17 +93,25 @@ static func _simplify(points: Array, amp_threshold: float, separation_min: int) 
 	if points.size() < 3:
 		return points
 	# Funscripts trace curves out of many small linear steps, so collapse each
-	# run down to the direction change it describes. A plateau continues the
-	# move, and a reversal below the threshold is sampling noise, not intent.
+	# run down to the direction change it describes, ignoring reversals too
+	# small to be intentional. A run of identical positions is a hold, which
+	# has to be closed off with its own marker or the pause it describes turns
+	# into a slow drift across the move that follows it.
 	var extremes := [points[0]]
 	var direction := 0
+	var hold = null
 	for i in range(1, points.size()):
 		var delta: float = points[i][1] - extremes[-1][1]
 		var step := int(signf(delta))
 		if step == 0:
+			hold = points[i]
 			continue
 		if step != direction and absf(delta) < amp_threshold:
 			continue
+		if hold != null and hold[0] - extremes[-1][0] >= HOLD_MIN_FRAMES:
+			extremes.append(hold)
+			direction = 0
+		hold = null
 		if step == direction:
 			extremes[extremes.size() - 1] = points[i]
 		else:
