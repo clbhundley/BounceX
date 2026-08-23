@@ -1,5 +1,9 @@
 extends VBoxContainer
 
+## Retains the shape of a funscript while dropping the sampling noise left
+## behind by tracing curves out of linear steps.
+const DEFAULT_SMOOTHING := 0.12
+
 var last_path_index: int = -1
 var _pending_file_dialog: FileDialog = null
 var _video_scrub_timer: Timer
@@ -523,11 +527,11 @@ func _show_waveforms() -> void:
 # ── Path file importer ────────────────────────────────────────────────────────
 
 func _on_path_files_dropped(source_paths: PackedStringArray) -> void:
-	var track_selection := $Tracks/TrackSelection
+	var track_selection: OptionButton = $Tracks/TrackSelection
 	if track_selection.selected == -1:
 		_show_notice("Select a track before importing paths.")
 		return
-	var track_title := track_selection.get_item_text(track_selection.selected)
+	var track_title: String = track_selection.get_item_text(track_selection.selected)
 	var funscripts: PackedStringArray
 	var imported := 0
 	for source_path in source_paths:
@@ -622,7 +626,7 @@ func _show_funscript_import(source_path: String, track_title: String) -> void:
 	threshold_input.min_value = 0.0
 	threshold_input.max_value = 0.5
 	threshold_input.step = 0.01
-	threshold_input.value = 0.08
+	threshold_input.value = DEFAULT_SMOOTHING
 	threshold_box.add_child(threshold_input)
 	vbox.add_child(threshold_box)
 	
