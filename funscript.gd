@@ -34,3 +34,92 @@ static func export(marker_data: Dictionary, path_meta: Dictionary, out_path: Str
 	if file:
 		file.store_line(JSON.stringify(funscript))
 		file.close()
+
+
+static func import(file_path: String, amp_threshold := 0.08, separation_min := 5, max_frame := 0) -> Dictionary:
+	var file := FileAccess.open(file_path, FileAccess.READ)
+	if not file:
+		return {}
+	var parsed = JSON.parse_string(file.get_as_text())
+	file.close()
+	if not parsed is Dictionary or not parsed.get("actions") is Array:
+		return {}
+	return {
+		"markers": to_marker_data(parsed, amp_threshold, separation_min, max_frame),
+		"source": source_meta(parsed)
+	}
+
+
+static func to_marker_data(
+		funscript: Dictionary,
+		amp_threshold := 0.08,
+		separation_min := 5,
+		max_frame := 0) -> Dictionary:
+	var actions: Array = funscript["actions"].duplicate()
+	actions.sort_custom(func(a, b): return int(a.get("at", 0)) < int(b.get("at", 0)))
+	
+	var inverted: bool = funscript.get("inverted", false)
+	var value_range := float(funscript.get("range", 100))
+	if value_range <= 0.0:
+		value_range = 100.0
+	
+	var points: Array
+	for action in actions:
+		if not action is Dictionary or not action.has("at") or not action.has("pos"):
+			continue
+		var depth := clampf(float(action["pos"]) / value_range, 0.0, 1.0)
+		if inverted:
+			depth = 1.0 - depth
+		var frame := roundi(float(action["at"]) * 60.0 / 1000.0)
+		if frame < 0 or (max_frame > 0 and frame >= max_frame):
+			continue
+		if not points.is_empty() and points[-1][0] == frame:
+			points[points.size() - 1] = [frame, depth]
+		else:
+			points.append([frame, depth])
+	
+	var marker_data: Dictionary
+	for point in _simplify(points, amp_threshold, separation_min):
+		marker_data[point[0]] = [point[1], Tween.TRANS_SINE, Tween.EASE_IN_OUT, 0]
+	return marker_data
+
+
+static func _simplify(points: Array, amp_threshold: float, separation_min: int) -> Array:
+	if points.size() < 3:
+		return points
+	# Funscripts trace curves out of many small linear steps, so collapse each
+	# run down to the direction change it describes. A plateau continues the
+	# move, and a reversal below the threshold is sampling noise, not intent.
+	var extremes := [points[0]]
+	var direction := 0
+	for i in range(1, points.size()):
+		var delta: float = points[i][1] - extremes[-1][1]
+		var step := int(signf(delta))
+		if step == 0:
+			continue
+		if step != direction and absf(delta) < amp_threshold:
+			continue
+		if step == direction:
+			extremes[extremes.size() - 1] = points[i]
+		else:
+			extremes.append(points[i])
+			direction = step
+	# Whatever is still closer together than the editor permits collapses to
+	# whichever marker of the pair sits further from centre.
+	var separated := [extremes[0]]
+	for i in range(1, extremes.size()):
+		if extremes[i][0] - separated[-1][0] < separation_min:
+			if absf(extremes[i][1] - 0.5) > absf(separated[-1][1] - 0.5):
+				separated[separated.size() - 1] = extremes[i]
+		else:
+			separated.append(extremes[i])
+	return separated
+
+
+static func source_meta(funscript: Dictionary) -> Dictionary:
+	var source: Dictionary
+	for key in funscript:
+		if key != "actions":
+			source[key] = funscript[key]
+	source["action_count"] = funscript["actions"].size()
+	return source
