@@ -459,7 +459,7 @@ func _on_frame_value_changed(value: int):
 		clear_ahead(frame)
 		connect_marker(frame)
 		place_ball_on_path()
-	Data.save_path()
+	Data.save_path_debounced()
 
 
 func _on_depth_value_changed(value):
@@ -491,8 +491,8 @@ func _on_depth_value_changed(value):
 		if marker_frame == 0:
 			connect_marker(get_next_frame(0))
 		connect_marker(marker_frame)
-		place_ball_on_path()
-		Data.save_path()
+	place_ball_on_path()
+	Data.save_path_debounced()
 
 
 func _on_trans_selected(index):
@@ -508,8 +508,8 @@ func _on_trans_selected(index):
 		var frame = marker.get_meta('frame')
 		owner.marker_data[frame][1] = index
 		connect_marker(frame)
-		place_ball_on_path()
-		Data.save_path()
+	place_ball_on_path()
+	Data.save_path()
 
 
 func _on_easing_selected(index):
@@ -524,8 +524,8 @@ func _on_easing_selected(index):
 		var frame = marker.get_meta('frame')
 		owner.marker_data[frame][2] = index
 		connect_marker(frame)
-		place_ball_on_path()
-		Data.save_path()
+	place_ball_on_path()
+	Data.save_path()
 
 
 func _on_up_easing_selected(index):

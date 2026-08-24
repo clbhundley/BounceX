@@ -8,12 +8,21 @@ var config_path: String
 var config := ConfigFile.new()
 
 var base_dir:    String
+const SAVE_DEBOUNCE := 0.25
+var _save_timer: Timer
+var _save_pending := false
+
 var tracks_dir:  String
 var paths_dir:   String
 var renders_dir: String
 
 
 func _ready() -> void:
+	_save_timer = Timer.new()
+	_save_timer.wait_time = SAVE_DEBOUNCE
+	_save_timer.one_shot = true
+	_save_timer.timeout.connect(_on_save_timeout)
+	add_child(_save_timer)
 	base_dir = OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS).path_join("BounceX")
 	tracks_dir  = base_dir.path_join("Tracks")
 	paths_dir   = base_dir.path_join("Paths")
@@ -88,6 +97,26 @@ func upgrade_path_file(file_path: String) -> void:
 			new_file.close()
 
 
+## Writing a path serialises every marker in it, which is far too much work to
+## repeat for each marker of a selection or each frame of a drag. Callers that
+## fire repeatedly ask for a save instead of performing one.
+func save_path_debounced() -> void:
+	_save_pending = true
+	_save_timer.start()
+
+
+func _on_save_timeout() -> void:
+	flush_path_save()
+
+
+## Performs a requested save immediately. Anything that abandons the current
+## path has to call this first, or the last edits to it are lost.
+func flush_path_save() -> void:
+	if _save_pending:
+		_save_pending = false
+		save_path()
+
+
 func save_path(file_path: String = get_file_path()) -> void:
 	var file := FileAccess.open(file_path, FileAccess.WRITE)
 	if not file:
@@ -99,6 +128,7 @@ func save_path(file_path: String = get_file_path()) -> void:
 
 
 func load_path(file_path: String) -> void:
+	flush_path_save()
 	upgrade_path_file(file_path)
 	var file := FileAccess.open(file_path, FileAccess.READ)
 	if not file:
@@ -584,3 +614,7 @@ func load_colors() -> void:
 				'Bottom Active':     bx.bottom_color_active = color
 				'Hold Breath Ball':  bx.hold_breath_ball_color = color
 				'Hold Breath Path':  bx.hold_breath_path_color = color
+
+
+func _exit_tree() -> void:
+	flush_path_save()
