@@ -83,6 +83,25 @@ func _apply_window() -> void:
 	_visible_hi = new_hi
 
 
+## Placing a marker used to invalidate the whole sorted list, so recording onto
+## a long path paid for a full sort per marker. One frame can be slotted in.
+func _window_insert(frame: int) -> void:
+	if _window_dirty:
+		return
+	var index: int = _sorted_frames.bsearch(frame, true)
+	if index >= _sorted_frames.size() or _sorted_frames[index] != frame:
+		_sorted_frames.insert(index, frame)
+		if index < _visible_lo:
+			_visible_lo += 1
+			_visible_hi += 1
+		elif index < _visible_hi:
+			_visible_hi += 1
+			_set_marker_visible(index, true)
+	elif index >= _visible_lo and index < _visible_hi:
+		_set_marker_visible(index, true)
+	_apply_window()
+
+
 func _set_marker_visible(index: int, value: bool) -> void:
 	var node = marker_list.get(_sorted_frames[index])
 	if is_instance_valid(node):
@@ -131,7 +150,6 @@ func add_marker(frame, depth, trans=null, ease=null, auxiliary=0):
 	# this one on the next tick if it falls inside the window.
 	if marker_list.has(frame) and is_instance_valid(marker_list[frame]):
 		marker_list[frame].queue_free()
-	var index = get_marker_index(frame)
 	if trans == null:
 		trans = %MarkersMenu/HBox/Trans.selected
 	if ease == null:
@@ -140,7 +158,7 @@ func add_marker(frame, depth, trans=null, ease=null, auxiliary=0):
 		if int(auxiliary) & 1 << 0:
 			marker.self_modulate = Color.HOT_PINK
 	marker_list[frame] = marker
-	_window_dirty = true
+	_window_insert(frame)
 	var marker_button = marker.get_node('Button')
 	marker_button.toggled.connect(marker_toggled.bind(marker))
 	marker_button.gui_input.connect(_on_marker_gui_input.bind(marker))
@@ -345,7 +363,6 @@ func connect_marker(frame: int, connect_next := true) -> void:
 	var next_frame = get_next_frame(frame)
 	var marker: Node = marker_list[frame]
 	var previous: Node = marker_list[previous_frame]
-	var starting_position = previous.position
 	if connect_next and next_frame != frame:
 		connect_marker(next_frame, false)
 	if marker.has_meta('line'):
@@ -357,21 +374,24 @@ func connect_marker(frame: int, connect_next := true) -> void:
 	add_child(line)
 	line.add_to_group('lines')
 	marker.set_meta('line', line)
-	var tween = get_tree().create_tween()
-	tween.set_trans(marker.get_meta('trans'))
-	tween.set_ease(marker.get_meta('ease'))
-	var steps = marker.get_meta('frame') - previous.get_meta('frame')
-	tween.tween_property(previous, 'position:y', marker.position.y, steps)
-	tween.pause()
-	line.clear_points()
-	var line_frame = previous.get_meta('frame')
+	var steps: int = marker.get_meta('frame') - previous.get_meta('frame')
+	var line_frame: int = previous.get_meta('frame')
+	var start := previous.position
+	var span: float = marker.position.y - start.y
+	var height: float = owner.TOP - owner.BOTTOM
+	# Evaluating the easing directly, rather than stepping a Tween a frame at a
+	# time, keeps this proportional to the gap without the per step cost. The
+	# gap between two markers can run to tens of thousands of frames.
+	var points := PackedVector2Array()
+	points.resize(steps + 1)
 	for i in steps + 1:
-		owner.path[line_frame] = get_marker_depth(previous)
-		line.add_point(previous.position)
-		tween.custom_step(1)
-		previous.position.x += owner.path_speed
-		line_frame += 1
-	previous.position = starting_position
+		var y: float = start.y if steps == 0 else Tween.interpolate_value(
+			start.y, span, float(i), float(steps),
+			marker.get_meta('trans'), marker.get_meta('ease'))
+		points[i] = Vector2(start.x + i * owner.path_speed, y)
+		if line_frame + i < owner.path.size():
+			owner.path[line_frame + i] = absf((y - owner.BOTTOM) / height)
+	line.points = points
 
 
 func connect_all_markers():
