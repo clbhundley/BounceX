@@ -376,7 +376,7 @@ func connect_marker(frame: int, connect_next := true) -> void:
 	marker.set_meta('line', line)
 	var steps: int = marker.get_meta('frame') - previous.get_meta('frame')
 	var line_frame: int = previous.get_meta('frame')
-	var start := previous.position
+	var start: Vector2 = previous.position
 	var span: float = marker.position.y - start.y
 	var bottom: float = owner.BOTTOM
 	var height: float = owner.TOP - bottom
