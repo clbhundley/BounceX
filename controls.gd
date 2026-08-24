@@ -299,7 +299,7 @@ func _on_path_selected(index: int) -> void:
 			line.queue_free()
 		last_path_index = index
 		$Render.disabled = false
-		owner.get_node('Ball').show()
+		owner.set_ball_hidden(false)
 		Data.load_path(Data.get_file_path())
 		var path_value = owner.path[owner.frame]
 		if path_value > -1:
@@ -311,11 +311,9 @@ func unload_all(do_scrub := false) -> void:
 	$Render.disabled = true
 	owner.define_path(false)
 	owner.marker_data.clear()
-	for marker in %Markers.marker_list.values():
-		marker.queue_free()
+	%Markers.clear_markers()
 	for line in get_tree().get_nodes_in_group('lines'):
 		line.queue_free()
-	%Markers.marker_list.clear()
 	if do_scrub:
 		scrub(0)
 		owner.place_marker(0)

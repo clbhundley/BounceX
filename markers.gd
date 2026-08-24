@@ -116,10 +116,11 @@ func _set_marker_visible(index: int, value: bool) -> void:
 	var node = marker_list.get(_sorted_frames[index])
 	if not is_instance_valid(node):
 		return
-	var flash = node.get_meta('flash', null)
-	if flash != null and flash.is_valid():
-		flash.kill()
-	node.set_meta('flash', null)
+	if node.has_meta('flash'):
+		var flash = node.get_meta('flash')
+		if flash != null and flash.is_valid():
+			flash.kill()
+		node.remove_meta('flash')
 	node.modulate = Color.WHITE
 	node.scale = marker_scale()
 	if value or not owner.classic_mode or not %Play.button_pressed:
@@ -140,7 +141,7 @@ func _flash_marker(marker: Sprite2D) -> void:
 			marker.visible = false
 			marker.modulate = Color.WHITE
 			marker.scale = marker_scale()
-			marker.set_meta('flash', null))
+			marker.remove_meta('flash'))
 	marker.set_meta('flash', flash)
 
 
@@ -148,6 +149,16 @@ func marker_scale() -> Vector2:
 	if owner.classic_mode:
 		return Vector2.ONE * CLASSIC_MARKER_SCALE
 	return Vector2.ONE
+
+
+## Clearing the markers from outside has to invalidate the window along with
+## them, or the sorted frames keep describing markers that no longer exist.
+func clear_markers() -> void:
+	for node in marker_list.values():
+		if is_instance_valid(node):
+			node.queue_free()
+	marker_list.clear()
+	_window_dirty = true
 
 
 func apply_marker_scale() -> void:

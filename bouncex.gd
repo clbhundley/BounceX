@@ -185,6 +185,12 @@ func get_ease_direction(depth) -> int:
 		return $MarkersMenu/HBox/EaseDown.selected
 
 
+## Classic mode has the action zone in the ball's place, so the ball stays off
+## screen there however it is asked for.
+func set_ball_hidden(hidden: bool) -> void:
+	$Ball.visible = not (hidden or classic_mode)
+
+
 func toggle_ball_visible(toggled: bool) -> void:
 	$Ball.modulate.a = max(float(toggled), 0.3)
 
@@ -395,7 +401,7 @@ func _on_play_toggled(button_pressed):
 		%Play.button_pressed = true
 		$Header/Play.show()
 		if $Markers.is_visible_in_tree():
-			$Ball.show()
+			set_ball_hidden(false)
 			$Markers.position_markers()
 	else:
 		toggle_ball_visible(false)
@@ -693,9 +699,7 @@ func set_classic_mode(enabled: bool) -> void:
 	$Path.visible = not enabled
 	if enabled:
 		toggle_ball_visible(false)
-		$Ball.hide()
-	else:
-		$Ball.show()
+	set_ball_hidden(not %Controls.get_node('Paths').is_anything_selected())
 	for line in get_tree().get_nodes_in_group('lines'):
 		line.visible = not enabled
 	$Markers.apply_marker_scale()
