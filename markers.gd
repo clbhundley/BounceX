@@ -361,8 +361,8 @@ func connect_marker(frame: int, connect_next := true) -> void:
 		return
 	var previous_frame = get_previous_frame(frame)
 	var next_frame = get_next_frame(frame)
-	var marker: Node = marker_list[frame]
-	var previous: Node = marker_list[previous_frame]
+	var marker: Sprite2D = marker_list[frame]
+	var previous: Sprite2D = marker_list[previous_frame]
 	if connect_next and next_frame != frame:
 		connect_marker(next_frame, false)
 	if marker.has_meta('line'):
@@ -376,7 +376,7 @@ func connect_marker(frame: int, connect_next := true) -> void:
 	marker.set_meta('line', line)
 	var steps: int = marker.get_meta('frame') - previous.get_meta('frame')
 	var line_frame: int = previous.get_meta('frame')
-	var start: Vector2 = previous.position
+	var start := previous.position
 	var span: float = marker.position.y - start.y
 	var bottom: float = owner.BOTTOM
 	var height: float = owner.TOP - bottom
@@ -391,9 +391,8 @@ func connect_marker(frame: int, connect_next := true) -> void:
 		# The markers sit at the same depth, so the path holds and the line
 		# between them is straight: it needs no easing and only two points.
 		var depth: float = absf((start.y - bottom) / height)
-		for i in steps + 1:
-			if line_frame + i < last_frame:
-				owner.path[line_frame + i] = depth
+		for i in range(line_frame, mini(line_frame + steps + 1, last_frame)):
+			owner.path[i] = depth
 		points.append(start)
 		if steps > 0:
 			points.append(Vector2(start.x + steps * speed, start.y))
@@ -401,12 +400,13 @@ func connect_marker(frame: int, connect_next := true) -> void:
 		var trans = marker.get_meta('trans')
 		var ease = marker.get_meta('ease')
 		var duration := float(steps)
+		var fill_limit: int = clampi(last_frame - line_frame, 0, steps + 1)
 		points.resize(steps + 1)
 		for i in steps + 1:
 			var y: float = Tween.interpolate_value(
 				start.y, span, float(i), duration, trans, ease)
 			points[i] = Vector2(start.x + i * speed, y)
-			if line_frame + i < last_frame:
+			if i < fill_limit:
 				owner.path[line_frame + i] = absf((y - bottom) / height)
 	line.points = points
 
