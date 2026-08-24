@@ -378,19 +378,36 @@ func connect_marker(frame: int, connect_next := true) -> void:
 	var line_frame: int = previous.get_meta('frame')
 	var start := previous.position
 	var span: float = marker.position.y - start.y
-	var height: float = owner.TOP - owner.BOTTOM
+	var bottom: float = owner.BOTTOM
+	var height: float = owner.TOP - bottom
+	var speed: float = owner.path_speed
+	var last_frame: int = owner.path.size()
 	# Evaluating the easing directly, rather than stepping a Tween a frame at a
 	# time, keeps this proportional to the gap without the per step cost. The
-	# gap between two markers can run to tens of thousands of frames.
+	# gap between two markers can run to tens of thousands of frames, so
+	# everything that does not vary across it is read once.
 	var points := PackedVector2Array()
-	points.resize(steps + 1)
-	for i in steps + 1:
-		var y: float = start.y if steps == 0 else Tween.interpolate_value(
-			start.y, span, float(i), float(steps),
-			marker.get_meta('trans'), marker.get_meta('ease'))
-		points[i] = Vector2(start.x + i * owner.path_speed, y)
-		if line_frame + i < owner.path.size():
-			owner.path[line_frame + i] = absf((y - owner.BOTTOM) / height)
+	if steps == 0 or is_zero_approx(span):
+		# The markers sit at the same depth, so the path holds and the line
+		# between them is straight: it needs no easing and only two points.
+		var depth: float = absf((start.y - bottom) / height)
+		for i in steps + 1:
+			if line_frame + i < last_frame:
+				owner.path[line_frame + i] = depth
+		points.append(start)
+		if steps > 0:
+			points.append(Vector2(start.x + steps * speed, start.y))
+	else:
+		var trans = marker.get_meta('trans')
+		var ease = marker.get_meta('ease')
+		var duration := float(steps)
+		points.resize(steps + 1)
+		for i in steps + 1:
+			var y: float = Tween.interpolate_value(
+				start.y, span, float(i), duration, trans, ease)
+			points[i] = Vector2(start.x + i * speed, y)
+			if line_frame + i < last_frame:
+				owner.path[line_frame + i] = absf((y - bottom) / height)
 	line.points = points
 
 
