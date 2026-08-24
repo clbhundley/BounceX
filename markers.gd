@@ -14,6 +14,11 @@ const SEPARATION_MIN := 5
 ## already in place before they scroll into view.
 const VISIBILITY_MARGIN := 400.0
 
+## Markers read as targets to hit rather than points on a line in classic mode,
+## so they are drawn larger and given a moment to register as they land.
+const CLASSIC_MARKER_SCALE := 1.6
+const CLASSIC_FLASH_TIME := 0.14
+
 var _sorted_frames: Array
 var _window_dirty := true
 var _visible_lo := 0
@@ -66,9 +71,14 @@ func _apply_window() -> void:
 	var speed: float = owner.path_speed
 	if speed <= 0.0:
 		return
-	var radius: float = (get_viewport_rect().size.x * 0.5 + VISIBILITY_MARGIN) / speed
-	var lo := int(owner.frame - radius)
+	var half_width: float = get_viewport_rect().size.x * 0.5
+	var radius: float = (half_width + VISIBILITY_MARGIN) / speed
 	var hi := int(owner.frame + radius)
+	var lo: int
+	if owner.classic_mode:
+		lo = int(owner.frame + (owner.action_zone_position() - half_width) / speed)
+	else:
+		lo = int(owner.frame - radius)
 	var new_lo: int = _sorted_frames.bsearch(lo, true)
 	var new_hi: int = _sorted_frames.bsearch(hi + 1, true)
 	for i in range(_visible_lo, mini(_visible_hi, new_lo)):
@@ -104,8 +114,47 @@ func _window_insert(frame: int) -> void:
 
 func _set_marker_visible(index: int, value: bool) -> void:
 	var node = marker_list.get(_sorted_frames[index])
-	if is_instance_valid(node):
+	if not is_instance_valid(node):
+		return
+	var flash = node.get_meta('flash', null)
+	if flash != null and flash.is_valid():
+		flash.kill()
+	node.set_meta('flash', null)
+	node.modulate = Color.WHITE
+	node.scale = marker_scale()
+	if value or not owner.classic_mode or not %Play.button_pressed:
 		node.visible = value
+		return
+	_flash_marker(node)
+
+
+## Sends a marker off with a brief pulse as it reaches the zone, so the moment
+## it lands is legible rather than a silent disappearance.
+func _flash_marker(marker: Sprite2D) -> void:
+	var flash := create_tween()
+	flash.set_parallel(true)
+	flash.tween_property(marker, 'scale', marker_scale() * 1.8, CLASSIC_FLASH_TIME)
+	flash.tween_property(marker, 'modulate:a', 0.0, CLASSIC_FLASH_TIME)
+	flash.chain().tween_callback(func():
+		if is_instance_valid(marker):
+			marker.visible = false
+			marker.modulate = Color.WHITE
+			marker.scale = marker_scale()
+			marker.set_meta('flash', null))
+	marker.set_meta('flash', flash)
+
+
+func marker_scale() -> Vector2:
+	if owner.classic_mode:
+		return Vector2.ONE * CLASSIC_MARKER_SCALE
+	return Vector2.ONE
+
+
+func apply_marker_scale() -> void:
+	var target := marker_scale()
+	for node in marker_list.values():
+		if is_instance_valid(node):
+			node.scale = target
 
 
 func _input(event):
@@ -170,6 +219,7 @@ func add_marker(frame, depth, trans=null, ease=null, auxiliary=0):
 	marker.set_meta('auxiliary', auxiliary)
 	marker.position.y = render_pos
 	marker.position.x = frame * owner.path_speed
+	marker.scale = marker_scale()
 	add_child(marker)
 
 
@@ -371,6 +421,7 @@ func connect_marker(frame: int, connect_next := true) -> void:
 			remove_child(marker_line)
 			marker_line.queue_free()
 	var line = $Line.duplicate()
+	line.visible = not owner.classic_mode
 	add_child(line)
 	line.add_to_group('lines')
 	marker.set_meta('line', line)

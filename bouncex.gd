@@ -30,6 +30,12 @@ const DRAG_RESISTANCE: float = 4
 var shift_pressed: bool
 var control_pressed: bool
 
+## Classic mode drops the path and the lines joining markers, leaving markers
+## travelling into a fixed zone that they disappear at. It is a way to follow a
+## track by the beat rather than by a continuous position.
+var classic_mode: bool
+var action_zone: float = 0.5
+
 var input_disabled: bool
 var is_video_track: bool = false
 var _video_resync: int = 0
@@ -676,6 +682,32 @@ func render(starting_frame: int, ending_frame: int):
 	$RenderComplete.popup_centered()
 
 
+## Where the action zone sits, in pixels across the viewport.
+func action_zone_position() -> float:
+	return get_viewport_rect().size.x * action_zone
+
+
+func set_classic_mode(enabled: bool) -> void:
+	classic_mode = enabled
+	$ActionZone.visible = enabled
+	$Path.visible = not enabled
+	if enabled:
+		toggle_ball_visible(false)
+		$Ball.hide()
+	else:
+		$Ball.show()
+	for line in get_tree().get_nodes_in_group('lines'):
+		line.visible = not enabled
+	$Markers.apply_marker_scale()
+	update_action_zone()
+	$Markers.position_markers()
+
+
+func update_action_zone() -> void:
+	var center: Vector2 = get_viewport_rect().size / 2
+	$ActionZone.position = Vector2(action_zone_position(), center.y)
+
+
 func update_display() -> void:
 	var center: Vector2 = get_viewport_rect().size / 2
 	var line_offset: Vector2
@@ -695,6 +727,7 @@ func update_display() -> void:
 	$BottomLine.position.y += line_offset.y
 	$Backdrop.set_begin($TopLine.get_begin())
 	$Backdrop.set_end($BottomLine.get_end())
+	update_action_zone()
 	for marker in $Markers.marker_list.values():
 		var orig_pos = marker.position.y
 		var render_pos = BOTTOM + marker.get_meta('depth') * (TOP - BOTTOM)

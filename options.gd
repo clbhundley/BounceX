@@ -57,7 +57,37 @@ func _ready():
 	else:
 		_on_path_area_value_changed($PathArea.value)
 	
+	if config.has_section_key('path', 'action_zone'):
+		var value = config.get_value('path', 'action_zone')
+		owner.action_zone = value
+		$ActionZone/HSlider.set_value_no_signal(value)
+		$ActionZone/Label.text = "Action Zone: %d%%" % int(value * 100)
+	if config.has_section_key('path', 'classic_mode'):
+		$ClassicMode.set_pressed_no_signal(config.get_value('path', 'classic_mode'))
+	
+	call_deferred("_apply_classic_mode")
 	call_deferred("_load_waveform_config")
+
+
+## Deferred so the markers exist by the time the mode is applied to them.
+func _apply_classic_mode() -> void:
+	var enabled: bool = $ClassicMode.button_pressed
+	owner.set_classic_mode(enabled)
+	$ActionZone.visible = enabled
+
+
+func _on_classic_mode_toggled(toggled: bool) -> void:
+	owner.set_classic_mode(toggled)
+	$ActionZone.visible = toggled
+	Data.set_config('path', 'classic_mode', toggled)
+
+
+func _on_action_zone_changed(value: float) -> void:
+	owner.action_zone = value
+	$ActionZone/Label.text = "Action Zone: %d%%" % int(value * 100)
+	owner.update_action_zone()
+	%Markers.position_markers()
+	Data.set_config('path', 'action_zone', value)
 
 
 func _on_path_speed_changed(value):
