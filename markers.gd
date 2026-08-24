@@ -10,6 +10,15 @@ var selecting_to_edge: bool
 
 const SEPARATION_MIN := 5
 
+## How far past each edge of the screen a marker is shown, so that markers are
+## already in place before they scroll into view.
+const VISIBILITY_MARGIN := 400.0
+
+var _sorted_frames: Array
+var _window_dirty := true
+var _visible_lo := 0
+var _visible_hi := 0
+
 @onready var frame_input = %MarkersMenu/HBox/Frame/Input
 @onready var depth_input = %MarkersMenu/HBox/Depth/Input
 
@@ -18,6 +27,53 @@ func _ready():
 	for input in inputs:
 		input.focus_entered.connect(input_focus_entered)
 		input.focus_exited.connect(input_focus_exited)
+
+
+func _physics_process(_delta: float) -> void:
+	if is_visible_in_tree():
+		update_visible_window()
+
+
+## Markers off screen still cost a transform update every time this container
+## moves, and every one of their buttons sits in the input picking set, so only
+## the span either side of the playhead is left visible.
+func update_visible_window() -> void:
+	if _window_dirty:
+		# Only what is actually on screen needs clearing; walking every marker
+		# here would undo the point of the window while markers are dragged.
+		for i in range(_visible_lo, _visible_hi):
+			_set_marker_visible(i, false)
+		_sorted_frames = marker_list.keys()
+		_sorted_frames.sort()
+		_visible_lo = 0
+		_visible_hi = 0
+		_window_dirty = false
+	if _sorted_frames.is_empty():
+		return
+	var speed: float = owner.path_speed
+	if speed <= 0.0:
+		return
+	var radius: float = (get_viewport_rect().size.x * 0.5 + VISIBILITY_MARGIN) / speed
+	var lo := int(owner.frame - radius)
+	var hi := int(owner.frame + radius)
+	var new_lo: int = _sorted_frames.bsearch(lo, true)
+	var new_hi: int = _sorted_frames.bsearch(hi + 1, true)
+	for i in range(_visible_lo, mini(_visible_hi, new_lo)):
+		_set_marker_visible(i, false)
+	for i in range(maxi(_visible_lo, new_hi), _visible_hi):
+		_set_marker_visible(i, false)
+	for i in range(new_lo, mini(new_hi, _visible_lo)):
+		_set_marker_visible(i, true)
+	for i in range(maxi(new_lo, _visible_hi), new_hi):
+		_set_marker_visible(i, true)
+	_visible_lo = new_lo
+	_visible_hi = new_hi
+
+
+func _set_marker_visible(index: int, value: bool) -> void:
+	var node = marker_list.get(_sorted_frames[index])
+	if is_instance_valid(node):
+		node.visible = value
 
 
 func _input(event):
@@ -44,6 +100,7 @@ func set_markers():
 	for node in marker_list.values():
 		node.queue_free()
 	marker_list.clear()
+	_window_dirty = true
 	var marker_data = owner.marker_data
 	for frame in marker_data.keys():
 		add_marker(
@@ -57,7 +114,8 @@ func set_markers():
 
 func add_marker(frame, depth, trans=null, ease=null, auxiliary=0):
 	var marker: Sprite2D = $Marker.duplicate()
-	marker.show()
+	# Left hidden: update_visible_window() owns marker visibility and reveals
+	# this one on the next tick if it falls inside the window.
 	for node in marker_list.values():
 		if node.get_meta('frame') == frame:
 			node.queue_free()
@@ -70,6 +128,7 @@ func add_marker(frame, depth, trans=null, ease=null, auxiliary=0):
 		if int(auxiliary) & 1 << 0:
 			marker.self_modulate = Color.HOT_PINK
 	marker_list[frame] = marker
+	_window_dirty = true
 	var marker_button = marker.get_node('Button')
 	marker_button.toggled.connect(marker_toggled.bind(marker))
 	marker_button.gui_input.connect(_on_marker_gui_input.bind(marker))
@@ -324,8 +383,8 @@ func place_ball_on_path():
 
 func position_markers():
 	var center: Vector2 = get_viewport_rect().size / 2
-	var diff = center.x - (owner.frame * owner.path_speed) - position.x
 	position.x = center.x - (owner.frame * owner.path_speed)
+	update_visible_window()
 
 
 func select_to(index: int):
@@ -381,6 +440,7 @@ func _on_frame_value_changed(value: int):
 		owner.marker_data[new_frame] = orig_marker_data
 		marker_list.erase(orig_frame)
 		marker_list[new_frame] = marker
+		_window_dirty = true
 	for marker in markers:
 		var frame = marker.get_meta('frame')
 		clear_ahead(frame)
@@ -647,6 +707,7 @@ func _on_delete_pressed():
 		var next_frame = get_next_frame(frame)
 		clear_ahead(frame)
 		marker_list.erase(frame)
+		_window_dirty = true
 		owner.marker_data.erase(frame)
 		owner.path[frame] = -1
 		var line = selected_marker.get_meta('line')
@@ -669,6 +730,7 @@ func _on_delete_pressed():
 			var previous_frame = get_previous_frame(frame)
 			var next_frame = get_next_frame(frame)
 			marker_list.erase(frame)
+			_window_dirty = true
 			owner.marker_data.erase(frame)
 			for point in range(previous_frame, next_frame + 1):
 				owner.path[point] = -1
