@@ -37,17 +37,30 @@ func _physics_process(_delta: float) -> void:
 ## Markers off screen still cost a transform update every time this container
 ## moves, and every one of their buttons sits in the input picking set, so only
 ## the span either side of the playhead is left visible.
+## Rebuilds the sorted frame list if markers have changed since it was last
+## needed. Every marker lookup goes through here, so adding one marker costs a
+## single sort however many lookups follow it.
+func _refresh_frames() -> void:
+	if not _window_dirty:
+		return
+	# Only what is actually on screen needs clearing; walking every marker here
+	# would undo the point of the window while markers are dragged.
+	for i in range(_visible_lo, _visible_hi):
+		_set_marker_visible(i, false)
+	_sorted_frames = marker_list.keys()
+	_sorted_frames.sort()
+	_visible_lo = 0
+	_visible_hi = 0
+	_window_dirty = false
+	_apply_window()
+
+
 func update_visible_window() -> void:
-	if _window_dirty:
-		# Only what is actually on screen needs clearing; walking every marker
-		# here would undo the point of the window while markers are dragged.
-		for i in range(_visible_lo, _visible_hi):
-			_set_marker_visible(i, false)
-		_sorted_frames = marker_list.keys()
-		_sorted_frames.sort()
-		_visible_lo = 0
-		_visible_hi = 0
-		_window_dirty = false
+	_refresh_frames()
+	_apply_window()
+
+
+func _apply_window() -> void:
 	if _sorted_frames.is_empty():
 		return
 	var speed: float = owner.path_speed
@@ -116,9 +129,8 @@ func add_marker(frame, depth, trans=null, ease=null, auxiliary=0):
 	var marker: Sprite2D = $Marker.duplicate()
 	# Left hidden: update_visible_window() owns marker visibility and reveals
 	# this one on the next tick if it falls inside the window.
-	for node in marker_list.values():
-		if node.get_meta('frame') == frame:
-			node.queue_free()
+	if marker_list.has(frame) and is_instance_valid(marker_list[frame]):
+		marker_list[frame].queue_free()
 	var index = get_marker_index(frame)
 	if trans == null:
 		trans = %MarkersMenu/HBox/Trans.selected
@@ -308,21 +320,22 @@ func get_marker_depth(marker) -> float:
 
 
 func get_marker_index(frame: int) -> int:
-	var keys = marker_list.keys()
-	keys.sort()
-	return keys.find(frame)
+	_refresh_frames()
+	var index: int = _sorted_frames.bsearch(frame, true)
+	if index < _sorted_frames.size() and _sorted_frames[index] == frame:
+		return index
+	return -1
 
 
 func get_previous_frame(frame: int, look_back := 1) -> int:
-	var keys = marker_list.keys()
-	keys.sort()
-	return keys[max(keys.find(frame) - look_back, 0)]
+	_refresh_frames()
+	return _sorted_frames[maxi(get_marker_index(frame) - look_back, 0)]
 
 
 func get_next_frame(frame:int, look_forward := 1) -> int:
-	var keys = marker_list.keys()
-	keys.sort()
-	return keys[min(keys.find(frame) + look_forward, marker_list.size() - 1)]
+	_refresh_frames()
+	return _sorted_frames[mini(
+		get_marker_index(frame) + look_forward, _sorted_frames.size() - 1)]
 
 
 func connect_marker(frame: int, connect_next := true) -> void:
