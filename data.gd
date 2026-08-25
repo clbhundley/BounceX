@@ -156,7 +156,7 @@ func load_path(file_path: String) -> void:
 	bx.get_node('Markers').set_markers()
 
 
-const MARKER_EXTENSIONS := ["png", "jpg", "jpeg", "webp"]
+const MARKER_EXTENSIONS := ["png", "jpg", "jpeg", "webp", "svg"]
 
 static func is_marker_image(file_path: String) -> bool:
 	return file_path.get_extension().to_lower() in MARKER_EXTENSIONS

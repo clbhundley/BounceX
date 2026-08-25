@@ -198,13 +198,30 @@ func set_custom_marker(file_name: String) -> void:
 	custom_marker_name = file_name
 	_custom_texture = null
 	if file_name != "":
-		var image := Image.load_from_file(Data.markers_dir.path_join(file_name))
+		var image := _read_marker_image(Data.markers_dir.path_join(file_name))
 		if image != null and not image.is_empty():
 			_custom_texture = ImageTexture.create_from_image(image)
 		else:
 			custom_marker_name = ""
 			printerr("could not read marker image: " + file_name)
 	apply_marker_style()
+
+
+## Vectors are rasterised at the size they describe, the same way the built in
+## markers are, so an SVG sizes a marker by its own dimensions like any other
+## image does.
+func _read_marker_image(file_path: String) -> Image:
+	if file_path.get_extension().to_lower() != "svg":
+		return Image.load_from_file(file_path)
+	var file := FileAccess.open(file_path, FileAccess.READ)
+	if not file:
+		return null
+	var source := file.get_buffer(file.get_length())
+	file.close()
+	var image := Image.new()
+	if image.load_svg_from_buffer(source) != OK:
+		return null
+	return image
 
 
 ## Hides the ring and the selection dot, which belong to editing rather than to
