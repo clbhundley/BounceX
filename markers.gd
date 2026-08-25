@@ -168,9 +168,12 @@ func style_marker(marker: Sprite2D) -> void:
 	else:
 		marker.texture = _default_texture
 	# The ring and the selection dot are Controls under a Node2D, so their
-	# placement comes from offsets tuned against the default marker in the
-	# scene. Touching them here only moves them off it.
-	marker.get_node('Button').scale = Vector2.ONE
+	# offsets were resolved against whichever marker texture was in place when
+	# the scene was laid out. Re-applying the preset settles them against the
+	# one actually being shown.
+	var button: Control = marker.get_node('Button')
+	button.scale = Vector2.ONE
+	button.set_anchors_preset(Control.PRESET_CENTER)
 
 
 ## Hides the ring and the selection dot, which belong to editing rather than to
