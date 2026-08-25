@@ -24,6 +24,8 @@ const CLASSIC_FLASH_FRAMES := 8
 
 var _default_texture: Texture2D
 var _classic_texture: Texture2D
+var _custom_texture: Texture2D
+var custom_marker_name: String
 var _flashing: Dictionary
 
 var _sorted_frames: Array
@@ -164,7 +166,9 @@ func step_flashes() -> void:
 ## The ring and the selection dot are editing affordances that never reach a
 ## render, so they are scaled to keep up with the larger marker.
 func style_marker(marker: Sprite2D) -> void:
-	if owner.classic_mode and _classic_texture != null:
+	if owner.classic_mode and _custom_texture != null:
+		marker.texture = _custom_texture
+	elif owner.classic_mode and _classic_texture != null:
 		marker.texture = _classic_texture
 	else:
 		marker.texture = _default_texture
@@ -176,12 +180,31 @@ func style_marker(marker: Sprite2D) -> void:
 	var button: Control = marker.get_node('Button')
 	button.set_anchors_and_offsets_preset(
 		Control.PRESET_CENTER, Control.PRESET_MODE_KEEP_SIZE)
+	# Every ring sits a layer above every marker, so a large image cannot bury
+	# the ring belonging to the marker beside it.
+	button.z_index = 1
 	# Scaled about its own centre, which the preset has just settled, so the
 	# ring keeps up with the larger marker without drifting off it.
 	if owner.classic_mode:
 		button.scale = Vector2.ONE * CLASSIC_RING_SCALE
 	else:
 		button.scale = Vector2.ONE
+
+
+## Loads a marker image a user has supplied, by file name within the markers
+## directory. An empty name, or one that will not load, leaves the built in
+## marker in place rather than leaving the path unreadable.
+func set_custom_marker(file_name: String) -> void:
+	custom_marker_name = file_name
+	_custom_texture = null
+	if file_name != "":
+		var image := Image.load_from_file(Data.markers_dir.path_join(file_name))
+		if image != null and not image.is_empty():
+			_custom_texture = ImageTexture.create_from_image(image)
+		else:
+			custom_marker_name = ""
+			printerr("could not read marker image: " + file_name)
+	apply_marker_style()
 
 
 ## Hides the ring and the selection dot, which belong to editing rather than to

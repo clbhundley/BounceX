@@ -369,16 +369,55 @@ func _on_files_dropped(paths: PackedStringArray) -> void:
 	var valid_exts:Array = ["mp3", "wav", "ogg"] + Data.VIDEO_EXTENSIONS
 	var tracks: PackedStringArray
 	var path_files: PackedStringArray
+	var marker_images: PackedStringArray
 	for p in paths:
 		var ext := p.get_extension().to_lower()
 		if ext in valid_exts:
 			tracks.append(p)
 		elif ext == "bx" or ext == "funscript":
 			path_files.append(p)
+		elif Data.is_marker_image(p):
+			marker_images.append(p)
 	if not tracks.is_empty():
 		_on_track_files_selected(tracks)
 	if not path_files.is_empty():
 		_on_path_files_dropped(path_files)
+	if not marker_images.is_empty():
+		_on_marker_images_dropped(marker_images)
+
+
+## Marker images only mean anything where markers are what is being read, so
+## they are taken while classic mode is on and turned away otherwise.
+func _on_marker_images_dropped(source_paths: PackedStringArray) -> void:
+	if not owner.classic_mode:
+		_show_notice("Marker images are only used in classic mode.")
+		return
+	DirAccess.make_dir_recursive_absolute(Data.markers_dir)
+	var last_name := ""
+	for source_path in source_paths:
+		var file_name := source_path.get_file()
+		var dest_path: String = Data.markers_dir.path_join(file_name)
+		if not FileAccess.file_exists(dest_path) \
+				or FileAccess.get_md5(source_path) != FileAccess.get_md5(dest_path):
+			var base := file_name.get_basename()
+			var ext := "." + file_name.get_extension()
+			var n := 2
+			while FileAccess.file_exists(dest_path) \
+					and FileAccess.get_md5(source_path) != FileAccess.get_md5(dest_path):
+				file_name = "%s (%d)%s" % [base, n, ext]
+				dest_path = Data.markers_dir.path_join(file_name)
+				n += 1
+			var source := FileAccess.open(source_path, FileAccess.READ)
+			var dest := FileAccess.open(dest_path, FileAccess.WRITE)
+			if not source or not dest:
+				_show_notice("Could not copy that marker image.")
+				continue
+			dest.store_buffer(source.get_buffer(source.get_length()))
+			source.close()
+			dest.close()
+		last_name = file_name
+	if last_name != "":
+		%Options.select_marker_image(last_name)
 
 
 func _on_track_files_selected(source_paths: PackedStringArray) -> void:

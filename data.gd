@@ -15,6 +15,7 @@ var _save_pending := false
 var tracks_dir:  String
 var paths_dir:   String
 var renders_dir: String
+var markers_dir: String
 
 
 func _ready() -> void:
@@ -27,9 +28,11 @@ func _ready() -> void:
 	tracks_dir  = base_dir.path_join("Tracks")
 	paths_dir   = base_dir.path_join("Paths")
 	renders_dir = base_dir.path_join("Renders")
+	markers_dir = base_dir.path_join("Markers")
 	DirAccess.make_dir_recursive_absolute(tracks_dir)
 	DirAccess.make_dir_recursive_absolute(paths_dir)
 	DirAccess.make_dir_recursive_absolute(renders_dir)
+	DirAccess.make_dir_recursive_absolute(markers_dir)
 	config_path = base_dir.path_join("Settings.cfg")
 	# Silently migrate Settings.cfg on first launch after upgrade so
 	# load_config() picks up the user's existing colors/easings/etc.
@@ -151,6 +154,29 @@ func load_path(file_path: String) -> void:
 		bx.marker_data[0] = [0, 0, 0, 0]
 	bx.define_path(false)
 	bx.get_node('Markers').set_markers()
+
+
+const MARKER_EXTENSIONS := ["png", "jpg", "jpeg", "webp"]
+
+static func is_marker_image(file_path: String) -> bool:
+	return file_path.get_extension().to_lower() in MARKER_EXTENSIONS
+
+
+## The marker images a user has brought in, by file name.
+func marker_images() -> PackedStringArray:
+	var found: PackedStringArray
+	var dir := DirAccess.open(markers_dir)
+	if not dir:
+		return found
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and is_marker_image(file_name):
+			found.append(file_name)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	found.sort()
+	return found
 
 
 static func is_video_file(file_path: String) -> bool:

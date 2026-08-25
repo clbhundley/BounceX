@@ -1398,6 +1398,23 @@ max_value = 0.95
 step = 0.01
 value = 0.5
 
+[node name="MarkerImage" type="VBoxContainer" parent="Menu/Options" unique_id=1140277008]
+visible = false
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Menu/Options/MarkerImage" unique_id=1140277009]
+layout_mode = 2
+text = "Marker Image:"
+horizontal_alignment = 1
+
+[node name="OptionButton" type="OptionButton" parent="Menu/Options/MarkerImage" unique_id=1140277010]
+layout_mode = 2
+focus_mode = 0
+selected = 0
+item_count = 1
+popup/item_0/text = "Default"
+popup/item_0/id = 0
+
 [node name="DisplayMode" type="VBoxContainer" parent="Menu/Options" unique_id=1034179227]
 layout_mode = 2
 script = SubResource("GDScript_nob1l")
@@ -2173,6 +2190,7 @@ text = "Markers Pasted"
 [connection signal="value_changed" from="Menu/Options/PathSpeed/HSlider" to="Menu/Options" method="_on_path_speed_changed"]
 [connection signal="toggled" from="Menu/Options/ClassicMode" to="Menu/Options" method="_on_classic_mode_toggled"]
 [connection signal="value_changed" from="Menu/Options/ActionZone/HSlider" to="Menu/Options" method="_on_action_zone_changed"]
+[connection signal="item_selected" from="Menu/Options/MarkerImage/OptionButton" to="Menu/Options" method="_on_marker_image_selected"]
 [connection signal="value_changed" from="Menu/Options/PathFade/HSlider" to="Menu/Options" method="_on_path_fade_value_changed"]
 [connection signal="value_changed" from="Menu/Options/PathArea" to="Menu/Options" method="_on_path_area_value_changed"]
 [connection signal="value_changed" from="Menu/Options/PathThickness" to="Menu/Options" method="_on_path_thickness_value_changed"]
