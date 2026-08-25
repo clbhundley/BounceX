@@ -15,9 +15,16 @@ const SEPARATION_MIN := 5
 const VISIBILITY_MARGIN := 400.0
 
 ## Markers read as targets to hit rather than points on a line in classic mode,
-## so they are drawn larger and given a moment to register as they land.
-const CLASSIC_MARKER_SCALE := 1.6
-const CLASSIC_FLASH_TIME := 0.14
+## so they are drawn larger and given a moment to register as they land. Size
+## comes from a texture rasterised at that size: scaling a node resamples the
+## bitmap it already has and softens it.
+const CLASSIC_MARKER_TEXTURE := "res://textures/ball_large.svg"
+const CLASSIC_RING_SCALE := 1.6
+const CLASSIC_FLASH_FRAMES := 8
+
+var _default_texture: Texture2D
+var _classic_texture: Texture2D
+var _flashing: Dictionary
 
 var _sorted_frames: Array
 var _window_dirty := true
@@ -28,6 +35,9 @@ var _visible_hi := 0
 @onready var depth_input = %MarkersMenu/HBox/Depth/Input
 
 func _ready():
+	_default_texture = $Marker.texture
+	if ResourceLoader.exists(CLASSIC_MARKER_TEXTURE):
+		_classic_texture = load(CLASSIC_MARKER_TEXTURE)
 	var inputs = [frame_input.get_line_edit(), depth_input.get_line_edit()]
 	for input in inputs:
 		input.focus_entered.connect(input_focus_entered)
@@ -35,8 +45,12 @@ func _ready():
 
 
 func _physics_process(_delta: float) -> void:
+	# A render carries the markers forward itself, one drawn frame at a time.
+	if owner.rendering:
+		return
 	if is_visible_in_tree():
 		update_visible_window()
+	step_flashes()
 
 
 ## Markers off screen still cost a transform update every time this container
@@ -116,39 +130,55 @@ func _set_marker_visible(index: int, value: bool) -> void:
 	var node = marker_list.get(_sorted_frames[index])
 	if not is_instance_valid(node):
 		return
-	if node.has_meta('flash'):
-		var flash = node.get_meta('flash')
-		if flash != null and flash.is_valid():
-			flash.kill()
-		node.remove_meta('flash')
-	node.modulate = Color.WHITE
-	node.scale = marker_scale()
-	if value or not owner.classic_mode or not %Play.button_pressed:
+	if _flashing.has(node):
+		_flashing.erase(node)
+		node.modulate = Color.WHITE
+		node.scale = Vector2.ONE
+	if value or not owner.classic_mode or not owner.is_advancing():
 		node.visible = value
 		return
-	_flash_marker(node)
+	_flashing[node] = CLASSIC_FLASH_FRAMES
 
 
-## Sends a marker off with a brief pulse as it reaches the zone, so the moment
-## it lands is legible rather than a silent disappearance.
-func _flash_marker(marker: Sprite2D) -> void:
-	var flash := create_tween()
-	flash.set_parallel(true)
-	flash.tween_property(marker, 'scale', marker_scale() * 1.8, CLASSIC_FLASH_TIME)
-	flash.tween_property(marker, 'modulate:a', 0.0, CLASSIC_FLASH_TIME)
-	flash.chain().tween_callback(func():
-		if is_instance_valid(marker):
+## Carries every marker leaving the zone one frame further through its flash.
+## Counted in frames rather than seconds so that a render, which draws frames
+## far slower than they play, sends markers off over the same span either way.
+func step_flashes() -> void:
+	for marker in _flashing.keys():
+		if not is_instance_valid(marker):
+			_flashing.erase(marker)
+			continue
+		var remaining: int = _flashing[marker] - 1
+		if remaining <= 0:
+			_flashing.erase(marker)
 			marker.visible = false
 			marker.modulate = Color.WHITE
-			marker.scale = marker_scale()
-			marker.remove_meta('flash'))
-	marker.set_meta('flash', flash)
+			marker.scale = Vector2.ONE
+			continue
+		_flashing[marker] = remaining
+		var progress := 1.0 - float(remaining) / float(CLASSIC_FLASH_FRAMES)
+		marker.modulate.a = 1.0 - progress
+		marker.scale = Vector2.ONE * (1.0 + 0.8 * progress)
 
 
-func marker_scale() -> Vector2:
-	if owner.classic_mode:
-		return Vector2.ONE * CLASSIC_MARKER_SCALE
-	return Vector2.ONE
+## The ring and the selection dot are editing affordances that never reach a
+## render, so they are scaled to keep up with the larger marker.
+func style_marker(marker: Sprite2D) -> void:
+	var classic: bool = owner.classic_mode
+	if classic and _classic_texture != null:
+		marker.texture = _classic_texture
+	else:
+		marker.texture = _default_texture
+	var button: Control = marker.get_node('Button')
+	button.scale = Vector2.ONE * (CLASSIC_RING_SCALE if classic else 1.0)
+
+
+## Hides the ring and the selection dot, which belong to editing rather than to
+## the path itself and have no place in a render.
+func set_buttons_visible(value: bool) -> void:
+	for node in marker_list.values():
+		if is_instance_valid(node):
+			node.get_node('Button').visible = value
 
 
 ## Clearing the markers from outside has to invalidate the window along with
@@ -161,11 +191,10 @@ func clear_markers() -> void:
 	_window_dirty = true
 
 
-func apply_marker_scale() -> void:
-	var target := marker_scale()
+func apply_marker_style() -> void:
 	for node in marker_list.values():
 		if is_instance_valid(node):
-			node.scale = target
+			style_marker(node)
 
 
 func _input(event):
@@ -230,7 +259,7 @@ func add_marker(frame, depth, trans=null, ease=null, auxiliary=0):
 	marker.set_meta('auxiliary', auxiliary)
 	marker.position.y = render_pos
 	marker.position.x = frame * owner.path_speed
-	marker.scale = marker_scale()
+	style_marker(marker)
 	add_child(marker)
 
 

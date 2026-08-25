@@ -35,6 +35,7 @@ var control_pressed: bool
 ## track by the beat rather than by a continuous position.
 var classic_mode: bool
 var action_zone: float = 0.5
+var rendering: bool
 
 var input_disabled: bool
 var is_video_track: bool = false
@@ -187,6 +188,12 @@ func get_ease_direction(depth) -> int:
 
 ## Classic mode has the action zone in the ball's place, so the ball stays off
 ## screen there however it is asked for.
+## Whether the path is being carried forward, by playing or by rendering. Both
+## want markers sent off with a flash; scrubbing and editing do not.
+func is_advancing() -> bool:
+	return rendering or %Play.button_pressed
+
+
 func set_ball_hidden(hidden: bool) -> void:
 	$Ball.visible = not (hidden or classic_mode)
 
@@ -587,12 +594,20 @@ func render(starting_frame: int, ending_frame: int):
 		$Path.position.x -= path_speed
 		step += path_speed
 	
-	$Path.show()
-	$Markers.hide()
+	rendering = true
+	var frame_before_render := frame
+	$Path.visible = not classic_mode
+	$Markers.visible = classic_mode
 	$MarkersMenu.hide()
+	if classic_mode:
+		$Markers.set_buttons_visible(false)
 	
 	var loop_end: int = ending_frame + (cutoff if apply_lead_out else distance)
 	for point in range(starting_frame, loop_end):
+		if classic_mode:
+			frame = clampi(point - distance, 0, maxi(path.size() - 1, 0))
+			$Markers.position_markers()
+			$Markers.step_flashes()
 		if point+1 < path.size() and path[point+1] > -1:
 			path_origin.y = BOTTOM + path[point+1] * (TOP - BOTTOM)
 		if point - distance < path.size() and point > distance:
@@ -665,8 +680,11 @@ func render(starting_frame: int, ending_frame: int):
 	if is_video_track:
 		%VideoStreamPlayer.show()
 	
+	rendering = false
+	frame = frame_before_render
 	$Path.hide()
 	$Markers.show()
+	$Markers.set_buttons_visible(true)
 	$MarkersMenu.show()
 	
 	set_physics_process(true)
@@ -702,7 +720,7 @@ func set_classic_mode(enabled: bool) -> void:
 	set_ball_hidden(not %Controls.get_node('Paths').is_anything_selected())
 	for line in get_tree().get_nodes_in_group('lines'):
 		line.visible = not enabled
-	$Markers.apply_marker_scale()
+	$Markers.apply_marker_style()
 	update_action_zone()
 	$Markers.position_markers()
 
