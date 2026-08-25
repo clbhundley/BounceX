@@ -169,11 +169,13 @@ func style_marker(marker: Sprite2D) -> void:
 		marker.texture = _default_texture
 	# The ring and the selection dot are Controls under a Node2D, so their
 	# offsets were resolved against whichever marker texture was in place when
-	# the scene was laid out. Re-applying the preset settles them against the
-	# one actually being shown.
+	# the scene was laid out. Moving the anchors alone leaves those offsets
+	# describing the old texture, so the offsets have to be worked out again
+	# with them, at the size the nodes already have.
 	var button: Control = marker.get_node('Button')
 	button.scale = Vector2.ONE
-	button.set_anchors_preset(Control.PRESET_CENTER)
+	button.set_anchors_and_offsets_preset(
+		Control.PRESET_CENTER, Control.PRESET_MODE_KEEP_SIZE)
 
 
 ## Hides the ring and the selection dot, which belong to editing rather than to
