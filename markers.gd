@@ -19,6 +19,7 @@ const VISIBILITY_MARGIN := 400.0
 ## comes from a texture rasterised at that size: scaling a node resamples the
 ## bitmap it already has and softens it.
 const CLASSIC_MARKER_TEXTURE := "res://textures/ball_large.svg"
+const CLASSIC_RING_SCALE := 1.6
 const CLASSIC_FLASH_FRAMES := 8
 
 var _default_texture: Texture2D
@@ -173,9 +174,14 @@ func style_marker(marker: Sprite2D) -> void:
 	# describing the old texture, so the offsets have to be worked out again
 	# with them, at the size the nodes already have.
 	var button: Control = marker.get_node('Button')
-	button.scale = Vector2.ONE
 	button.set_anchors_and_offsets_preset(
 		Control.PRESET_CENTER, Control.PRESET_MODE_KEEP_SIZE)
+	# Scaled about its own centre, which the preset has just settled, so the
+	# ring keeps up with the larger marker without drifting off it.
+	if owner.classic_mode:
+		button.scale = Vector2.ONE * CLASSIC_RING_SCALE
+	else:
+		button.scale = Vector2.ONE
 
 
 ## Hides the ring and the selection dot, which belong to editing rather than to
