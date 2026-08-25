@@ -19,7 +19,6 @@ const VISIBILITY_MARGIN := 400.0
 ## comes from a texture rasterised at that size: scaling a node resamples the
 ## bitmap it already has and softens it.
 const CLASSIC_MARKER_TEXTURE := "res://textures/ball_large.svg"
-const CLASSIC_RING_SCALE := 1.6
 const CLASSIC_FLASH_FRAMES := 8
 
 var _default_texture: Texture2D
@@ -164,13 +163,14 @@ func step_flashes() -> void:
 ## The ring and the selection dot are editing affordances that never reach a
 ## render, so they are scaled to keep up with the larger marker.
 func style_marker(marker: Sprite2D) -> void:
-	var classic: bool = owner.classic_mode
-	if classic and _classic_texture != null:
+	if owner.classic_mode and _classic_texture != null:
 		marker.texture = _classic_texture
 	else:
 		marker.texture = _default_texture
-	var button: Control = marker.get_node('Button')
-	button.scale = Vector2.ONE * (CLASSIC_RING_SCALE if classic else 1.0)
+	# The ring and the selection dot are Controls under a Node2D, so their
+	# placement comes from offsets tuned against the default marker in the
+	# scene. Touching them here only moves them off it.
+	marker.get_node('Button').scale = Vector2.ONE
 
 
 ## Hides the ring and the selection dot, which belong to editing rather than to
