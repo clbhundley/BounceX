@@ -270,8 +270,10 @@ func add_marker(frame, depth, trans=null, ease=null, auxiliary=0):
 	marker.set_meta('auxiliary', auxiliary)
 	marker.position.y = render_pos
 	marker.position.x = frame * owner.path_speed
-	style_marker(marker)
 	add_child(marker)
+	# Styled once in the tree: a Control settles its offsets against its parent
+	# on entering, which would undo any worked out before it got there.
+	style_marker(marker)
 
 
 var mouse_movement: Vector2
