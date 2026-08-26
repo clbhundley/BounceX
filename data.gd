@@ -141,7 +141,9 @@ func load_path(file_path: String) -> void:
 	if not parsed is Dictionary or not parsed.has("markers"):
 		return
 	bx.path_meta = parsed.get("meta", {})
-	bx.path_meta["related_media"] = file_path.get_base_dir().get_file().get_basename()
+	if bx.path_meta.get("related_media", "") == "":
+		bx.path_meta["related_media"] = \
+			file_path.get_base_dir().get_file().get_basename()
 	bx.path_extra = {}
 	for key in parsed:
 		if key != "meta" and key != "markers":
@@ -636,9 +638,13 @@ func load_colors() -> void:
 				'Ball':              bx.get_node('Ball').self_modulate = color
 				'Backdrop':          bx.get_node('Backdrop').self_modulate = color
 				'Action Zone':       bx.get_node('ActionZone').self_modulate = color
-				'Top Line':          bx.top_color = color
+				'Top Line':
+					bx.top_color = color
+					bx.get_node('TopLine').self_modulate = color
 				'Top Active':        bx.top_color_active = color
-				'Bottom Line':       bx.bottom_color = color
+				'Bottom Line':
+					bx.bottom_color = color
+					bx.get_node('BottomLine').self_modulate = color
 				'Bottom Active':     bx.bottom_color_active = color
 				'Hold Breath Ball':  bx.hold_breath_ball_color = color
 				'Hold Breath Path':  bx.hold_breath_path_color = color

@@ -505,8 +505,11 @@ func render(starting_frame: int, ending_frame: int):
 		_aux_sequenced[section] = sequences
 	
 	#format aux data
+	# The hold breath flash plays over the ball and the path, neither of which
+	# classic mode draws, so there is nothing for it to act on there. Markers
+	# carry the flag by their colour instead.
 	var aux_effects: Dictionary
-	for section in _aux_sequenced:
+	for section in _aux_sequenced if not classic_mode else []:
 		aux_effects[section] = {}
 		for sequence in _aux_sequenced[section]:
 			var start_frame = marker_list[sequence[0]]
