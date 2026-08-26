@@ -38,7 +38,7 @@ var action_zone: float = 0.5
 
 ## How wide the zone is drawn. Its height follows the path, since a marker can
 ## land anywhere between the two lines.
-const ACTION_ZONE_WIDTH := 40.0
+const ACTION_ZONE_WIDTH := 50.0
 var rendering: bool
 
 var input_disabled: bool

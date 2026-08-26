@@ -406,6 +406,7 @@ patch_margin_right = 12
 patch_margin_bottom = 12
 
 [node name="MarkersMenu" type="Panel" parent="." unique_id=1986661680]
+z_index = 1
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 1
@@ -602,6 +603,7 @@ focus_mode = 0
 texture_normal = ExtResource("15_rigon")
 
 [node name="Menu" type="Panel" parent="." unique_id=1078485634]
+z_index = 1
 layout_mode = 1
 anchors_preset = -1
 anchor_bottom = 1.0
@@ -1498,6 +1500,7 @@ text = "<<<"
 autowrap_mode = 3
 
 [node name="Header" type="Control" parent="." unique_id=1864634679]
+z_index = 1
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
@@ -1684,6 +1687,7 @@ mouse_filter = 2
 texture = ExtResource("25_ok0dy")
 
 [node name="TrackSliderLarge" type="HSlider" parent="." unique_id=834211303]
+z_index = 1
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -1716,6 +1720,7 @@ grow_horizontal = 2
 text = "00:00"
 
 [node name="GenerateCycle" type="Panel" parent="." unique_id=1382266648]
+z_index = 1
 visible = false
 layout_mode = 1
 anchors_preset = 5
@@ -1896,6 +1901,7 @@ layout_mode = 2
 text = "Cancel"
 
 [node name="InfoPanel" type="Panel" parent="." unique_id=13593172]
+z_index = 1
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -2121,6 +2127,7 @@ visible = false
 layout_mode = 2
 
 [node name="MarkersCopied" type="Sprite2D" parent="." unique_id=1037286633]
+z_index = 1
 visible = false
 position = Vector2(500, 100)
 texture = ExtResource("13_2estk")
@@ -2134,6 +2141,7 @@ offset_bottom = 10.0
 text = "Markers Copied"
 
 [node name="MarkersPasted" type="Sprite2D" parent="." unique_id=342293735]
+z_index = 1
 visible = false
 position = Vector2(500, 100)
 texture = ExtResource("14_usymf")
