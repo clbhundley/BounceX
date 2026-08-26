@@ -9,8 +9,8 @@
 [ext_resource type="Script" uid="uid://bepne8rumac7s" path="res://markers.gd" id="7_5q7av"]
 [ext_resource type="Texture2D" uid="uid://bius3v0napj7c" path="res://textures/ball.svg" id="8_5ek1g"]
 [ext_resource type="Texture2D" uid="uid://bkabq6ivbs23x" path="res://textures/circle.svg" id="9_ymix4"]
+[ext_resource type="Texture2D" uid="uid://b814vvdumyskt" path="res://textures/action_zone.svg" id="10_azone"]
 [ext_resource type="Texture2D" uid="uid://cbwqw7m1wqj64" path="res://textures/dot.svg" id="10_dtnc4"]
-[ext_resource type="Texture2D" path="res://textures/action_zone.svg" id="10_azone"]
 [ext_resource type="Texture2D" uid="uid://bgcpkp1078rc6" path="res://textures/add_marker.svg" id="11_2agkk"]
 [ext_resource type="Texture2D" uid="uid://qn8b5b6gg863" path="res://textures/generate_cycle.svg" id="12_ak1ar"]
 [ext_resource type="Texture2D" uid="uid://1uor7ar7yyam" path="res://textures/copy.svg" id="13_2estk"]
@@ -397,6 +397,7 @@ texture = ExtResource("8_5ek1g")
 [node name="ActionZone" type="NinePatchRect" parent="." unique_id=1140277003]
 visible = false
 self_modulate = Color(1, 1, 1, 0.45)
+layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
 texture = ExtResource("10_azone")
@@ -406,8 +407,8 @@ patch_margin_right = 12
 patch_margin_bottom = 12
 
 [node name="MarkersMenu" type="Panel" parent="." unique_id=1986661680]
-z_index = 1
 unique_name_in_owner = true
+z_index = 1
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
@@ -613,16 +614,14 @@ metadata/_edit_use_anchors_ = true
 
 [node name="Controls" type="VBoxContainer" parent="Menu" unique_id=1968817326]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
+anchors_preset = -1
 offset_left = 9.0
 offset_top = 71.0
 offset_right = 290.0
-offset_bottom = 637.0
-grow_horizontal = 2
-grow_vertical = 2
+offset_bottom = 633.0
 theme_override_constants/separation = 12
 script = ExtResource("16_7m41a")
-metadata/_edit_use_anchors_ = true
 
 [node name="Record" type="Button" parent="Menu/Controls" unique_id=642351741]
 unique_name_in_owner = true
@@ -960,9 +959,7 @@ anchors_preset = -1
 offset_left = 9.0
 offset_top = 71.0
 offset_right = 290.0
-offset_bottom = 639.0
-grow_horizontal = 2
-grow_vertical = 2
+offset_bottom = 633.0
 theme_override_constants/separation = 12
 script = ExtResource("19_c71nt")
 metadata/_edit_use_anchors_ = true
@@ -1736,9 +1733,9 @@ mouse_filter = 2
 texture = ExtResource("25_ok0dy")
 
 [node name="TrackSliderLarge" type="HSlider" parent="." unique_id=834211303]
-z_index = 1
 unique_name_in_owner = true
 visible = false
+z_index = 1
 layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
@@ -1769,8 +1766,8 @@ grow_horizontal = 2
 text = "00:00"
 
 [node name="GenerateCycle" type="Panel" parent="." unique_id=1382266648]
-z_index = 1
 visible = false
+z_index = 1
 layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
@@ -1950,8 +1947,8 @@ layout_mode = 2
 text = "Cancel"
 
 [node name="InfoPanel" type="Panel" parent="." unique_id=13593172]
-z_index = 1
 visible = false
+z_index = 1
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -2176,8 +2173,8 @@ visible = false
 layout_mode = 2
 
 [node name="MarkersCopied" type="Sprite2D" parent="." unique_id=1037286633]
-z_index = 1
 visible = false
+z_index = 1
 position = Vector2(500, 100)
 texture = ExtResource("13_2estk")
 offset = Vector2(-25, 0)
@@ -2190,8 +2187,8 @@ offset_bottom = 10.0
 text = "Markers Copied"
 
 [node name="MarkersPasted" type="Sprite2D" parent="." unique_id=342293735]
-z_index = 1
 visible = false
+z_index = 1
 position = Vector2(500, 100)
 texture = ExtResource("14_usymf")
 offset = Vector2(-24, 0)
