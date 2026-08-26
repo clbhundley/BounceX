@@ -73,6 +73,7 @@ static var _cbr_first_offset: int   = 0        # byte offset of first audio fram
 static var _cbr_avg_bytes:    float = 0.0      # avg frame size (0 = not CBR/parsed)
 static var _cbr_sample_rate:  int   = 0
 static var _cbr_seek_offset:  float = 0.0     # seconds sliced off the front (0 for WAV/VBR)
+static var _slice_start:      float = -1.0    # where the current slice begins, -1 for none
 
 # ── Primary-instance tracking ─────────────────────────────────────────────────
 static var _primary = null
@@ -80,6 +81,14 @@ static var _primary = null
 ## Slicing the source bytes to seek an MP3 costs the whole remainder of the
 ## file, so coalesce the seeks a scrub produces and pay it once.
 const SEEK_DEBOUNCE := 0.06
+
+## How far past the start of a slice a seek may land before a new one is cut.
+## The decoder walks from the slice's own beginning, so a short hop is quick.
+const SEEK_WINDOW := 15.0
+
+## How far before the target a slice begins, so scrubbing back a little stays
+## inside it rather than cutting a new one.
+const SEEK_LEAD_IN := 5.0
 var _seek_timer: Timer
 var _seek_pending: float = -1.0
 
@@ -156,6 +165,7 @@ func _clear_waveform() -> void:
 	_mp3_data        = PackedByteArray()
 	_cbr_avg_bytes   = 0.0
 	_cbr_seek_offset = 0.0
+	_slice_start     = -1.0
 	
 	if is_instance_valid(_decode_player) and _decode_player.playing:
 		_decode_player.stop()
@@ -589,32 +599,12 @@ func _on_seek_timeout() -> void:
 func _seek_audio_now(t: float) -> void:
 	if _cbr_avg_bytes > 0.0 and _mp3_data.size() > 0 and \
 	   %AudioStreamPlayer.stream is AudioStreamMP3:
-		# Fast path: slice from CBR byte offset (no frame sync — caller handles it)
 		# Clamp to 0.5s before end to avoid invalid slices near EOF
 		if _stream_duration > 0.5:
 			t = minf(t, 1.0 - 0.5 / _stream_duration)
-		var total_mp3_frames := int(_stream_duration * _cbr_sample_rate / 1152.0)
-		var byte_off := _cbr_first_offset + int(t * total_mp3_frames * _cbr_avg_bytes)
-		byte_off = clampi(byte_off, 0, _mp3_data.size() - 4)
-		var scan_end := mini(byte_off + 8, _mp3_data.size() - 4)
-		while byte_off < scan_end:
-			if _mp3_data[byte_off] == 0xFF and (_mp3_data[byte_off + 1] & 0xE6) == 0xE2:
-				break
-			byte_off += 1
-		# Not enough data remaining for a valid frame — too close to end of file
-		if byte_off >= _mp3_data.size() - int(_cbr_avg_bytes):
-			if %AudioStreamPlayer.playing and not %AudioStreamPlayer.stream_paused:
-				%AudioStreamPlayer.stream_paused = true
-			return
-		_cbr_seek_offset = t * _stream_duration
-		var sliced := AudioStreamMP3.new()
-		sliced.data = _mp3_data.slice(byte_off)
-		var was_paused: bool = %AudioStreamPlayer.stream_paused or not %AudioStreamPlayer.playing
-		_last_stream = sliced
-		%AudioStreamPlayer.stream = sliced
-		%AudioStreamPlayer.play(0.0)
-		if was_paused:
-			%AudioStreamPlayer.stream_paused = true
+		var target: float = t * _stream_duration
+		if not _seek_within_slice(target):
+			_rebuild_slice(target)
 	else:
 		# Fallback: instant for WAV, O(position) for VBR MP3
 		# NOTE: do NOT call Controls.scrub() here — callers own their UI sync,
@@ -632,6 +622,60 @@ func _seek_audio_now(t: float) -> void:
 			%AudioStreamPlayer.stream_paused = true
 		else:
 			%AudioStreamPlayer.seek(pos)
+
+
+## A slice already starts part way into the track, so the decoder reaches
+## anything shortly after it by walking from there rather than from the file's
+## beginning. That is far cheaper than cutting a new slice, which copies
+## everything from the target to the end of the file, and it is the case a slow
+## scrub spends all its time in.
+func _seek_within_slice(target: float) -> bool:
+	if _slice_start < 0.0 or %AudioStreamPlayer.stream != _last_stream:
+		return false
+	var into := target - _slice_start
+	if into < 0.0 or into > SEEK_WINDOW:
+		return false
+	var was_paused: bool = \
+		%AudioStreamPlayer.stream_paused or not %AudioStreamPlayer.playing
+	if not %AudioStreamPlayer.playing:
+		%AudioStreamPlayer.play(into)
+	else:
+		%AudioStreamPlayer.stream_paused = false
+		%AudioStreamPlayer.seek(into)
+	if was_paused:
+		%AudioStreamPlayer.stream_paused = true
+	return true
+
+
+## Cuts a fresh slice of the source bytes beginning shortly before the target,
+## so that scrubbing a little either way still lands inside it.
+func _rebuild_slice(target: float) -> void:
+	var slice_start: float = maxf(target - SEEK_LEAD_IN, 0.0)
+	var total_mp3_frames := int(_stream_duration * _cbr_sample_rate / 1152.0)
+	var byte_off := _cbr_first_offset + int(
+		slice_start / _stream_duration * total_mp3_frames * _cbr_avg_bytes)
+	byte_off = clampi(byte_off, 0, _mp3_data.size() - 4)
+	var scan_end := mini(byte_off + 8, _mp3_data.size() - 4)
+	while byte_off < scan_end:
+		if _mp3_data[byte_off] == 0xFF and (_mp3_data[byte_off + 1] & 0xE6) == 0xE2:
+			break
+		byte_off += 1
+	# Not enough data remaining for a valid frame — too close to end of file
+	if byte_off >= _mp3_data.size() - int(_cbr_avg_bytes):
+		if %AudioStreamPlayer.playing and not %AudioStreamPlayer.stream_paused:
+			%AudioStreamPlayer.stream_paused = true
+		return
+	_cbr_seek_offset = slice_start
+	_slice_start = slice_start
+	var sliced := AudioStreamMP3.new()
+	sliced.data = _mp3_data.slice(byte_off)
+	var was_paused: bool = \
+		%AudioStreamPlayer.stream_paused or not %AudioStreamPlayer.playing
+	_last_stream = sliced
+	%AudioStreamPlayer.stream = sliced
+	%AudioStreamPlayer.play(target - slice_start)
+	if was_paused:
+		%AudioStreamPlayer.stream_paused = true
 
 
 func _seek_to(screen_x: float) -> void:
