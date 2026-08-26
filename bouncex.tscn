@@ -1408,6 +1408,7 @@ text = "Marker Image:"
 horizontal_alignment = 1
 
 [node name="OptionButton" type="OptionButton" parent="Menu/Options/MarkerImage" unique_id=1140277010]
+custom_maximum_size = Vector2(281, -1)
 layout_mode = 2
 focus_mode = 0
 selected = 0
@@ -1444,7 +1445,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.5.2"
+text = "BounceX v2.6"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 
@@ -2188,9 +2189,6 @@ text = "Markers Pasted"
 [connection signal="confirmed" from="Menu/Controls/Paths/EditPathFile" to="Menu/Controls/Paths/EditPathFile" method="_on_confirmed"]
 [connection signal="timeout" from="Menu/Options/DebounceTimer" to="Menu/Options" method="_on_debounce_timer_timeout"]
 [connection signal="value_changed" from="Menu/Options/PathSpeed/HSlider" to="Menu/Options" method="_on_path_speed_changed"]
-[connection signal="toggled" from="Menu/Options/ClassicMode" to="Menu/Options" method="_on_classic_mode_toggled"]
-[connection signal="value_changed" from="Menu/Options/ActionZone/HSlider" to="Menu/Options" method="_on_action_zone_changed"]
-[connection signal="item_selected" from="Menu/Options/MarkerImage/OptionButton" to="Menu/Options" method="_on_marker_image_selected"]
 [connection signal="value_changed" from="Menu/Options/PathFade/HSlider" to="Menu/Options" method="_on_path_fade_value_changed"]
 [connection signal="value_changed" from="Menu/Options/PathArea" to="Menu/Options" method="_on_path_area_value_changed"]
 [connection signal="value_changed" from="Menu/Options/PathThickness" to="Menu/Options" method="_on_path_thickness_value_changed"]
@@ -2201,6 +2199,9 @@ text = "Markers Pasted"
 [connection signal="pressed" from="Menu/Options/ChangeColors" to="Menu/Options" method="_on_change_colors_pressed"]
 [connection signal="pressed" from="Menu/Options/ExportFunscripts" to="Menu/Options" method="_on_export_funscripts_pressed"]
 [connection signal="pressed" from="Menu/Options/OpenResourcesFolder" to="Menu/Options" method="_on_open_resources_folder_pressed"]
+[connection signal="toggled" from="Menu/Options/ClassicMode" to="Menu/Options" method="_on_classic_mode_toggled"]
+[connection signal="value_changed" from="Menu/Options/ActionZone/HSlider" to="Menu/Options" method="_on_action_zone_changed"]
+[connection signal="item_selected" from="Menu/Options/MarkerImage/OptionButton" to="Menu/Options" method="_on_marker_image_selected"]
 [connection signal="item_selected" from="Menu/Options/DisplayMode/OptionButton" to="Menu/Options/DisplayMode" method="_on_option_button_item_selected"]
 [connection signal="mouse_entered" from="Menu/Version/Button" to="Menu/Version/Button" method="_on_mouse_entered"]
 [connection signal="mouse_exited" from="Menu/Version/Button" to="Menu/Version/Button" method="_on_mouse_exited"]
