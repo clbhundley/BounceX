@@ -799,7 +799,13 @@ func _on_add_marker_mouse_exited():
 func _on_add_marker_pressed():
 	if owner.path.is_empty():
 		return
-	owner.place_marker(owner.get_ball_depth())
+	# The ball follows a path that classic mode does not show, so placing
+	# against it there puts markers at a depth there is no way to see. Start
+	# them at the middle instead, where the zone is.
+	if owner.classic_mode:
+		owner.place_marker(0.5)
+	else:
+		owner.place_marker(owner.get_ball_depth())
 	_on_add_marker_mouse_exited()
 	owner.save_path()
 
