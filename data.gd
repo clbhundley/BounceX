@@ -622,7 +622,7 @@ func _delete_dir_recursive_async(dir_path: String, progress_bar: ProgressBar, st
 
 func load_colors() -> void:
 	for setting in [
-		'Ball', 'Path', 'Backdrop',
+		'Ball', 'Path', 'Backdrop', 'Action Zone',
 		'Top Line', 'Top Active',
 		'Bottom Line', 'Bottom Active',
 		'Hold Breath Ball', 'Hold Breath Path']:
@@ -634,6 +634,7 @@ func load_colors() -> void:
 					bx.get_node('Markers/Line').self_modulate = color
 				'Ball':              bx.get_node('Ball').self_modulate = color
 				'Backdrop':          bx.get_node('Backdrop').self_modulate = color
+				'Action Zone':       bx.get_node('ActionZone').self_modulate = color
 				'Top Line':          bx.top_color = color
 				'Top Active':        bx.top_color_active = color
 				'Bottom Line':       bx.bottom_color = color

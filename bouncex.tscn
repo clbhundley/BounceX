@@ -1220,6 +1220,21 @@ custom_minimum_size = Vector2(32, 0)
 layout_mode = 2
 focus_mode = 0
 
+[node name="ActionZone" type="HBoxContainer" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox" unique_id=1140277011]
+layout_mode = 2
+theme_override_constants/separation = 17
+
+[node name="Label" type="Label" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/ActionZone" unique_id=1140277012]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "Action Zone:"
+horizontal_alignment = 2
+
+[node name="ColorPicker" type="ColorPickerButton" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/ActionZone" unique_id=1140277013]
+custom_minimum_size = Vector2(32, 0)
+layout_mode = 2
+focus_mode = 0
+
 [node name="Ball" type="HBoxContainer" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox" unique_id=1200835181]
 layout_mode = 2
 theme_override_constants/separation = 18

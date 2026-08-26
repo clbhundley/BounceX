@@ -15,10 +15,21 @@ func _ready() -> void:
 	about_to_popup.connect(_init_colors)
 
 
+## Classic mode draws neither the ball nor the path, and draws a zone that the
+## other mode does not, so the dialog offers what is actually on screen.
+func _match_mode() -> void:
+	var classic: bool = owner.classic_mode
+	$VBox/Ball.visible = not classic
+	$VBox/Path.visible = not classic
+	$VBox/ActionZone.visible = classic
+
+
 func _init_colors() -> void:
+	_match_mode()
 	_top_line_color = owner.get_node("TopLine").self_modulate
 	_bottom_line_color = owner.get_node("BottomLine").self_modulate
 	$VBox/Backdrop/ColorPicker.color = owner.get_node("Backdrop").self_modulate
+	$VBox/ActionZone/ColorPicker.color = owner.get_node("ActionZone").self_modulate
 	$VBox/Ball/BallBase/ColorPicker.color = owner.get_node("Ball").self_modulate
 	$VBox/Ball/BallHoldBreath/ColorPicker.color = owner.hold_breath_ball_color
 	$VBox/Path/PathBase/ColorPicker.color = owner.get_node("Path").self_modulate
@@ -34,6 +45,9 @@ func _on_color_changed(color: Color, key: StringName) -> void:
 		&"Backdrop":
 			owner.get_node("Backdrop").self_modulate = color
 			Data.set_config("colors", "Backdrop", color)
+		&"ActionZone":
+			owner.get_node("ActionZone").self_modulate = color
+			Data.set_config("colors", "Action Zone", color)
 		&"BallBase":
 			owner.get_node("Ball").self_modulate = color
 			Data.set_config("colors", "Ball", color)
