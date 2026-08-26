@@ -87,14 +87,16 @@ func _apply_window() -> void:
 	var speed: float = owner.path_speed
 	if speed <= 0.0:
 		return
-	var half_width: float = get_viewport_rect().size.x * 0.5
-	var radius: float = (half_width + VISIBILITY_MARGIN) / speed
-	var hi := int(owner.frame + radius)
+	var width: float = get_viewport_rect().size.x
+	var playhead: float = owner.playhead_position()
+	var hi := int(owner.frame + (width - playhead + VISIBILITY_MARGIN) / speed)
 	var lo: int
 	if owner.classic_mode:
-		lo = int(owner.frame + (owner.action_zone_position() - half_width) / speed)
+		# A marker sits at the zone on its own frame, so anything earlier has
+		# already been played.
+		lo = owner.frame
 	else:
-		lo = int(owner.frame - radius)
+		lo = int(owner.frame - (playhead + VISIBILITY_MARGIN) / speed)
 	var new_lo: int = _sorted_frames.bsearch(lo, true)
 	var new_hi: int = _sorted_frames.bsearch(hi + 1, true)
 	for i in range(_visible_lo, mini(_visible_hi, new_lo)):
@@ -576,8 +578,7 @@ func place_ball_on_path():
 
 
 func position_markers():
-	var center: Vector2 = get_viewport_rect().size / 2
-	position.x = center.x - (owner.frame * owner.path_speed)
+	position.x = owner.playhead_position() - (owner.frame * owner.path_speed)
 	update_visible_window()
 
 

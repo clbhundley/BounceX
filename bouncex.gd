@@ -723,6 +723,16 @@ func action_zone_position() -> float:
 	return get_viewport_rect().size.x * action_zone
 
 
+## Where the frame being played sits on screen. Classic mode reads a marker by
+## when it reaches the zone, so that is where the current frame has to be, or
+## markers would land out of time with the track by however far the zone sits
+## from the middle.
+func playhead_position() -> float:
+	if classic_mode:
+		return action_zone_position()
+	return get_viewport_rect().size.x * 0.5
+
+
 func set_classic_mode(enabled: bool) -> void:
 	classic_mode = enabled
 	$ActionZone.visible = enabled
@@ -741,6 +751,7 @@ func set_classic_mode(enabled: bool) -> void:
 func update_action_zone() -> void:
 	var center: Vector2 = get_viewport_rect().size / 2
 	$ActionZone.position = Vector2(action_zone_position(), center.y)
+	$Ball.position.x = playhead_position()
 
 
 func update_display() -> void:
@@ -754,7 +765,7 @@ func update_display() -> void:
 	$BottomLine.position.y = center.y + (path_area / 2)
 	$TopLine.set_end(Vector2(get_end().x, $TopLine.get_end().y))
 	$BottomLine.set_end(Vector2(get_end().x, $BottomLine.get_end().y))
-	$Ball.position.x = center.x
+	$Ball.position.x = playhead_position()
 	$Ball.position.y = center.y
 	TOP = $TopLine.position.y
 	BOTTOM = $BottomLine.position.y

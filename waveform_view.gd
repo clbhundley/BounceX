@@ -508,7 +508,7 @@ func _draw_scrolling() -> void:
 		return
 	var cy:     float = top_y + h * 0.5
 	var half_h: float = h * 0.5
-	var cx:     float = vp_w * 0.5
+	var cx:     float = owner.playhead_position()
 	var pspeed: float = owner.path_speed
 	var total:  float = float(owner.path.size())
 	if total <= 0.0 or pspeed <= 0.0:
@@ -649,7 +649,7 @@ func _fast_mp3_seek_sync(t: float) -> void:
 		return
 	owner.frame = clampi(int(t * total), 0, total - 10)
 	%Markers.position.x = \
-		owner.get_viewport_rect().size.x * 0.5 - float(owner.frame) * owner.path_speed
+		owner.playhead_position() - float(owner.frame) * owner.path_speed
 	if total > owner.frame + 1 and owner.path[owner.frame + 1] > -1:
 		owner.place_ball(owner.path[owner.frame + 1])
 	# Sync sliders, time display, and marker UI
