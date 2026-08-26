@@ -22,6 +22,13 @@ const CLASSIC_MARKER_TEXTURE := "res://textures/ball_large.svg"
 const CLASSIC_RING_SCALE := 1.6
 const CLASSIC_FLASH_FRAMES := 8
 
+## What a marker fades to once it is behind the zone while recording, so that
+## the shape of what has been laid down stays readable without competing with
+## the markers still to come.
+const CLASSIC_GHOST_ALPHA := 0.25
+
+var _ghosting: bool
+
 var _default_texture: Texture2D
 var _classic_texture: Texture2D
 var _custom_texture: Texture2D
@@ -90,17 +97,23 @@ func _apply_window() -> void:
 	var width: float = get_viewport_rect().size.x
 	var playhead: float = owner.playhead_position()
 	var hi := int(owner.frame + (width - playhead + VISIBILITY_MARGIN) / speed)
+	# Markers behind the zone have been played, and are dropped unless they are
+	# being kept as a record of what has just been laid down.
+	_ghosting = owner.classic_mode and owner.is_recording()
 	var lo: int
-	if owner.classic_mode:
-		# A marker sits at the zone on its own frame, so anything earlier has
-		# already been played.
+	if owner.classic_mode and not _ghosting:
 		lo = owner.frame
 	else:
 		lo = int(owner.frame - (playhead + VISIBILITY_MARGIN) / speed)
 	var new_lo: int = _sorted_frames.bsearch(lo, true)
 	var new_hi: int = _sorted_frames.bsearch(hi + 1, true)
+	# A flash marks a marker reaching the zone, so it belongs to a single marker
+	# leaving at the near edge, not to markers dropped in bulk by a scrub or by
+	# markers going back out of view ahead of the zone.
+	var crossing: bool = not _ghosting \
+		and mini(_visible_hi, new_lo) - _visible_lo == 1
 	for i in range(_visible_lo, mini(_visible_hi, new_lo)):
-		_set_marker_visible(i, false)
+		_set_marker_visible(i, false, crossing)
 	for i in range(maxi(_visible_lo, new_hi), _visible_hi):
 		_set_marker_visible(i, false)
 	for i in range(new_lo, mini(new_hi, _visible_lo)):
@@ -109,6 +122,12 @@ func _apply_window() -> void:
 		_set_marker_visible(i, true)
 	_visible_lo = new_lo
 	_visible_hi = new_hi
+	if _ghosting:
+		var played: int = mini(_sorted_frames.bsearch(owner.frame, true), new_hi)
+		for i in range(new_lo, played):
+			var node = marker_list.get(_sorted_frames[i])
+			if is_instance_valid(node):
+				node.modulate.a = CLASSIC_GHOST_ALPHA
 
 
 ## Placing a marker used to invalidate the whole sorted list, so recording onto
@@ -130,15 +149,15 @@ func _window_insert(frame: int) -> void:
 	_apply_window()
 
 
-func _set_marker_visible(index: int, value: bool) -> void:
+func _set_marker_visible(index: int, value: bool, flash := false) -> void:
 	var node = marker_list.get(_sorted_frames[index])
 	if not is_instance_valid(node):
 		return
 	if _flashing.has(node):
 		_flashing.erase(node)
-		node.modulate = Color.WHITE
 		node.scale = Vector2.ONE
-	if value or not owner.classic_mode or not owner.is_advancing():
+	node.modulate = Color.WHITE
+	if value or not flash or not owner.is_advancing():
 		node.visible = value
 		return
 	_flashing[node] = CLASSIC_FLASH_FRAMES

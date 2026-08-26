@@ -199,6 +199,12 @@ func is_advancing() -> bool:
 	return rendering or %Play.button_pressed
 
 
+## Recording lays down markers as the track runs, which is the one time it
+## helps to see what has already gone past.
+func is_recording() -> bool:
+	return %Record.button_pressed and not rendering
+
+
 func set_ball_hidden(hidden: bool) -> void:
 	$Ball.visible = not hidden
 	if classic_mode:
