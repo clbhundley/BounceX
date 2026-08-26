@@ -28,6 +28,7 @@ const CLASSIC_FLASH_FRAMES := 8
 const CLASSIC_GHOST_ALPHA := 0.25
 
 var _ghosting: bool
+var _played_edge: int
 
 var _default_texture: Texture2D
 var _classic_texture: Texture2D
@@ -99,7 +100,7 @@ func _apply_window() -> void:
 	var hi := int(owner.frame + (width - playhead + VISIBILITY_MARGIN) / speed)
 	# Markers behind the zone have been played, and are dropped unless they are
 	# being kept as a record of what has just been laid down.
-	_ghosting = owner.classic_mode and owner.is_recording()
+	_ghosting = owner.classic_mode and not owner.rendering
 	var lo: int
 	if owner.classic_mode and not _ghosting:
 		lo = owner.frame
@@ -122,12 +123,23 @@ func _apply_window() -> void:
 		_set_marker_visible(i, true)
 	_visible_lo = new_lo
 	_visible_hi = new_hi
-	if _ghosting:
-		var played: int = mini(_sorted_frames.bsearch(owner.frame, true), new_hi)
-		for i in range(new_lo, played):
-			var node = marker_list.get(_sorted_frames[i])
-			if is_instance_valid(node):
-				node.modulate.a = CLASSIC_GHOST_ALPHA
+	if not _ghosting:
+		_played_edge = 0
+		return
+	# Markers behind the zone are held back rather than dropped, so reaching it
+	# is no longer a marker leaving. Raise the flash off that crossing instead,
+	# and let it settle into a ghost rather than fade away entirely.
+	var played: int = clampi(
+		_sorted_frames.bsearch(owner.frame, true), new_lo, new_hi)
+	if owner.is_advancing() and played - _played_edge == 1:
+		var landing = marker_list.get(_sorted_frames[played - 1])
+		if is_instance_valid(landing):
+			_flashing[landing] = CLASSIC_FLASH_FRAMES
+	_played_edge = played
+	for i in range(new_lo, new_hi):
+		var node = marker_list.get(_sorted_frames[i])
+		if is_instance_valid(node) and not _flashing.has(node):
+			node.modulate.a = CLASSIC_GHOST_ALPHA if i < played else 1.0
 
 
 ## Placing a marker used to invalidate the whole sorted list, so recording onto
@@ -172,15 +184,16 @@ func step_flashes() -> void:
 			_flashing.erase(marker)
 			continue
 		var remaining: int = _flashing[marker] - 1
+		var settles_to: float = CLASSIC_GHOST_ALPHA if _ghosting else 0.0
 		if remaining <= 0:
 			_flashing.erase(marker)
-			marker.visible = false
-			marker.modulate = Color.WHITE
 			marker.scale = Vector2.ONE
+			marker.modulate.a = settles_to
+			marker.visible = _ghosting
 			continue
 		_flashing[marker] = remaining
 		var progress := 1.0 - float(remaining) / float(CLASSIC_FLASH_FRAMES)
-		marker.modulate.a = 1.0 - progress
+		marker.modulate.a = lerpf(1.0, settles_to, progress)
 		marker.scale = Vector2.ONE * (1.0 + 0.8 * progress)
 
 
