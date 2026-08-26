@@ -35,6 +35,11 @@ var control_pressed: bool
 ## track by the beat rather than by a continuous position.
 var classic_mode: bool
 var action_zone: float = 0.5
+
+## The ball marks where a marker will be placed rather than following the path
+## in classic mode, so it is left where it sits and kept faint enough to read
+## the markers through.
+const CLASSIC_BALL_ALPHA := 0.35
 var rendering: bool
 
 var input_disabled: bool
@@ -195,10 +200,15 @@ func is_advancing() -> bool:
 
 
 func set_ball_hidden(hidden: bool) -> void:
-	$Ball.visible = not (hidden or classic_mode)
+	$Ball.visible = not hidden
+	if classic_mode:
+		$Ball.modulate.a = CLASSIC_BALL_ALPHA
 
 
 func toggle_ball_visible(toggled: bool) -> void:
+	if classic_mode:
+		$Ball.modulate.a = CLASSIC_BALL_ALPHA
+		return
 	$Ball.modulate.a = max(float(toggled), 0.3)
 
 
@@ -207,6 +217,8 @@ func get_ball_depth() -> float:
 
 
 func place_ball(depth: float) -> void:
+	if classic_mode:
+		return
 	$Ball.position.y = BOTTOM + depth * (TOP - BOTTOM)
 	if not $Markers.selected_marker:
 		$MarkersMenu/HBox/Depth/Input.value = get_ball_depth()
@@ -716,7 +728,8 @@ func set_classic_mode(enabled: bool) -> void:
 	$ActionZone.visible = enabled
 	$Path.visible = not enabled
 	if enabled:
-		toggle_ball_visible(false)
+		$Ball.position.y = get_viewport_rect().size.y * 0.5
+	toggle_ball_visible(not enabled)
 	set_ball_hidden(not %Controls.get_node('Paths').is_anything_selected())
 	for line in get_tree().get_nodes_in_group('lines'):
 		line.visible = not enabled
