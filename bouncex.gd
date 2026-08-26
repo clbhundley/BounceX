@@ -35,6 +35,10 @@ var control_pressed: bool
 ## track by the beat rather than by a continuous position.
 var classic_mode: bool
 var action_zone: float = 0.5
+
+## How wide the zone is drawn. Its height follows the path, since a marker can
+## land anywhere between the two lines.
+const ACTION_ZONE_WIDTH := 40.0
 var rendering: bool
 
 var input_disabled: bool
@@ -737,8 +741,9 @@ func set_classic_mode(enabled: bool) -> void:
 
 
 func update_action_zone() -> void:
-	var center: Vector2 = get_viewport_rect().size / 2
-	$ActionZone.position = Vector2(action_zone_position(), center.y)
+	$ActionZone.size = Vector2(ACTION_ZONE_WIDTH, BOTTOM - TOP)
+	$ActionZone.position = Vector2(
+		action_zone_position() - ACTION_ZONE_WIDTH * 0.5, TOP)
 	$Ball.position.x = playhead_position()
 
 

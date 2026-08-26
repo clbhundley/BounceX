@@ -10,6 +10,7 @@
 [ext_resource type="Texture2D" uid="uid://bius3v0napj7c" path="res://textures/ball.svg" id="8_5ek1g"]
 [ext_resource type="Texture2D" uid="uid://bkabq6ivbs23x" path="res://textures/circle.svg" id="9_ymix4"]
 [ext_resource type="Texture2D" uid="uid://cbwqw7m1wqj64" path="res://textures/dot.svg" id="10_dtnc4"]
+[ext_resource type="Texture2D" path="res://textures/action_zone.svg" id="10_azone"]
 [ext_resource type="Texture2D" uid="uid://bgcpkp1078rc6" path="res://textures/add_marker.svg" id="11_2agkk"]
 [ext_resource type="Texture2D" uid="uid://qn8b5b6gg863" path="res://textures/generate_cycle.svg" id="12_ak1ar"]
 [ext_resource type="Texture2D" uid="uid://1uor7ar7yyam" path="res://textures/copy.svg" id="13_2estk"]
@@ -393,12 +394,16 @@ visible = false
 position = Vector2(576, 324)
 texture = ExtResource("8_5ek1g")
 
-[node name="ActionZone" type="Sprite2D" parent="." unique_id=1140277003]
+[node name="ActionZone" type="NinePatchRect" parent="." unique_id=1140277003]
 visible = false
 self_modulate = Color(1, 1, 1, 0.45)
-position = Vector2(576, 324)
-scale = Vector2(1.5, 1.5)
-texture = ExtResource("9_ymix4")
+offset_right = 40.0
+offset_bottom = 40.0
+texture = ExtResource("10_azone")
+patch_margin_left = 12
+patch_margin_top = 12
+patch_margin_right = 12
+patch_margin_bottom = 12
 
 [node name="MarkersMenu" type="Panel" parent="." unique_id=1986661680]
 unique_name_in_owner = true
