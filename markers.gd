@@ -36,6 +36,9 @@ var _custom_texture: Texture2D
 var custom_marker_name: String
 var _flashing: Dictionary
 
+var marker_color := Color.WHITE
+var hold_breath_marker_color := Color.HOT_PINK
+
 var _sorted_frames: Array
 var _window_dirty := true
 var _visible_lo := 0
@@ -200,6 +203,10 @@ func step_flashes() -> void:
 ## The ring and the selection dot are editing affordances that never reach a
 ## render, so they are scaled to keep up with the larger marker.
 func style_marker(marker: Sprite2D) -> void:
+	if int(marker.get_meta('auxiliary')) & 1 << 0:
+		marker.self_modulate = hold_breath_marker_color
+	else:
+		marker.self_modulate = marker_color
 	if owner.classic_mode and _custom_texture != null:
 		marker.texture = _custom_texture
 	elif owner.classic_mode and _classic_texture != null:
@@ -328,9 +335,6 @@ func add_marker(frame, depth, trans=null, ease=null, auxiliary=0):
 		trans = %MarkersMenu/HBox/Trans.selected
 	if ease == null:
 		ease = owner.get_ease_direction(depth)
-	if auxiliary:
-		if int(auxiliary) & 1 << 0:
-			marker.self_modulate = Color.HOT_PINK
 	marker_list[frame] = marker
 	_window_insert(frame)
 	var marker_button = marker.get_node('Button')

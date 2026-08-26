@@ -625,7 +625,8 @@ func load_colors() -> void:
 		'Ball', 'Path', 'Backdrop', 'Action Zone',
 		'Top Line', 'Top Active',
 		'Bottom Line', 'Bottom Active',
-		'Hold Breath Ball', 'Hold Breath Path']:
+		'Hold Breath Ball', 'Hold Breath Path',
+		'Markers', 'Hold Breath Markers']:
 		if config.has_section_key('colors', setting):
 			var color: Color = config.get_value('colors', setting)
 			match setting:
@@ -641,6 +642,9 @@ func load_colors() -> void:
 				'Bottom Active':     bx.bottom_color_active = color
 				'Hold Breath Ball':  bx.hold_breath_ball_color = color
 				'Hold Breath Path':  bx.hold_breath_path_color = color
+				'Markers':           bx.get_node('Markers').marker_color = color
+				'Hold Breath Markers':
+					bx.get_node('Markers').hold_breath_marker_color = color
 
 
 func _exit_tree() -> void:

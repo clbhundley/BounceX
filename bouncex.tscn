@@ -1235,6 +1235,40 @@ custom_minimum_size = Vector2(32, 0)
 layout_mode = 2
 focus_mode = 0
 
+[node name="Markers" type="HBoxContainer" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox" unique_id=1140277014]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="MarkerBase" type="HBoxContainer" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/Markers" unique_id=1140277015]
+layout_mode = 2
+theme_override_constants/separation = 17
+
+[node name="Label" type="Label" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/Markers/MarkerBase" unique_id=1140277016]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "Markers:"
+horizontal_alignment = 2
+
+[node name="ColorPicker" type="ColorPickerButton" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/Markers/MarkerBase" unique_id=1140277017]
+custom_minimum_size = Vector2(32, 0)
+layout_mode = 2
+focus_mode = 0
+
+[node name="MarkerHoldBreath" type="HBoxContainer" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/Markers" unique_id=1140277018]
+layout_mode = 2
+theme_override_constants/separation = 17
+
+[node name="Label" type="Label" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/Markers/MarkerHoldBreath" unique_id=1140277019]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+text = "Markers (Hold Breath):"
+horizontal_alignment = 2
+
+[node name="ColorPicker" type="ColorPickerButton" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/Markers/MarkerHoldBreath" unique_id=1140277020]
+custom_minimum_size = Vector2(32, 0)
+layout_mode = 2
+focus_mode = 0
+
 [node name="Ball" type="HBoxContainer" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox" unique_id=1200835181]
 layout_mode = 2
 theme_override_constants/separation = 18

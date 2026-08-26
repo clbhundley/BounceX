@@ -22,6 +22,7 @@ func _match_mode() -> void:
 	$VBox/Ball.visible = not classic
 	$VBox/Path.visible = not classic
 	$VBox/ActionZone.visible = classic
+	$VBox/Markers.visible = classic
 
 
 func _init_colors() -> void:
@@ -30,6 +31,8 @@ func _init_colors() -> void:
 	_bottom_line_color = owner.get_node("BottomLine").self_modulate
 	$VBox/Backdrop/ColorPicker.color = owner.get_node("Backdrop").self_modulate
 	$VBox/ActionZone/ColorPicker.color = owner.get_node("ActionZone").self_modulate
+	$VBox/Markers/MarkerBase/ColorPicker.color = %Markers.marker_color
+	$VBox/Markers/MarkerHoldBreath/ColorPicker.color = %Markers.hold_breath_marker_color
 	$VBox/Ball/BallBase/ColorPicker.color = owner.get_node("Ball").self_modulate
 	$VBox/Ball/BallHoldBreath/ColorPicker.color = owner.hold_breath_ball_color
 	$VBox/Path/PathBase/ColorPicker.color = owner.get_node("Path").self_modulate
@@ -48,6 +51,14 @@ func _on_color_changed(color: Color, key: StringName) -> void:
 		&"ActionZone":
 			owner.get_node("ActionZone").self_modulate = color
 			Data.set_config("colors", "Action Zone", color)
+		&"MarkerBase":
+			%Markers.marker_color = color
+			%Markers.apply_marker_style()
+			Data.set_config("colors", "Markers", color)
+		&"MarkerHoldBreath":
+			%Markers.hold_breath_marker_color = color
+			%Markers.apply_marker_style()
+			Data.set_config("colors", "Hold Breath Markers", color)
 		&"BallBase":
 			owner.get_node("Ball").self_modulate = color
 			Data.set_config("colors", "Ball", color)
