@@ -741,9 +741,14 @@ func set_classic_mode(enabled: bool) -> void:
 
 
 func update_action_zone() -> void:
-	$ActionZone.size = Vector2(ACTION_ZONE_WIDTH, BOTTOM - TOP)
+	# TOP and BOTTOM are where the extremes of depth sit, while the lines are
+	# drawn a little beyond them, so the zone is measured against the lines to
+	# reach as far as they appear to.
+	var top: float = $TopLine.position.y
+	var bottom: float = $BottomLine.position.y
+	$ActionZone.size = Vector2(ACTION_ZONE_WIDTH, bottom - top)
 	$ActionZone.position = Vector2(
-		action_zone_position() - ACTION_ZONE_WIDTH * 0.5, TOP)
+		action_zone_position() - ACTION_ZONE_WIDTH * 0.5, top)
 	$Ball.position.x = playhead_position()
 
 
