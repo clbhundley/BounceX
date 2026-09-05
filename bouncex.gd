@@ -55,7 +55,7 @@ func _init():
 
 func _ready():
 	Data.load_config()
-	$Path.gradient.offsets[1] = 1
+	$Path.gradient.set_offset(1, 1.0)
 	$Path.width = %Options/PathThickness.value
 	$Menu.self_modulate.a = 1.65
 	$MarkersMenu.self_modulate.a = 1.3
@@ -552,7 +552,7 @@ func render(starting_frame: int, ending_frame: int):
 	
 	$Path.position.x = offset
 	$Path.clear_points()
-	$Path.gradient.offsets[1] = 0.5
+	$Path.gradient.set_offset(1, 0.5)
 	
 	if is_video_track:
 		%VideoStreamPlayer.hide()
@@ -698,7 +698,7 @@ func render(starting_frame: int, ending_frame: int):
 			image.save_png(render_dir.path_join(str(point).lpad(6, "0") + ".png"))
 	
 	get_viewport().set_transparent_background(false)
-	$Path.gradient.offsets[1] = 1
+	$Path.gradient.set_offset(1, 1.0)
 	$Header/MenuButton.show()
 	
 	if Data.config.get_value('waveform', 'scroll_active', true):
@@ -755,7 +755,6 @@ func playhead_position() -> float:
 func set_classic_mode(enabled: bool) -> void:
 	classic_mode = enabled
 	$ActionZone.visible = enabled
-	$Path.visible = not enabled
 	if enabled:
 		toggle_ball_visible(false)
 	set_ball_hidden(not %Controls.get_node('Paths').is_anything_selected())

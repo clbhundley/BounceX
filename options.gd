@@ -141,8 +141,11 @@ func _on_path_speed_changed(value):
 
 func _on_path_fade_value_changed(value):
 	$PathFade/Label.text = "Rendered Path Edge Fade: " + str(value)
-	owner.get_node('Path').gradient.colors[0].a = 1 - value
-	owner.get_node('Path').gradient.colors[2].a = 1 - value
+	# Reading colors hands back a copy of the array, so assigning into it
+	# changes nothing that is kept. The gradient has to be told.
+	var gradient: Gradient = owner.get_node('Path').gradient
+	for edge in [0, 2]:
+		gradient.set_color(edge, Color(gradient.get_color(edge), 1.0 - value))
 	Data.set_config('path', 'path_fade', value)
 
 

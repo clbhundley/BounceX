@@ -204,6 +204,10 @@ func step_flashes() -> void:
 ## The ring and the selection dot are editing affordances that never reach a
 ## render, so they are scaled to keep up with the larger marker.
 func style_marker(marker: Sprite2D) -> void:
+	# Ghosting fades markers as they pass the zone, and nothing else restores
+	# them until they leave the window, so a marker restyled part way through
+	# would otherwise keep whatever it faded to.
+	marker.modulate.a = 1.0
 	if int(marker.get_meta('auxiliary')) & 1 << 0:
 		marker.self_modulate = hold_breath_marker_color
 	else:
@@ -300,6 +304,7 @@ func clear_markers() -> void:
 
 
 func apply_marker_style() -> void:
+	_flashing.clear()
 	for node in marker_list.values():
 		if is_instance_valid(node):
 			style_marker(node)
