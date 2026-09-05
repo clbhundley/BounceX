@@ -430,6 +430,10 @@ func _on_render_pressed():
 	$RenderOptions.popup_centered()
 
 
+## Frames of tail beyond the path leaving the screen, covering the rounding in
+## the layout that decides where it enters.
+const LEAD_OUT_MARGIN := 30
+
 var apply_lead_in := true
 var apply_lead_out := true
 var active_effects: Dictionary
@@ -610,7 +614,14 @@ func render(starting_frame: int, ending_frame: int):
 	if classic_mode:
 		$Markers.set_buttons_visible(false)
 	
-	var loop_end: int = ending_frame + (cutoff if apply_lead_out else distance)
+	# Frames for whatever sits under the ball to travel off the left of the
+	# screen, measured from where the ball actually is rather than from the
+	# requested resolution, so the two cannot disagree. The tail beyond that is
+	# deliberately generous: a render carrying a little dead air at the end
+	# costs nothing, while one cut short has to be done again.
+	var lead_out: int = \
+		distance + ceili($Ball.position.x / path_speed) + LEAD_OUT_MARGIN
+	var loop_end: int = ending_frame + (lead_out if apply_lead_out else distance)
 	for point in range(starting_frame, loop_end):
 		if classic_mode:
 			# Negative through the lead in, which is the point of it: the
