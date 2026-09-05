@@ -434,6 +434,10 @@ func _on_render_pressed():
 ## the layout that decides where it enters.
 const LEAD_OUT_MARGIN := 30
 
+## Frames before a marker would first touch the edge of the screen, so that it
+## arrives from outside the frame rather than appearing at it.
+const LEAD_IN_MARGIN := 20
+
 var apply_lead_in := true
 var apply_lead_out := true
 var active_effects: Dictionary
@@ -575,6 +579,12 @@ func render(starting_frame: int, ending_frame: int):
 	
 	var _ball_distance = path_origin.x - $Ball.position.x
 	var distance = ceil(_ball_distance / path_speed) + _distance_adjust
+	if classic_mode:
+		# The lead in runs exactly long enough to carry the path in from the
+		# right edge, which leaves a marker sitting half on screen from the
+		# first frame. Give it the room its own image needs to arrive from
+		# beyond the edge instead.
+		distance += ceili($Markers.marker_extent() / path_speed) + LEAD_IN_MARGIN
 	
 	var _cutoff_adjust:int
 	match int(path_speed):

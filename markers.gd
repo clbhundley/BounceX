@@ -100,7 +100,8 @@ func _apply_window() -> void:
 		return
 	var width: float = get_viewport_rect().size.x
 	var playhead: float = owner.playhead_position()
-	var hi := int(owner.frame + (width - playhead + VISIBILITY_MARGIN) / speed)
+	var margin: float = VISIBILITY_MARGIN + marker_extent()
+	var hi := int(owner.frame + (width - playhead + margin) / speed)
 	# Markers behind the zone have been played, and are dropped unless they are
 	# being kept as a record of what has just been laid down.
 	_ghosting = owner.classic_mode and not owner.rendering
@@ -108,7 +109,7 @@ func _apply_window() -> void:
 	if owner.classic_mode and not _ghosting:
 		lo = owner.frame
 	else:
-		lo = int(owner.frame - (playhead + VISIBILITY_MARGIN) / speed)
+		lo = int(owner.frame - (playhead + margin) / speed)
 	var new_lo: int = _sorted_frames.bsearch(lo, true)
 	var new_hi: int = _sorted_frames.bsearch(hi + 1, true)
 	# A flash marks a marker reaching the zone, so it belongs to a single marker
@@ -263,6 +264,21 @@ func _read_marker_image(file_path: String) -> Image:
 	if image.load_svg_from_buffer(source) != OK:
 		return null
 	return image
+
+
+## Half the width of the marker being drawn: how far past the edge of the
+## screen one sits before any part of it shows. A marker image can be any size,
+## so anything that has to bring markers on from off screen asks rather than
+## assumes.
+func marker_extent() -> float:
+	var texture: Texture2D = _default_texture
+	if owner.classic_mode and _custom_texture != null:
+		texture = _custom_texture
+	elif owner.classic_mode and _classic_texture != null:
+		texture = _classic_texture
+	if texture == null:
+		return 0.0
+	return texture.get_width() * 0.5
 
 
 ## Hides the ring and the selection dot, which belong to editing rather than to
