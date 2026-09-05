@@ -362,11 +362,11 @@ func load_config() -> void:
 	volume_slider.value_changed.emit(volume_slider.value)
 	
 	if config.has_section_key('user', 'render_resolution:x'):
-		var res_x_input = bx.get_node('Menu/Options/RenderResolution/Values/X')
+		var res_x_input = bx.get_node('Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values/X')
 		res_x_input.value = config.get_value('user', 'render_resolution:x')
 	
 	if config.has_section_key('user', 'render_resolution:y'):
-		var res_y_input = bx.get_node('Menu/Options/RenderResolution/Values/Y')
+		var res_y_input = bx.get_node('Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values/Y')
 		res_y_input.value = config.get_value('user', 'render_resolution:y')
 	
 	for direction in ['up', 'down']:

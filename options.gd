@@ -2,20 +2,20 @@ extends VBoxContainer
 
 func _ready():
 	var text_input_nodes = [
-		$PathArea,
-		$PathThickness,
-		$RenderResolution/Values/X,
-		$RenderResolution/Values/Y,
+		%PathOptions/PathArea,
+		%PathOptions/PathThickness,
+		%PathOptions/RenderResolution/Values/X,
+		%PathOptions/RenderResolution/Values/Y,
 		%MarkersMenu/HBox/Frame/Input,
 		%MarkersMenu/HBox/Depth/Input]
 	for node in text_input_nodes:
 		node.get_child(0, true).focus_mode = FOCUS_CLICK
 	
 	var options_text_input_nodes = [
-		$PathArea,
-		$PathThickness,
-		$RenderResolution/Values/X,
-		$RenderResolution/Values/Y]
+		%PathOptions/PathArea,
+		%PathOptions/PathThickness,
+		%PathOptions/RenderResolution/Values/X,
+		%PathOptions/RenderResolution/Values/Y]
 	for node in options_text_input_nodes:
 		node.get_child(0, true).connect(
 			"focus_entered",
@@ -30,32 +30,32 @@ func _ready():
 	if config.has_section_key('path', 'path_thickness'):
 		var value = config.get_value('path', 'path_thickness')
 		_on_path_thickness_value_changed(value)
-		$PathThickness.value = value
+		%PathOptions/PathThickness.value = value
 	else:
-		_on_path_thickness_value_changed($PathThickness.value)
+		_on_path_thickness_value_changed(%PathOptions/PathThickness.value)
 	
 	if config.has_section_key('path', 'path_fade'):
 		var value = config.get_value('path', 'path_fade')
 		_on_path_fade_value_changed(value)
-		$PathFade/HSlider.value = value
+		%PathOptions/PathFade/HSlider.value = value
 	else:
-		_on_path_fade_value_changed($PathFade/HSlider.value)
-		$PathFade/HSlider.value = $PathFade/HSlider.value
+		_on_path_fade_value_changed(%PathOptions/PathFade/HSlider.value)
+		%PathOptions/PathFade/HSlider.value = %PathOptions/PathFade/HSlider.value
 	
 	if config.has_section_key('path', 'path_speed'):
 		var value = config.get_value('path', 'path_speed')
 		_on_path_speed_changed(value)
-		$PathSpeed/HSlider.value = value
+		%PathOptions/PathSpeed/HSlider.value = value
 	else:
-		_on_path_speed_changed($PathSpeed/HSlider.value)
-		$PathSpeed/HSlider.value = $PathSpeed/HSlider.value
+		_on_path_speed_changed(%PathOptions/PathSpeed/HSlider.value)
+		%PathOptions/PathSpeed/HSlider.value = %PathOptions/PathSpeed/HSlider.value
 	
 	if config.has_section_key('path', 'path_area'):
 		var value = config.get_value('path', 'path_area')
 		_on_path_area_value_changed(value)
-		$PathArea.value = value
+		%PathOptions/PathArea.value = value
 	else:
-		_on_path_area_value_changed($PathArea.value)
+		_on_path_area_value_changed(%PathOptions/PathArea.value)
 	
 	if config.has_section_key('path', 'action_zone'):
 		var value = config.get_value('path', 'action_zone')
@@ -131,7 +131,7 @@ func _on_action_zone_changed(value: float) -> void:
 
 func _on_path_speed_changed(value):
 	owner.path_speed = value
-	$PathSpeed/Label.text = "Path Speed: " + str(int(value))
+	%PathOptions/PathSpeed/Label.text = "Path Speed: " + str(int(value))
 	Data.set_config('path', 'path_speed', value)
 	for marker in %Markers.marker_list.values():
 		marker.position.x = marker.get_meta('frame') * value
@@ -140,7 +140,7 @@ func _on_path_speed_changed(value):
 
 
 func _on_path_fade_value_changed(value):
-	$PathFade/Label.text = "Rendered Path Edge Fade: " + str(value)
+	%PathOptions/PathFade/Label.text = "Rendered Path Edge Fade: " + str(value)
 	# Reading colors hands back a copy of the array, so assigning into it
 	# changes nothing that is kept. The gradient has to be told.
 	var gradient: Gradient = owner.get_node('Path').gradient
@@ -244,6 +244,11 @@ func _on_gamepad_remapping_pressed() -> void:
 
 func _on_waveform_options_pressed() -> void:
 	$WaveformOptions/WaveformOptionsDialog.popup_centered()
+
+
+func _on_path_settings_pressed() -> void:
+	$PathSettings/PathSettingsDialog.popup_centered()
+	$PathSettings/PathSettingsDialog.position = Vector2(8, 100)
 
 
 func _on_change_colors_pressed():

@@ -56,7 +56,7 @@ func _init():
 func _ready():
 	Data.load_config()
 	$Path.gradient.set_offset(1, 1.0)
-	$Path.width = %Options/PathThickness.value
+	$Path.width = %PathOptions/PathThickness.value
 	$Menu.self_modulate.a = 1.65
 	$MarkersMenu.self_modulate.a = 1.3
 	toggle_ball_visible(false)
@@ -449,8 +449,8 @@ func render(starting_frame: int, ending_frame: int):
 	var selected_track = $Menu/Controls/Tracks/TrackSelection.selected
 	var track_name = $Menu/Controls/Tracks/TrackSelection.get_item_text(selected_track)
 	
-	var x_size = %Options/RenderResolution/Values/X.value
-	var y_size = %Options/RenderResolution/Values/Y.value
+	var x_size = %PathOptions/RenderResolution/Values/X.value
+	var y_size = %PathOptions/RenderResolution/Values/Y.value
 	
 	var window_starting_mode = DisplayServer.window_get_mode()
 	var window_starting_size = DisplayServer.window_get_size()

@@ -968,78 +968,99 @@ metadata/_edit_use_anchors_ = true
 wait_time = 0.2
 one_shot = true
 
-[node name="PathSpeed" type="VBoxContainer" parent="Menu/Options" unique_id=600829822]
+[node name="PathSettings" type="Button" parent="Menu/Options" unique_id=1140277021]
+layout_mode = 2
+focus_mode = 0
+text = "Path Settings"
+alignment = 0
+
+[node name="PathSettingsDialog" type="AcceptDialog" parent="Menu/Options/PathSettings" unique_id=1140277022]
+oversampling_override = 1.0
+title = "Path Settings:"
+position = Vector2i(0, 36)
+size = Vector2i(460, 320)
+ok_button_text = "   OK   "
+
+[node name="PathOptions" type="VBoxContainer" parent="Menu/Options/PathSettings/PathSettingsDialog" unique_id=1140277023]
+unique_name_in_owner = true
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 452.0
+offset_bottom = 275.0
+theme_override_constants/separation = 12
+
+[node name="PathSpeed" type="VBoxContainer" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions" unique_id=600829822]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="Menu/Options/PathSpeed" unique_id=130404792]
+[node name="Label" type="Label" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathSpeed" unique_id=130404792]
 layout_mode = 2
 text = "Path Speed: 1"
 horizontal_alignment = 1
 
-[node name="HSlider" type="HSlider" parent="Menu/Options/PathSpeed" unique_id=1925412791]
+[node name="HSlider" type="HSlider" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathSpeed" unique_id=1925412791]
 layout_mode = 2
 focus_mode = 0
 min_value = 1.0
 max_value = 10.0
 value = 4.0
 
-[node name="PathFade" type="VBoxContainer" parent="Menu/Options" unique_id=1045032011]
+[node name="PathFade" type="VBoxContainer" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions" unique_id=1045032011]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="Menu/Options/PathFade" unique_id=732292403]
+[node name="Label" type="Label" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathFade" unique_id=732292403]
 layout_mode = 2
 text = "Rendered Path Edge Fade: 1"
 horizontal_alignment = 1
 
-[node name="HSlider" type="HSlider" parent="Menu/Options/PathFade" unique_id=1395860022]
+[node name="HSlider" type="HSlider" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathFade" unique_id=1395860022]
 layout_mode = 2
 focus_mode = 0
 max_value = 1.0
 step = 0.1
 value = 0.6
 
-[node name="PathArea" type="SpinBox" parent="Menu/Options" unique_id=647069361]
+[node name="PathArea" type="SpinBox" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions" unique_id=647069361]
 layout_mode = 2
 min_value = 1.0
 max_value = 10000.0
 value = 200.0
 prefix = "Path Vertical Area:"
 
-[node name="PathThickness" type="SpinBox" parent="Menu/Options" unique_id=980888799]
+[node name="PathThickness" type="SpinBox" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions" unique_id=980888799]
 layout_mode = 2
 min_value = 1.0
 value = 8.0
 prefix = "Path Thickness:"
 
-[node name="RenderResolution" type="VBoxContainer" parent="Menu/Options" unique_id=742597271]
+[node name="RenderResolution" type="VBoxContainer" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions" unique_id=742597271]
 layout_mode = 2
 script = SubResource("GDScript_575x6")
 
-[node name="Label" type="Label" parent="Menu/Options/RenderResolution" unique_id=466000839]
+[node name="Label" type="Label" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution" unique_id=466000839]
 layout_mode = 2
 text = "Render Resolution:"
 horizontal_alignment = 1
 
-[node name="Values" type="HBoxContainer" parent="Menu/Options/RenderResolution" unique_id=245591298]
+[node name="Values" type="HBoxContainer" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution" unique_id=245591298]
 layout_mode = 2
 alignment = 1
 
-[node name="XLabel" type="Label" parent="Menu/Options/RenderResolution/Values" unique_id=1191953960]
+[node name="XLabel" type="Label" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values" unique_id=1191953960]
 layout_mode = 2
 text = "X:"
 horizontal_alignment = 1
 
-[node name="X" type="SpinBox" parent="Menu/Options/RenderResolution/Values" unique_id=828241383]
+[node name="X" type="SpinBox" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values" unique_id=828241383]
 layout_mode = 2
 max_value = 10000.0
 value = 1920.0
 
-[node name="YLabel" type="Label" parent="Menu/Options/RenderResolution/Values" unique_id=728910070]
+[node name="YLabel" type="Label" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values" unique_id=728910070]
 layout_mode = 2
 text = "Y:"
 horizontal_alignment = 1
 
-[node name="Y" type="SpinBox" parent="Menu/Options/RenderResolution/Values" unique_id=914464382]
+[node name="Y" type="SpinBox" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values" unique_id=914464382]
 layout_mode = 2
 max_value = 10000.0
 value = 300.0
@@ -2247,12 +2268,13 @@ text = "Markers Pasted"
 [connection signal="item_selected" from="Menu/Controls/Paths" to="Menu/Controls" method="_on_path_selected"]
 [connection signal="confirmed" from="Menu/Controls/Paths/EditPathFile" to="Menu/Controls/Paths/EditPathFile" method="_on_confirmed"]
 [connection signal="timeout" from="Menu/Options/DebounceTimer" to="Menu/Options" method="_on_debounce_timer_timeout"]
-[connection signal="value_changed" from="Menu/Options/PathSpeed/HSlider" to="Menu/Options" method="_on_path_speed_changed"]
-[connection signal="value_changed" from="Menu/Options/PathFade/HSlider" to="Menu/Options" method="_on_path_fade_value_changed"]
-[connection signal="value_changed" from="Menu/Options/PathArea" to="Menu/Options" method="_on_path_area_value_changed"]
-[connection signal="value_changed" from="Menu/Options/PathThickness" to="Menu/Options" method="_on_path_thickness_value_changed"]
-[connection signal="value_changed" from="Menu/Options/RenderResolution/Values/X" to="Menu/Options/RenderResolution" method="_on_x_value_changed"]
-[connection signal="value_changed" from="Menu/Options/RenderResolution/Values/Y" to="Menu/Options/RenderResolution" method="_on_y_value_changed"]
+[connection signal="pressed" from="Menu/Options/PathSettings" to="Menu/Options" method="_on_path_settings_pressed"]
+[connection signal="value_changed" from="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathSpeed/HSlider" to="Menu/Options" method="_on_path_speed_changed"]
+[connection signal="value_changed" from="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathFade/HSlider" to="Menu/Options" method="_on_path_fade_value_changed"]
+[connection signal="value_changed" from="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathArea" to="Menu/Options" method="_on_path_area_value_changed"]
+[connection signal="value_changed" from="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathThickness" to="Menu/Options" method="_on_path_thickness_value_changed"]
+[connection signal="value_changed" from="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values/X" to="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution" method="_on_x_value_changed"]
+[connection signal="value_changed" from="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values/Y" to="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution" method="_on_y_value_changed"]
 [connection signal="pressed" from="Menu/Options/GamepadRemapping" to="Menu/Options" method="_on_gamepad_remapping_pressed"]
 [connection signal="pressed" from="Menu/Options/WaveformOptions" to="Menu/Options" method="_on_waveform_options_pressed"]
 [connection signal="pressed" from="Menu/Options/ChangeColors" to="Menu/Options" method="_on_change_colors_pressed"]
