@@ -613,7 +613,9 @@ func render(starting_frame: int, ending_frame: int):
 	var loop_end: int = ending_frame + (cutoff if apply_lead_out else distance)
 	for point in range(starting_frame, loop_end):
 		if classic_mode:
-			frame = clampi(point - distance, 0, maxi(path.size() - 1, 0))
+			# Negative through the lead in, which is the point of it: the
+			# markers are still off to the right, on their way in.
+			frame = mini(point - distance, maxi(path.size() - 1, 0))
 			$Markers.position_markers()
 			$Markers.step_flashes()
 		if point+1 < path.size() and path[point+1] > -1:
