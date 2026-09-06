@@ -10,6 +10,7 @@
 [ext_resource type="Texture2D" uid="uid://bius3v0napj7c" path="res://textures/ball.svg" id="8_5ek1g"]
 [ext_resource type="Texture2D" uid="uid://bkabq6ivbs23x" path="res://textures/circle.svg" id="9_ymix4"]
 [ext_resource type="Texture2D" uid="uid://b814vvdumyskt" path="res://textures/action_zone.svg" id="10_azone"]
+[ext_resource type="Texture2D" path="res://textures/glow_ring.svg" id="10_glow"]
 [ext_resource type="Texture2D" uid="uid://cbwqw7m1wqj64" path="res://textures/dot.svg" id="10_dtnc4"]
 [ext_resource type="Texture2D" uid="uid://bgcpkp1078rc6" path="res://textures/add_marker.svg" id="11_2agkk"]
 [ext_resource type="Texture2D" uid="uid://qn8b5b6gg863" path="res://textures/generate_cycle.svg" id="12_ak1ar"]
@@ -142,34 +143,7 @@ func _on_pressed():
 "
 
 [sub_resource type="GDScript" id="GDScript_sh086"]
-script/source = "extends TextureButton
-
-func _on_mouse_entered():
-	if not button_pressed:
-		self_modulate.a = 1
-	else:
-		self_modulate.a = 1.8
-
-
-func _on_mouse_exited():
-	if not button_pressed:
-		self_modulate.a = 0.8
-	else:
-		self_modulate.a = 2.8
-
-
-func _on_toggled(button_pressed):
-	if button_pressed:
-		self_modulate = '4040ff'
-		self_modulate.a = 2.8
-		%Controls.hide()
-		%Options.show()
-	else:
-		owner.input_disabled = false
-		self_modulate = 'ffff40cc'
-		%Options.hide()
-		%Controls.show()
-"
+script/source = "extends TextureButton\n\nfunc _on_mouse_entered():\n\tif not button_pressed:\n\t\tself_modulate.a = 1\n\telse:\n\t\tself_modulate.a = 1.8\n\n\nfunc _on_mouse_exited():\n\tif not button_pressed:\n\t\tself_modulate.a = 0.8\n\telse:\n\t\tself_modulate.a = 2.8\n\n\nvar glow_tween: Tween\n\nfunc _on_toggled(button_pressed):\n\tif glow_tween and glow_tween.is_valid():\n\t\tglow_tween.kill()\n\tglow_tween = create_tween().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART)\n\tif button_pressed:\n\t\tself_modulate = '4040ff'\n\t\tself_modulate.a = 2.8\n\t\t$Glow.self_modulate = self_modulate\n\t\tglow_tween.tween_property($Glow, 'modulate:a', 1.0, 0.25)\n\t\t%Controls.hide()\n\t\t%Options.show()\n\telse:\n\t\towner.input_disabled = false\n\t\tself_modulate = 'ffff40cc'\n\t\tglow_tween.tween_property($Glow, 'modulate:a', 0.0, 0.2)\n\t\t%Options.hide()\n\t\t%Controls.show()\n"
 
 [sub_resource type="GDScript" id="GDScript_8l1ut"]
 script/source = "extends TextureButton
@@ -1637,6 +1611,24 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 texture = ExtResource("22_ualp2")
+
+[node name="Glow" type="TextureRect" parent="Header/OptionsButton" unique_id=1140277024]
+show_behind_parent = true
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -18.0
+offset_top = -18.0
+offset_right = 18.0
+offset_bottom = 18.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("10_glow")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="MenuButton" type="TextureButton" parent="Header" unique_id=1157866272]
 self_modulate = Color(0.454902, 1, 1, 0.635294)
