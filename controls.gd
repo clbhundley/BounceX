@@ -340,7 +340,8 @@ func _on_load_tracks_pressed() -> void:
 	var dialog := ConfirmationDialog.new()
 	dialog.theme = load("res://theme_basic.tres")
 	dialog.title = "Add Track"
-	dialog.ok_button_text = "Create Blank"
+	dialog.ok_button_text = "  Create Blank  "
+	dialog.cancel_button_text = "  Cancel  "
 	
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override('separation', 10)
@@ -377,7 +378,7 @@ func _on_load_tracks_pressed() -> void:
 	length_box.add_child(length_input)
 	vbox.add_child(length_box)
 	
-	dialog.add_button("Load Files", true, "load")
+	dialog.add_button("  Load Files  ", true, "load")
 	dialog.custom_action.connect(func(action: StringName) -> void:
 		dialog.queue_free()
 		if action == &"load":
@@ -691,7 +692,8 @@ func _show_funscript_import(source_path: String, track_title: String) -> void:
 	var dialog := ConfirmationDialog.new()
 	dialog.theme = load("res://theme_basic.tres")
 	dialog.title = "Import Funscript"
-	dialog.ok_button_text = "Import"
+	dialog.ok_button_text = "  Import  "
+	dialog.cancel_button_text = "  Cancel  "
 	
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override('separation', 10)
@@ -822,6 +824,7 @@ func _write_imported_path(
 func _show_notice(message: String) -> void:
 	var dialog := AcceptDialog.new()
 	dialog.theme = load("res://theme_basic.tres")
+	dialog.ok_button_text = "  OK  "
 	dialog.dialog_text = message
 	dialog.confirmed.connect(func(): dialog.queue_free())
 	dialog.canceled.connect(func(): dialog.queue_free())
