@@ -617,9 +617,9 @@ unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = -1
 offset_left = 9.0
-offset_top = 71.0
+offset_top = 75.0
 offset_right = 290.0
-offset_bottom = 633.0
+offset_bottom = 601.0
 theme_override_constants/separation = 12
 script = ExtResource("16_7m41a")
 
@@ -957,10 +957,10 @@ visible = false
 layout_mode = 1
 anchors_preset = -1
 offset_left = 9.0
-offset_top = 71.0
+offset_top = 75.0
 offset_right = 290.0
-offset_bottom = 633.0
-theme_override_constants/separation = 12
+offset_bottom = 403.0
+theme_override_constants/separation = 14
 script = ExtResource("19_c71nt")
 metadata/_edit_use_anchors_ = true
 
@@ -1506,7 +1506,7 @@ selected = 1
 item_count = 2
 popup/item_0/text = "Windowed"
 popup/item_0/id = 0
-popup/item_1/text = "Exclusive Fullscreen"
+popup/item_1/text = "Fullscreen"
 popup/item_1/id = 1
 
 [node name="Version" type="Label" parent="Menu" unique_id=1831698532]
@@ -2031,7 +2031,7 @@ autowrap_mode = 3
 
 [node name="Label2" type="Label" parent="InfoPanel/VBoxContainer" unique_id=1146803147]
 layout_mode = 2
-text = "Use Exclusive Fullscreen display mode for best performance."
+text = "Use Fullscreen display mode for best performance."
 autowrap_mode = 3
 
 [node name="Label3" type="Label" parent="InfoPanel/VBoxContainer" unique_id=1597486546]

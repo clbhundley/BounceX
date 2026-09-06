@@ -248,12 +248,12 @@ func _on_waveform_options_pressed() -> void:
 
 func _on_path_settings_pressed() -> void:
 	$PathSettings/PathSettingsDialog.popup_centered()
-	$PathSettings/PathSettingsDialog.position = Vector2(8, 100)
+	#$PathSettings/PathSettingsDialog.position = Vector2(8, 100)
 
 
 func _on_change_colors_pressed():
 	$ChangeColors/ColorOptionsDialog.popup_centered()
-	$ChangeColors/ColorOptionsDialog.position = Vector2(8, 100)
+	#$ChangeColors/ColorOptionsDialog.position = Vector2(8, 100)
 
 
 func _on_export_funscripts_pressed() -> void:
