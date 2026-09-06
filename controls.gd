@@ -653,6 +653,7 @@ func _show_funscript_import(source_path: String, track_title: String) -> void:
 	start_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	start_box.add_child(start_label)
 	var start_input := SpinBox.new()
+	start_input.custom_minimum_size.x = 100
 	start_input.min_value = 0.0
 	start_input.max_value = maxf(track_seconds, 0.0)
 	start_input.step = 0.01

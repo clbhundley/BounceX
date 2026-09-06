@@ -616,10 +616,11 @@ metadata/_edit_use_anchors_ = true
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = -1
+anchor_bottom = 1.0
 offset_left = 9.0
 offset_top = 75.0
 offset_right = 290.0
-offset_bottom = 601.0
+offset_bottom = -47.0
 theme_override_constants/separation = 12
 script = ExtResource("16_7m41a")
 
@@ -799,6 +800,7 @@ layout_mode = 2
 [node name="Paths" type="ItemList" parent="Menu/Controls" unique_id=1189353386]
 custom_minimum_size = Vector2(0, 250)
 layout_mode = 2
+size_flags_vertical = 3
 focus_mode = 0
 allow_reselect = true
 
