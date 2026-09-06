@@ -119,8 +119,11 @@ func _on_confirmed():
 		if _path_exists(dir_path, new_path_name):
 			return
 		dir.rename(dir_path.path_join(path_name + ".bx"), dir_path.path_join(new_path_name + ".bx"))
-		%Controls.load_paths(track_title)
+		# Only the name has changed. Rebuilding the list would unload the path
+		# and read every marker back off disk to arrive at what is already
+		# loaded, so rename the entry where it sits and leave the path alone.
 		for item in %Controls/Paths.item_count:
-			if %Controls/Paths.get_item_text(item) == new_path_name:
-				%Controls/Paths.select(item)
-				%Controls._on_path_selected(item)
+			if %Controls/Paths.get_item_text(item) == path_name:
+				%Controls/Paths.set_item_text(item, new_path_name)
+				break
+		path_name = new_path_name
