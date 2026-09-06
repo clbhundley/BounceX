@@ -146,79 +146,7 @@ func _on_pressed():
 script/source = "extends TextureButton\n\nfunc _on_mouse_entered():\n\tif not button_pressed:\n\t\tself_modulate.a = 1\n\telse:\n\t\tself_modulate.a = 1.8\n\n\nfunc _on_mouse_exited():\n\tif not button_pressed:\n\t\tself_modulate.a = 0.8\n\telse:\n\t\tself_modulate.a = 2.8\n\n\nvar glow_tween: Tween\n\nfunc _on_toggled(button_pressed):\n\tif glow_tween and glow_tween.is_valid():\n\t\tglow_tween.kill()\n\tglow_tween = create_tween().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART)\n\tif button_pressed:\n\t\tself_modulate = '4040ff'\n\t\tself_modulate.a = 2.8\n\t\t$Glow.self_modulate = self_modulate\n\t\tglow_tween.tween_property($Glow, 'modulate:a', 1.0, 0.25)\n\t\t%Controls.hide()\n\t\t%Options.show()\n\telse:\n\t\towner.input_disabled = false\n\t\tself_modulate = 'ffff40cc'\n\t\tglow_tween.tween_property($Glow, 'modulate:a', 0.0, 0.2)\n\t\t%Options.hide()\n\t\t%Controls.show()\n"
 
 [sub_resource type="GDScript" id="GDScript_8l1ut"]
-script/source = "extends TextureButton
-
-var tween:Tween
-
-@onready var menu = owner.get_node('Menu')
-@onready var options_button = get_node('../OptionsButton')
-@onready var exit_button = get_node('../ExitButton')
-
-func _ready():
-	options_button.modulate.a = 0
-	options_button.position.x = 0
-	exit_button.modulate.a = 0
-	exit_button.position.x = 0
-	ui_mouse_filter(false)
-
-
-func _on_mouse_entered():
-	if button_pressed:
-		self_modulate.a = 0.8
-	else:
-		self_modulate = '4fd6d6'
-
-
-func _on_mouse_exited():
-	if button_pressed:
-		self_modulate.a = 1
-	else:
-		self_modulate = '74ffffa1'
-
-
-func _on_toggled(button_pressed):
-	tween = get_tree().create_tween()
-	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART).set_parallel()
-	var menu_pos:float
-	var options_pos:float
-	var exit_pos:float
-	var alpha:float
-	if button_pressed:
-		for node in [get_node('../Record'), get_node('../Play')]:
-			node.modulate.a = 0
-		menu_pos = 0
-		options_pos = 127
-		exit_pos = 245
-		alpha = 1
-		self_modulate = '00a86b'
-		if get_node('../OptionsButton').toggled:
-			get_node('../OptionsButton').button_pressed = false
-		tween.tween_callback(ui_mouse_filter.bind(true)).set_delay(0.3)
-	else:
-		for node in [get_node('../Record'), get_node('../Play')]:
-			node.modulate.a = 1
-		menu_pos = -menu.size.x
-		options_pos = 0
-		exit_pos = 0
-		alpha = 0
-		self_modulate = '74ffffa1'
-		owner.input_disabled = false
-		tween.tween_callback(ui_mouse_filter.bind(false)).set_delay(0.3)
-	tween.tween_property(menu, 'position:x', menu_pos, 0.25)
-	tween.tween_property(options_button, 'position:x', options_pos, 0.3)
-	tween.tween_property(options_button, 'modulate:a', alpha, 0.3)
-	tween.tween_property(exit_button, 'position:x', exit_pos, 0.3)
-	tween.tween_property(exit_button, 'modulate:a', alpha, 0.4)
-
-
-func ui_mouse_filter(active:bool) -> void:
-	if active:
-		options_button.mouse_filter = MOUSE_FILTER_STOP
-		exit_button.mouse_filter = MOUSE_FILTER_STOP
-	else:
-		options_button.mouse_filter = MOUSE_FILTER_IGNORE
-		exit_button.mouse_filter = MOUSE_FILTER_IGNORE
-"
+script/source = "extends TextureButton\n\nvar tween:Tween\n\n@onready var menu = owner.get_node('Menu')\n@onready var options_button = get_node('../OptionsButton')\n@onready var exit_button = get_node('../ExitButton')\n\nfunc _ready():\n\toptions_button.modulate.a = 0\n\toptions_button.position.x = 0\n\texit_button.modulate.a = 0\n\texit_button.position.x = 0\n\tui_mouse_filter(false)\n\n\nfunc _on_mouse_entered():\n\tif button_pressed:\n\t\tself_modulate.a = 0.8\n\telse:\n\t\tself_modulate = '4fd6d6'\n\n\nfunc _on_mouse_exited():\n\tif button_pressed:\n\t\tself_modulate.a = 1\n\telse:\n\t\tself_modulate = '74ffffa1'\n\n\nfunc _on_toggled(button_pressed):\n\ttween = get_tree().create_tween()\n\ttween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART).set_parallel()\n\tvar menu_pos:float\n\tvar options_pos:float\n\tvar exit_pos:float\n\tvar alpha:float\n\tif button_pressed:\n\t\tfor node in [get_node('../Record'), get_node('../Play')]:\n\t\t\tnode.modulate.a = 0\n\t\tmenu_pos = 0\n\t\toptions_pos = 127\n\t\texit_pos = 245\n\t\talpha = 1\n\t\tself_modulate = '00a86b'\n\t\tif get_node('../OptionsButton').toggled:\n\t\t\tget_node('../OptionsButton').button_pressed = false\n\t\ttween.tween_callback(ui_mouse_filter.bind(true)).set_delay(0.3)\n\telse:\n\t\tfor node in [get_node('../Record'), get_node('../Play')]:\n\t\t\tnode.modulate.a = 1\n\t\tmenu_pos = -menu.size.x\n\t\toptions_pos = 0\n\t\texit_pos = 0\n\t\talpha = 0\n\t\tself_modulate = '74ffffa1'\n\t\towner.input_disabled = false\n\t\ttween.tween_callback(ui_mouse_filter.bind(false)).set_delay(0.3)\n\t$Glow.self_modulate = self_modulate\n\ttween.tween_property($Glow, 'modulate:a', alpha, 0.25)\n\ttween.tween_property(menu, 'position:x', menu_pos, 0.25)\n\ttween.tween_property(options_button, 'position:x', options_pos, 0.3)\n\ttween.tween_property(options_button, 'modulate:a', alpha, 0.3)\n\ttween.tween_property(exit_button, 'position:x', exit_pos, 0.3)\n\ttween.tween_property(exit_button, 'modulate:a', alpha, 0.4)\n\n\nfunc ui_mouse_filter(active:bool) -> void:\n\tif active:\n\t\toptions_button.mouse_filter = MOUSE_FILTER_STOP\n\t\texit_button.mouse_filter = MOUSE_FILTER_STOP\n\telse:\n\t\toptions_button.mouse_filter = MOUSE_FILTER_IGNORE\n\t\texit_button.mouse_filter = MOUSE_FILTER_IGNORE\n"
 
 [sub_resource type="GDScript" id="GDScript_cf1v0"]
 script/source = "extends Button
@@ -1656,6 +1584,20 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 texture = ExtResource("23_fa01g")
+
+[node name="Glow" type="TextureRect" parent="Header/MenuButton" unique_id=1140277025]
+show_behind_parent = true
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("10_glow")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="Record" type="Control" parent="Header" unique_id=1191338579]
 visible = false
