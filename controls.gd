@@ -630,28 +630,36 @@ func _show_funscript_import(source_path: String, track_title: String) -> void:
 	
 	var separation_min: int = %Markers.SEPARATION_MIN
 	var max_frame: int = owner.path.size()
-	var out_of_range := 0
+	var track_seconds: float = max_frame / 60.0
 	var first_at := INF
 	var last_at := 0.0
 	for action in parsed["actions"]:
-		if not action is Dictionary or not action.has("at"):
-			continue
-		var at := float(action["at"])
-		first_at = minf(first_at, at)
-		last_at = maxf(last_at, at)
-		if max_frame > 0 and roundi(at * 60.0 / 1000.0) >= max_frame:
-			out_of_range += 1
+		if action is Dictionary and action.has("at"):
+			first_at = minf(first_at, float(action["at"]))
+			last_at = maxf(last_at, float(action["at"]))
 	if first_at == INF:
 		first_at = 0.0
 	
 	var source_label := Label.new()
-	source_label.text = "%s\n%d actions  ·  %s - %s\nTrack length: %s" % [
-		source_path.get_file(),
-		parsed["actions"].size(),
-		_format_time(first_at / 1000.0),
-		_format_time(last_at / 1000.0),
-		_format_time(max_frame / 60.0)]
 	vbox.add_child(source_label)
+	
+	# Where the funscript's own beginning is placed on this track. It starts
+	# where the funscript says, so importing without touching it keeps the times
+	# the script was written with.
+	var start_box := HBoxContainer.new()
+	start_box.add_theme_constant_override('separation', 20)
+	var start_label := Label.new()
+	start_label.text = "Start at:"
+	start_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	start_box.add_child(start_label)
+	var start_input := SpinBox.new()
+	start_input.min_value = 0.0
+	start_input.max_value = maxf(track_seconds, 0.0)
+	start_input.step = 0.01
+	start_input.suffix = "s"
+	start_input.value = clampf(first_at / 1000.0, 0.0, maxf(track_seconds, 0.0))
+	start_box.add_child(start_input)
+	vbox.add_child(start_box)
 	
 	var threshold_box := HBoxContainer.new()
 	threshold_box.add_theme_constant_override('separation', 20)
@@ -673,16 +681,30 @@ func _show_funscript_import(source_path: String, track_title: String) -> void:
 	# Lambdas capture locals by value, so the preview mutates this dictionary
 	# in place rather than reassigning it, keeping the confirm handler in sync.
 	var markers := {}
-	var update_preview := func(value: float) -> void:
+	var refresh := func(_value := 0.0) -> void:
+		var offset: float = start_input.value * 1000.0 - first_at
 		markers.clear()
 		markers.merge(Funscript.to_marker_data(
-			parsed, value, separation_min, max_frame))
+			parsed, threshold_input.value, separation_min, max_frame, offset))
+		var span: float = (last_at - first_at) / 1000.0
+		source_label.text = "%s\n%d actions  ·  %s - %s\nTrack length: %s" % [
+			source_path.get_file(),
+			parsed["actions"].size(),
+			_format_time(start_input.value),
+			_format_time(start_input.value + span),
+			_format_time(track_seconds)]
 		preview.text = "%d actions  ->  %d markers" % [
 			parsed["actions"].size(), markers.size()]
-		if out_of_range:
-			preview.text += "\n%d actions land past the end of the track." % out_of_range
-	threshold_input.value_changed.connect(update_preview)
-	update_preview.call(threshold_input.value)
+		var beyond := 0
+		for action in parsed["actions"]:
+			if action is Dictionary and action.has("at") \
+					and roundi((float(action["at"]) + offset) * 60.0 / 1000.0) >= max_frame:
+				beyond += 1
+		if beyond:
+			preview.text += "\n%d actions land past the end of the track." % beyond
+	start_input.value_changed.connect(refresh)
+	threshold_input.value_changed.connect(refresh)
+	refresh.call()
 	
 	dialog.confirmed.connect(func() -> void:
 		_write_imported_path(

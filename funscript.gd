@@ -41,7 +41,12 @@ static func export(marker_data: Dictionary, path_meta: Dictionary, out_path: Str
 		file.close()
 
 
-static func import(file_path: String, amp_threshold := 0.08, separation_min := 5, max_frame := 0) -> Dictionary:
+static func import(
+		file_path: String,
+		amp_threshold := 0.08,
+		separation_min := 5,
+		max_frame := 0,
+		offset_ms := 0.0) -> Dictionary:
 	var file := FileAccess.open(file_path, FileAccess.READ)
 	if not file:
 		return {}
@@ -50,16 +55,21 @@ static func import(file_path: String, amp_threshold := 0.08, separation_min := 5
 	if not parsed is Dictionary or not parsed.get("actions") is Array:
 		return {}
 	return {
-		"markers": to_marker_data(parsed, amp_threshold, separation_min, max_frame),
+		"markers": to_marker_data(
+			parsed, amp_threshold, separation_min, max_frame, offset_ms),
 		"source": source_meta(parsed)
 	}
 
 
+## A funscript carries the times of the media it was written for, which may be
+## a longer piece than the track it is being brought onto, so offset_ms shifts
+## every action by the same amount to place it against this one.
 static func to_marker_data(
 		funscript: Dictionary,
 		amp_threshold := 0.08,
 		separation_min := 5,
-		max_frame := 0) -> Dictionary:
+		max_frame := 0,
+		offset_ms := 0.0) -> Dictionary:
 	var actions: Array = funscript["actions"].duplicate()
 	actions.sort_custom(func(a, b): return int(a.get("at", 0)) < int(b.get("at", 0)))
 	
@@ -75,7 +85,7 @@ static func to_marker_data(
 		var depth := clampf(float(action["pos"]) / value_range, 0.0, 1.0)
 		if inverted:
 			depth = 1.0 - depth
-		var frame := roundi(float(action["at"]) * 60.0 / 1000.0)
+		var frame := roundi((float(action["at"]) + offset_ms) * 60.0 / 1000.0)
 		if frame < 0 or (max_frame > 0 and frame >= max_frame):
 			continue
 		if not points.is_empty() and points[-1][0] == frame:
