@@ -158,6 +158,58 @@ func load_path(file_path: String) -> void:
 	bx.get_node('Markers').set_markers()
 
 
+## Silence needs no fidelity, so a blank track is written at a rate where an
+## hour costs tens of megabytes rather than hundreds. Sixteen bit because
+## anything else sends the file down the conversion path every time it loads.
+const BLANK_TRACK_RATE := 8000
+const BLANK_TRACK_BITS := 16
+
+
+## Writes a silent track of the given length and returns where it went, so a
+## path can be built without any media to build it against. It is an ordinary
+## WAV in the tracks folder, which is the point: everything downstream treats
+## it as a track because it is one.
+func create_blank_track(track_name: String, seconds: float) -> String:
+	DirAccess.make_dir_recursive_absolute(tracks_dir)
+	var base := track_name.strip_edges().validate_filename()
+	if base == "":
+		base = "Blank"
+	var file_path := tracks_dir.path_join(base + ".wav")
+	var n := 2
+	while FileAccess.file_exists(file_path):
+		file_path = tracks_dir.path_join("%s (%d).wav" % [base, n])
+		n += 1
+	var file := FileAccess.open(file_path, FileAccess.WRITE)
+	if not file:
+		return ""
+	var width := BLANK_TRACK_BITS / 8
+	var samples := int(maxf(seconds, 0.1) * BLANK_TRACK_RATE)
+	var data_size := samples * width
+	file.store_buffer("RIFF".to_ascii_buffer())
+	file.store_32(36 + data_size)
+	file.store_buffer("WAVE".to_ascii_buffer())
+	file.store_buffer("fmt ".to_ascii_buffer())
+	file.store_32(16)
+	file.store_16(1)
+	file.store_16(1)
+	file.store_32(BLANK_TRACK_RATE)
+	file.store_32(BLANK_TRACK_RATE * width)
+	file.store_16(width)
+	file.store_16(BLANK_TRACK_BITS)
+	file.store_buffer("data".to_ascii_buffer())
+	file.store_32(data_size)
+	# Written a chunk at a time, so an hour of silence never sits in memory whole.
+	var chunk := PackedByteArray()
+	chunk.resize(1 << 16)
+	var written := 0
+	while written < data_size:
+		var size := mini(chunk.size(), data_size - written)
+		file.store_buffer(chunk if size == chunk.size() else chunk.slice(0, size))
+		written += size
+	file.close()
+	return file_path
+
+
 const MARKER_EXTENSIONS := ["png", "jpg", "jpeg", "webp", "svg"]
 
 static func is_marker_image(file_path: String) -> bool:

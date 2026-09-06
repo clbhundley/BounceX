@@ -332,7 +332,76 @@ func _on_paths_item_clicked(index: int, _at_position: Vector2, mouse_button_inde
 
 # ── Track file importer ───────────────────────────────────────────────────────
 
+## A track is what gives a path its length and somewhere to be saved, so making
+## one out of silence is how a path gets built with no media to build against.
 func _on_load_tracks_pressed() -> void:
+	if _pending_file_dialog:
+		return
+	var dialog := ConfirmationDialog.new()
+	dialog.theme = load("res://theme_basic.tres")
+	dialog.title = "Add Track"
+	dialog.ok_button_text = "Create Blank"
+	
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override('separation', 10)
+	dialog.add_child(vbox)
+	
+	var blurb := Label.new()
+	blurb.text = "A blank track is silence of a chosen length,\nfor building a path without any media."
+	vbox.add_child(blurb)
+	
+	var name_box := HBoxContainer.new()
+	name_box.add_theme_constant_override('separation', 20)
+	var name_label := Label.new()
+	name_label.text = "Name:"
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_box.add_child(name_label)
+	var name_input := LineEdit.new()
+	name_input.custom_minimum_size.x = 220
+	name_input.text = "Blank"
+	name_box.add_child(name_input)
+	vbox.add_child(name_box)
+	
+	var length_box := HBoxContainer.new()
+	length_box.add_theme_constant_override('separation', 20)
+	var length_label := Label.new()
+	length_label.text = "Length:"
+	length_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	length_box.add_child(length_label)
+	var length_input := SpinBox.new()
+	length_input.custom_minimum_size.x = 100
+	length_input.min_value = 1.0
+	length_input.max_value = 480.0
+	length_input.value = 60.0
+	length_input.suffix = "min"
+	length_box.add_child(length_input)
+	vbox.add_child(length_box)
+	
+	dialog.add_button("Load Files", true, "load")
+	dialog.custom_action.connect(func(action: StringName) -> void:
+		dialog.queue_free()
+		if action == &"load":
+			_open_track_file_dialog())
+	dialog.confirmed.connect(func() -> void:
+		_create_blank_track(name_input.text, length_input.value * 60.0)
+		dialog.queue_free())
+	dialog.canceled.connect(func(): dialog.queue_free())
+	add_child(dialog)
+	dialog.popup_centered()
+	name_input.grab_focus()
+	name_input.select_all()
+
+
+func _create_blank_track(track_name: String, seconds: float) -> void:
+	var file_path: String = Data.create_blank_track(track_name, seconds)
+	if file_path == "":
+		_show_notice("Could not write the blank track.")
+		return
+	load_tracks()
+	_select_track_by_name(file_path.get_file())
+
+
+func _open_track_file_dialog() -> void:
 	if _pending_file_dialog:
 		return
 	_pending_file_dialog = FileDialog.new()
