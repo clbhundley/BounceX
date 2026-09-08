@@ -66,5 +66,4 @@ func create_marker(frame: int, depth):
 
 
 func _on_cancel_pressed():
-	owner.input_disabled = false
 	hide()
