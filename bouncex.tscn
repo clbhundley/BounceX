@@ -10,8 +10,8 @@
 [ext_resource type="Texture2D" uid="uid://bius3v0napj7c" path="res://textures/ball.svg" id="8_5ek1g"]
 [ext_resource type="Texture2D" uid="uid://bkabq6ivbs23x" path="res://textures/circle.svg" id="9_ymix4"]
 [ext_resource type="Texture2D" uid="uid://b814vvdumyskt" path="res://textures/action_zone.svg" id="10_azone"]
-[ext_resource type="Texture2D" path="res://textures/glow_ring.svg" id="10_glow"]
 [ext_resource type="Texture2D" uid="uid://cbwqw7m1wqj64" path="res://textures/dot.svg" id="10_dtnc4"]
+[ext_resource type="Texture2D" uid="uid://bfwnhiy5oa2rh" path="res://textures/glow_ring.svg" id="10_glow"]
 [ext_resource type="Texture2D" uid="uid://bgcpkp1078rc6" path="res://textures/add_marker.svg" id="11_2agkk"]
 [ext_resource type="Texture2D" uid="uid://qn8b5b6gg863" path="res://textures/generate_cycle.svg" id="12_ak1ar"]
 [ext_resource type="Texture2D" uid="uid://1uor7ar7yyam" path="res://textures/copy.svg" id="13_2estk"]
@@ -143,10 +143,119 @@ func _on_pressed():
 "
 
 [sub_resource type="GDScript" id="GDScript_sh086"]
-script/source = "extends TextureButton\n\nfunc _on_mouse_entered():\n\tif not button_pressed:\n\t\tself_modulate.a = 1\n\telse:\n\t\tself_modulate.a = 1.8\n\n\nfunc _on_mouse_exited():\n\tif not button_pressed:\n\t\tself_modulate.a = 0.8\n\telse:\n\t\tself_modulate.a = 2.8\n\n\nvar glow_tween: Tween\n\nfunc _on_toggled(button_pressed):\n\tif glow_tween and glow_tween.is_valid():\n\t\tglow_tween.kill()\n\tglow_tween = create_tween().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART)\n\tif button_pressed:\n\t\tself_modulate = 'ffff40'\n\t\tself_modulate.a = 2.8\n\t\t$Glow.self_modulate = Color(self_modulate, 1.0)\n\t\tglow_tween.tween_property($Glow, 'modulate:a', 1.0, 0.25)\n\t\t%Controls.hide()\n\t\t%Options.show()\n\telse:\n\t\towner.input_disabled = false\n\t\tself_modulate = 'ffff40cc'\n\t\tglow_tween.tween_property($Glow, 'modulate:a', 0.0, 0.2)\n\t\t%Options.hide()\n\t\t%Controls.show()\n"
+script/source = "extends TextureButton
+
+func _on_mouse_entered():
+	if not button_pressed:
+		self_modulate.a = 1
+	else:
+		self_modulate.a = 1.8
+
+
+func _on_mouse_exited():
+	if not button_pressed:
+		self_modulate.a = 0.8
+	else:
+		self_modulate.a = 2.8
+
+
+var glow_tween: Tween
+
+func _on_toggled(button_pressed):
+	if glow_tween and glow_tween.is_valid():
+		glow_tween.kill()
+	glow_tween = create_tween().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART)
+	if button_pressed:
+		self_modulate = 'ffff40'
+		self_modulate.a = 2.8
+		$Glow.self_modulate = Color(self_modulate, 1.0)
+		glow_tween.tween_property($Glow, 'modulate:a', 1.0, 0.25)
+		%Controls.hide()
+		%Options.show()
+	else:
+		owner.input_disabled = false
+		self_modulate = 'ffff40cc'
+		glow_tween.tween_property($Glow, 'modulate:a', 0.0, 0.2)
+		%Options.hide()
+		%Controls.show()
+"
 
 [sub_resource type="GDScript" id="GDScript_8l1ut"]
-script/source = "extends TextureButton\n\nvar tween:Tween\n\n@onready var menu = owner.get_node('Menu')\n@onready var options_button = get_node('../OptionsButton')\n@onready var exit_button = get_node('../ExitButton')\n\nfunc _ready():\n\toptions_button.modulate.a = 0\n\toptions_button.position.x = 0\n\texit_button.modulate.a = 0\n\texit_button.position.x = 0\n\tui_mouse_filter(false)\n\n\nfunc _on_mouse_entered():\n\tif button_pressed:\n\t\tself_modulate.a = 0.8\n\telse:\n\t\tself_modulate = '4fd6d6'\n\n\nfunc _on_mouse_exited():\n\tif button_pressed:\n\t\tself_modulate.a = 1\n\telse:\n\t\tself_modulate = '74ffffa1'\n\n\nfunc _on_toggled(button_pressed):\n\ttween = get_tree().create_tween()\n\ttween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART).set_parallel()\n\tvar menu_pos:float\n\tvar options_pos:float\n\tvar exit_pos:float\n\tvar alpha:float\n\tif button_pressed:\n\t\tfor node in [get_node('../Record'), get_node('../Play')]:\n\t\t\tnode.modulate.a = 0\n\t\tmenu_pos = 0\n\t\toptions_pos = 127\n\t\texit_pos = 245\n\t\talpha = 1\n\t\tself_modulate = '00a86b'\n\t\tif get_node('../OptionsButton').toggled:\n\t\t\tget_node('../OptionsButton').button_pressed = false\n\t\ttween.tween_callback(ui_mouse_filter.bind(true)).set_delay(0.3)\n\telse:\n\t\tfor node in [get_node('../Record'), get_node('../Play')]:\n\t\t\tnode.modulate.a = 1\n\t\tmenu_pos = -menu.size.x\n\t\toptions_pos = 0\n\t\texit_pos = 0\n\t\talpha = 0\n\t\tself_modulate = '74ffffa1'\n\t\towner.input_disabled = false\n\t\ttween.tween_callback(ui_mouse_filter.bind(false)).set_delay(0.3)\n\t$Glow.self_modulate = Color(self_modulate, 1.0)\n\ttween.tween_property($Glow, 'modulate:a', alpha, 0.25)\n\ttween.tween_property(menu, 'position:x', menu_pos, 0.25)\n\ttween.tween_property(options_button, 'position:x', options_pos, 0.3)\n\ttween.tween_property(options_button, 'modulate:a', alpha, 0.3)\n\ttween.tween_property(exit_button, 'position:x', exit_pos, 0.3)\n\ttween.tween_property(exit_button, 'modulate:a', alpha, 0.4)\n\n\nfunc ui_mouse_filter(active:bool) -> void:\n\tif active:\n\t\toptions_button.mouse_filter = MOUSE_FILTER_STOP\n\t\texit_button.mouse_filter = MOUSE_FILTER_STOP\n\telse:\n\t\toptions_button.mouse_filter = MOUSE_FILTER_IGNORE\n\t\texit_button.mouse_filter = MOUSE_FILTER_IGNORE\n"
+script/source = "extends TextureButton
+
+var tween:Tween
+
+@onready var menu = owner.get_node('Menu')
+@onready var options_button = get_node('../OptionsButton')
+@onready var exit_button = get_node('../ExitButton')
+
+func _ready():
+	options_button.modulate.a = 0
+	options_button.position.x = 0
+	exit_button.modulate.a = 0
+	exit_button.position.x = 0
+	ui_mouse_filter(false)
+
+
+func _on_mouse_entered():
+	if button_pressed:
+		self_modulate.a = 0.8
+	else:
+		self_modulate = '4fd6d6'
+
+
+func _on_mouse_exited():
+	if button_pressed:
+		self_modulate.a = 1
+	else:
+		self_modulate = '74ffffa1'
+
+
+func _on_toggled(button_pressed):
+	tween = get_tree().create_tween()
+	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART).set_parallel()
+	var menu_pos:float
+	var options_pos:float
+	var exit_pos:float
+	var alpha:float
+	if button_pressed:
+		for node in [get_node('../Record'), get_node('../Play')]:
+			node.modulate.a = 0
+		menu_pos = 0
+		options_pos = 127
+		exit_pos = 245
+		alpha = 1
+		self_modulate = '00a86b'
+		if get_node('../OptionsButton').toggled:
+			get_node('../OptionsButton').button_pressed = false
+		tween.tween_callback(ui_mouse_filter.bind(true)).set_delay(0.3)
+	else:
+		for node in [get_node('../Record'), get_node('../Play')]:
+			node.modulate.a = 1
+		menu_pos = -menu.size.x
+		options_pos = 0
+		exit_pos = 0
+		alpha = 0
+		self_modulate = '74ffffa1'
+		owner.input_disabled = false
+		tween.tween_callback(ui_mouse_filter.bind(false)).set_delay(0.3)
+	$Glow.self_modulate = Color(self_modulate, 1.0)
+	tween.tween_property($Glow, 'modulate:a', alpha, 0.25)
+	tween.tween_property(menu, 'position:x', menu_pos, 0.25)
+	tween.tween_property(options_button, 'position:x', options_pos, 0.3)
+	tween.tween_property(options_button, 'modulate:a', alpha, 0.3)
+	tween.tween_property(exit_button, 'position:x', exit_pos, 0.3)
+	tween.tween_property(exit_button, 'modulate:a', alpha, 0.4)
+
+
+func ui_mouse_filter(active:bool) -> void:
+	if active:
+		options_button.mouse_filter = MOUSE_FILTER_STOP
+		exit_button.mouse_filter = MOUSE_FILTER_STOP
+	else:
+		options_button.mouse_filter = MOUSE_FILTER_IGNORE
+		exit_button.mouse_filter = MOUSE_FILTER_IGNORE
+"
 
 [sub_resource type="GDScript" id="GDScript_cf1v0"]
 script/source = "extends Button
@@ -1541,8 +1650,8 @@ mouse_filter = 2
 texture = ExtResource("22_ualp2")
 
 [node name="Glow" type="TextureRect" parent="Header/OptionsButton" unique_id=1140277024]
-show_behind_parent = true
 modulate = Color(1, 1, 1, 0)
+show_behind_parent = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1586,8 +1695,8 @@ mouse_filter = 2
 texture = ExtResource("23_fa01g")
 
 [node name="Glow" type="TextureRect" parent="Header/MenuButton" unique_id=1140277025]
-show_behind_parent = true
 modulate = Color(1, 1, 1, 0)
+show_behind_parent = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1728,8 +1837,9 @@ anchor_right = 0.5
 offset_left = -220.0
 offset_top = 74.0
 offset_right = 223.0
-offset_bottom = 309.0
+offset_bottom = 331.0
 grow_horizontal = 2
+theme = ExtResource("33_jwkas")
 script = ExtResource("28_camxn")
 
 [node name="Title" type="Label" parent="GenerateCycle" unique_id=52703928]
@@ -1759,7 +1869,7 @@ offset_right = 203.0
 offset_bottom = 47.5
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 14
 
 [node name="Interval" type="HBoxContainer" parent="GenerateCycle/Inputs" unique_id=1493448707]
 layout_mode = 2
@@ -1846,7 +1956,7 @@ step = 0.01
 
 [node name="StartingPosition" type="HBoxContainer" parent="GenerateCycle/Inputs" unique_id=1466234782]
 layout_mode = 2
-theme_override_constants/separation = 40
+theme_override_constants/separation = 45
 
 [node name="Positions" type="HBoxContainer" parent="GenerateCycle/Inputs/StartingPosition" unique_id=149887406]
 layout_mode = 2
@@ -1860,21 +1970,14 @@ vertical_alignment = 1
 layout_mode = 2
 selected = 1
 item_count = 2
-popup/item_0/text = "Top"
+popup/item_0/text = " Top"
 popup/item_0/id = 0
-popup/item_1/text = "Bottom"
+popup/item_1/text = " Bottom"
 popup/item_1/id = 1
 
-[node name="Flat" type="HBoxContainer" parent="GenerateCycle/Inputs/StartingPosition" unique_id=939350664]
+[node name="FlatCheckBox" type="CheckBox" parent="GenerateCycle/Inputs/StartingPosition" unique_id=977300997]
 layout_mode = 2
-
-[node name="Label" type="Label" parent="GenerateCycle/Inputs/StartingPosition/Flat" unique_id=493971019]
-layout_mode = 2
-text = "Flat:"
-vertical_alignment = 1
-
-[node name="CheckBox" type="CheckBox" parent="GenerateCycle/Inputs/StartingPosition/Flat" unique_id=977300997]
-layout_mode = 2
+text = "Flat "
 
 [node name="Buttons" type="HBoxContainer" parent="GenerateCycle" unique_id=844730574]
 layout_mode = 1
@@ -1889,15 +1992,15 @@ offset_right = 89.5
 offset_bottom = -11.0
 grow_horizontal = 2
 grow_vertical = 0
-theme_override_constants/separation = 20
+theme_override_constants/separation = 27
 
 [node name="Generate" type="Button" parent="GenerateCycle/Buttons" unique_id=2023941233]
 layout_mode = 2
-text = "Generate"
+text = " Generate "
 
 [node name="Cancel" type="Button" parent="GenerateCycle/Buttons" unique_id=1646498830]
 layout_mode = 2
-text = "Cancel"
+text = " Cancel "
 
 [node name="InfoPanel" type="Panel" parent="." unique_id=13593172]
 visible = false

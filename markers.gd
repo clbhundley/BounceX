@@ -846,7 +846,6 @@ func _on_generate_cycle_mouse_exited():
 func _on_generate_cycle_pressed():
 	if owner.path.is_empty():
 		return
-	owner.input_disabled = true
 	owner.get_node('GenerateCycle').show()
 
 

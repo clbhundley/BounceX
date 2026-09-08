@@ -11,7 +11,7 @@ var interval_frames: float
 @onready var frame_interval_input = $Inputs/Interval/FrameInterval/SpinBox
 
 func _ready():
-	self_modulate.a = 1.6
+	self_modulate.a = 1.33
 	interval_frames = FRAMES_PER_MINUTE / bpm_input.value
 
 
@@ -31,7 +31,7 @@ func _on_generate_pressed():
 	var depth = $Inputs/Positions/Depth/SpinBox.value
 	var starting_frame: int = owner.frame
 	phase = $Inputs/StartingPosition/Positions/OptionButton.selected
-	if $Inputs/StartingPosition/Flat/CheckBox.button_pressed:
+	if $Inputs/StartingPosition/FlatCheckBox.button_pressed:
 		if phase == 0:
 			positions = [height, height]
 		elif phase == 1:
@@ -42,7 +42,6 @@ func _on_generate_pressed():
 	for i in range(1, length):
 		var current_frame: int = starting_frame + roundi(interval_frames * i)
 		create_marker(current_frame, positions[phase])
-	owner.input_disabled = false
 	owner.save_path()
 	hide()
 
