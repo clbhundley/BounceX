@@ -10,14 +10,304 @@ var selecting_to_edge: bool
 
 const SEPARATION_MIN := 5
 
+## How far past each edge of the screen a marker is shown, so that markers are
+## already in place before they scroll into view.
+const VISIBILITY_MARGIN := 400.0
+
+## Markers read as targets to hit rather than points on a line in classic mode,
+## so they are drawn larger and given a moment to register as they land. Size
+## comes from a texture rasterised at that size: scaling a node resamples the
+## bitmap it already has and softens it.
+const CLASSIC_MARKER_TEXTURE := "res://textures/ball_large.svg"
+const CLASSIC_RING_SCALE := 1.6
+const CLASSIC_FLASH_FRAMES := 8
+
+## What a marker fades to once it is behind the zone while recording, so that
+## the shape of what has been laid down stays readable without competing with
+## the markers still to come.
+const CLASSIC_GHOST_ALPHA := 0.25
+
+var _ghosting: bool
+var _played_edge: int
+
+var _default_texture: Texture2D
+var _classic_texture: Texture2D
+var _custom_texture: Texture2D
+var custom_marker_name: String
+var _flashing: Dictionary
+
+var marker_color := Color.WHITE
+var hold_breath_marker_color := Color.HOT_PINK
+
+var _sorted_frames: Array
+var _window_dirty := true
+var _visible_lo := 0
+var _visible_hi := 0
+
 @onready var frame_input = %MarkersMenu/HBox/Frame/Input
 @onready var depth_input = %MarkersMenu/HBox/Depth/Input
 
 func _ready():
+	_default_texture = $Marker.texture
+	if ResourceLoader.exists(CLASSIC_MARKER_TEXTURE):
+		_classic_texture = load(CLASSIC_MARKER_TEXTURE)
 	var inputs = [frame_input.get_line_edit(), depth_input.get_line_edit()]
 	for input in inputs:
 		input.focus_entered.connect(input_focus_entered)
 		input.focus_exited.connect(input_focus_exited)
+
+
+func _physics_process(_delta: float) -> void:
+	# A render carries the markers forward itself, one drawn frame at a time.
+	if owner.rendering:
+		return
+	if is_visible_in_tree():
+		update_visible_window()
+	step_flashes()
+
+
+## Markers off screen still cost a transform update every time this container
+## moves, and every one of their buttons sits in the input picking set, so only
+## the span either side of the playhead is left visible.
+## Rebuilds the sorted frame list if markers have changed since it was last
+## needed. Every marker lookup goes through here, so adding one marker costs a
+## single sort however many lookups follow it.
+func _refresh_frames() -> void:
+	if not _window_dirty:
+		return
+	# Only what is actually on screen needs clearing; walking every marker here
+	# would undo the point of the window while markers are dragged.
+	for i in range(_visible_lo, _visible_hi):
+		_set_marker_visible(i, false)
+	_sorted_frames = marker_list.keys()
+	_sorted_frames.sort()
+	_visible_lo = 0
+	_visible_hi = 0
+	_window_dirty = false
+	_apply_window()
+
+
+func update_visible_window() -> void:
+	_refresh_frames()
+	_apply_window()
+
+
+func _apply_window() -> void:
+	if _sorted_frames.is_empty():
+		return
+	var speed: float = owner.path_speed
+	if speed <= 0.0:
+		return
+	var width: float = get_viewport_rect().size.x
+	var playhead: float = owner.playhead_position()
+	var margin: float = VISIBILITY_MARGIN + marker_extent()
+	var hi := int(owner.frame + (width - playhead + margin) / speed)
+	# Markers behind the zone have been played, and are dropped unless they are
+	# being kept as a record of what has just been laid down.
+	_ghosting = owner.classic_mode and not owner.rendering
+	var lo: int
+	if owner.classic_mode and not _ghosting:
+		lo = owner.frame
+	else:
+		lo = int(owner.frame - (playhead + margin) / speed)
+	var new_lo: int = _sorted_frames.bsearch(lo, true)
+	var new_hi: int = _sorted_frames.bsearch(hi + 1, true)
+	# A flash marks a marker reaching the zone, so it belongs to a single marker
+	# leaving at the near edge, not to markers dropped in bulk by a scrub or by
+	# markers going back out of view ahead of the zone.
+	var crossing: bool = not _ghosting \
+		and mini(_visible_hi, new_lo) - _visible_lo == 1
+	for i in range(_visible_lo, mini(_visible_hi, new_lo)):
+		_set_marker_visible(i, false, crossing)
+	for i in range(maxi(_visible_lo, new_hi), _visible_hi):
+		_set_marker_visible(i, false)
+	for i in range(new_lo, mini(new_hi, _visible_lo)):
+		_set_marker_visible(i, true)
+	for i in range(maxi(new_lo, _visible_hi), new_hi):
+		_set_marker_visible(i, true)
+	_visible_lo = new_lo
+	_visible_hi = new_hi
+	if not _ghosting:
+		_played_edge = 0
+		return
+	# Markers behind the zone are held back rather than dropped, so reaching it
+	# is no longer a marker leaving. Raise the flash off that crossing instead,
+	# and let it settle into a ghost rather than fade away entirely.
+	var played: int = clampi(
+		_sorted_frames.bsearch(owner.frame, true), new_lo, new_hi)
+	if owner.is_advancing() and played - _played_edge == 1:
+		var landing = marker_list.get(_sorted_frames[played - 1])
+		if is_instance_valid(landing):
+			_flashing[landing] = CLASSIC_FLASH_FRAMES
+	_played_edge = played
+	for i in range(new_lo, new_hi):
+		var node = marker_list.get(_sorted_frames[i])
+		if is_instance_valid(node) and not _flashing.has(node):
+			node.modulate.a = CLASSIC_GHOST_ALPHA if i < played else 1.0
+
+
+## Placing a marker used to invalidate the whole sorted list, so recording onto
+## a long path paid for a full sort per marker. One frame can be slotted in.
+func _window_insert(frame: int) -> void:
+	if _window_dirty:
+		return
+	var index: int = _sorted_frames.bsearch(frame, true)
+	if index >= _sorted_frames.size() or _sorted_frames[index] != frame:
+		_sorted_frames.insert(index, frame)
+		if index < _visible_lo:
+			_visible_lo += 1
+			_visible_hi += 1
+		elif index < _visible_hi:
+			_visible_hi += 1
+			_set_marker_visible(index, true)
+	elif index >= _visible_lo and index < _visible_hi:
+		_set_marker_visible(index, true)
+	_apply_window()
+
+
+func _set_marker_visible(index: int, value: bool, flash := false) -> void:
+	var node = marker_list.get(_sorted_frames[index])
+	if not is_instance_valid(node):
+		return
+	if _flashing.has(node):
+		_flashing.erase(node)
+		node.scale = Vector2.ONE
+	node.modulate = Color.WHITE
+	if value or not flash or not owner.is_advancing():
+		node.visible = value
+		return
+	_flashing[node] = CLASSIC_FLASH_FRAMES
+
+
+## Carries every marker leaving the zone one frame further through its flash.
+## Counted in frames rather than seconds so that a render, which draws frames
+## far slower than they play, sends markers off over the same span either way.
+func step_flashes() -> void:
+	for marker in _flashing.keys():
+		if not is_instance_valid(marker):
+			_flashing.erase(marker)
+			continue
+		var remaining: int = _flashing[marker] - 1
+		var settles_to: float = CLASSIC_GHOST_ALPHA if _ghosting else 0.0
+		if remaining <= 0:
+			_flashing.erase(marker)
+			marker.scale = Vector2.ONE
+			marker.modulate.a = settles_to
+			marker.visible = _ghosting
+			continue
+		_flashing[marker] = remaining
+		var progress := 1.0 - float(remaining) / float(CLASSIC_FLASH_FRAMES)
+		marker.modulate.a = lerpf(1.0, settles_to, progress)
+		marker.scale = Vector2.ONE * (1.0 + 0.8 * progress)
+
+
+## The ring and the selection dot are editing affordances that never reach a
+## render, so they are scaled to keep up with the larger marker.
+func style_marker(marker: Sprite2D) -> void:
+	# Ghosting fades markers as they pass the zone, and nothing else restores
+	# them until they leave the window, so a marker restyled part way through
+	# would otherwise keep whatever it faded to.
+	marker.modulate.a = 1.0
+	if int(marker.get_meta('auxiliary')) & 1 << 0:
+		marker.self_modulate = hold_breath_marker_color
+	else:
+		marker.self_modulate = marker_color
+	if owner.classic_mode and _custom_texture != null:
+		marker.texture = _custom_texture
+	elif owner.classic_mode and _classic_texture != null:
+		marker.texture = _classic_texture
+	else:
+		marker.texture = _default_texture
+	# The ring and the selection dot are Controls under a Node2D, so their
+	# offsets were resolved against whichever marker texture was in place when
+	# the scene was laid out. Moving the anchors alone leaves those offsets
+	# describing the old texture, so the offsets have to be worked out again
+	# with them, at the size the nodes already have.
+	var button: Control = marker.get_node('Button')
+	button.set_anchors_and_offsets_preset(
+		Control.PRESET_CENTER, Control.PRESET_MODE_KEEP_SIZE)
+	# Every ring sits a layer above every marker, so a large image cannot bury
+	# the ring belonging to the marker beside it.
+	button.z_index = 1
+	# Scaled about its own centre, which the preset has just settled, so the
+	# ring keeps up with the larger marker without drifting off it.
+	if owner.classic_mode:
+		button.scale = Vector2.ONE * CLASSIC_RING_SCALE
+	else:
+		button.scale = Vector2.ONE
+
+
+## Loads a marker image a user has supplied, by file name within the markers
+## directory. An empty name, or one that will not load, leaves the built in
+## marker in place rather than leaving the path unreadable.
+func set_custom_marker(file_name: String) -> void:
+	custom_marker_name = file_name
+	_custom_texture = null
+	if file_name != "":
+		var image := _read_marker_image(Data.markers_dir.path_join(file_name))
+		if image != null and not image.is_empty():
+			_custom_texture = ImageTexture.create_from_image(image)
+		else:
+			custom_marker_name = ""
+			printerr("could not read marker image: " + file_name)
+	apply_marker_style()
+
+
+## Vectors are rasterised at the size they describe, the same way the built in
+## markers are, so an SVG sizes a marker by its own dimensions like any other
+## image does.
+func _read_marker_image(file_path: String) -> Image:
+	if file_path.get_extension().to_lower() != "svg":
+		return Image.load_from_file(file_path)
+	var file := FileAccess.open(file_path, FileAccess.READ)
+	if not file:
+		return null
+	var source := file.get_buffer(file.get_length())
+	file.close()
+	var image := Image.new()
+	if image.load_svg_from_buffer(source) != OK:
+		return null
+	return image
+
+
+## Half the width of the marker being drawn: how far past the edge of the
+## screen one sits before any part of it shows. A marker image can be any size,
+## so anything that has to bring markers on from off screen asks rather than
+## assumes.
+func marker_extent() -> float:
+	var texture: Texture2D = _default_texture
+	if owner.classic_mode and _custom_texture != null:
+		texture = _custom_texture
+	elif owner.classic_mode and _classic_texture != null:
+		texture = _classic_texture
+	if texture == null:
+		return 0.0
+	return texture.get_width() * 0.5
+
+
+## Hides the ring and the selection dot, which belong to editing rather than to
+## the path itself and have no place in a render.
+func set_buttons_visible(value: bool) -> void:
+	for node in marker_list.values():
+		if is_instance_valid(node):
+			node.get_node('Button').visible = value
+
+
+## Clearing the markers from outside has to invalidate the window along with
+## them, or the sorted frames keep describing markers that no longer exist.
+func clear_markers() -> void:
+	for node in marker_list.values():
+		if is_instance_valid(node):
+			node.queue_free()
+	marker_list.clear()
+	_window_dirty = true
+
+
+func apply_marker_style() -> void:
+	_flashing.clear()
+	for node in marker_list.values():
+		if is_instance_valid(node):
+			style_marker(node)
 
 
 func _input(event):
@@ -44,6 +334,7 @@ func set_markers():
 	for node in marker_list.values():
 		node.queue_free()
 	marker_list.clear()
+	_window_dirty = true
 	var marker_data = owner.marker_data
 	for frame in marker_data.keys():
 		add_marker(
@@ -57,19 +348,16 @@ func set_markers():
 
 func add_marker(frame, depth, trans=null, ease=null, auxiliary=0):
 	var marker: Sprite2D = $Marker.duplicate()
-	marker.show()
-	for node in marker_list.values():
-		if node.get_meta('frame') == frame:
-			node.queue_free()
-	var index = get_marker_index(frame)
+	# Left hidden: update_visible_window() owns marker visibility and reveals
+	# this one on the next tick if it falls inside the window.
+	if marker_list.has(frame) and is_instance_valid(marker_list[frame]):
+		marker_list[frame].queue_free()
 	if trans == null:
 		trans = %MarkersMenu/HBox/Trans.selected
 	if ease == null:
 		ease = owner.get_ease_direction(depth)
-	if auxiliary:
-		if int(auxiliary) & 1 << 0:
-			marker.self_modulate = Color.HOT_PINK
 	marker_list[frame] = marker
+	_window_insert(frame)
 	var marker_button = marker.get_node('Button')
 	marker_button.toggled.connect(marker_toggled.bind(marker))
 	marker_button.gui_input.connect(_on_marker_gui_input.bind(marker))
@@ -82,6 +370,9 @@ func add_marker(frame, depth, trans=null, ease=null, auxiliary=0):
 	marker.position.y = render_pos
 	marker.position.x = frame * owner.path_speed
 	add_child(marker)
+	# Styled once in the tree: a Control settles its offsets against its parent
+	# on entering, which would undo any worked out before it got there.
+	style_marker(marker)
 
 
 var mouse_movement: Vector2
@@ -249,21 +540,22 @@ func get_marker_depth(marker) -> float:
 
 
 func get_marker_index(frame: int) -> int:
-	var keys = marker_list.keys()
-	keys.sort()
-	return keys.find(frame)
+	_refresh_frames()
+	var index: int = _sorted_frames.bsearch(frame, true)
+	if index < _sorted_frames.size() and _sorted_frames[index] == frame:
+		return index
+	return -1
 
 
 func get_previous_frame(frame: int, look_back := 1) -> int:
-	var keys = marker_list.keys()
-	keys.sort()
-	return keys[max(keys.find(frame) - look_back, 0)]
+	_refresh_frames()
+	return _sorted_frames[maxi(get_marker_index(frame) - look_back, 0)]
 
 
 func get_next_frame(frame:int, look_forward := 1) -> int:
-	var keys = marker_list.keys()
-	keys.sort()
-	return keys[min(keys.find(frame) + look_forward, marker_list.size() - 1)]
+	_refresh_frames()
+	return _sorted_frames[mini(
+		get_marker_index(frame) + look_forward, _sorted_frames.size() - 1)]
 
 
 func connect_marker(frame: int, connect_next := true) -> void:
@@ -271,9 +563,8 @@ func connect_marker(frame: int, connect_next := true) -> void:
 		return
 	var previous_frame = get_previous_frame(frame)
 	var next_frame = get_next_frame(frame)
-	var marker: Node = marker_list[frame]
-	var previous: Node = marker_list[previous_frame]
-	var starting_position = previous.position
+	var marker: Sprite2D = marker_list[frame]
+	var previous: Sprite2D = marker_list[previous_frame]
 	if connect_next and next_frame != frame:
 		connect_marker(next_frame, false)
 	if marker.has_meta('line'):
@@ -282,24 +573,45 @@ func connect_marker(frame: int, connect_next := true) -> void:
 			remove_child(marker_line)
 			marker_line.queue_free()
 	var line = $Line.duplicate()
+	line.visible = not owner.classic_mode
 	add_child(line)
 	line.add_to_group('lines')
 	marker.set_meta('line', line)
-	var tween = get_tree().create_tween()
-	tween.set_trans(marker.get_meta('trans'))
-	tween.set_ease(marker.get_meta('ease'))
-	var steps = marker.get_meta('frame') - previous.get_meta('frame')
-	tween.tween_property(previous, 'position:y', marker.position.y, steps)
-	tween.pause()
-	line.clear_points()
-	var line_frame = previous.get_meta('frame')
-	for i in steps + 1:
-		owner.path[line_frame] = get_marker_depth(previous)
-		line.add_point(previous.position)
-		tween.custom_step(1)
-		previous.position.x += owner.path_speed
-		line_frame += 1
-	previous.position = starting_position
+	var steps: int = marker.get_meta('frame') - previous.get_meta('frame')
+	var line_frame: int = previous.get_meta('frame')
+	var start := previous.position
+	var span: float = marker.position.y - start.y
+	var bottom: float = owner.BOTTOM
+	var height: float = owner.TOP - bottom
+	var speed: float = owner.path_speed
+	var last_frame: int = owner.path.size()
+	# Evaluating the easing directly, rather than stepping a Tween a frame at a
+	# time, keeps this proportional to the gap without the per step cost. The
+	# gap between two markers can run to tens of thousands of frames, so
+	# everything that does not vary across it is read once.
+	var points := PackedVector2Array()
+	if steps == 0 or is_zero_approx(span):
+		# The markers sit at the same depth, so the path holds and the line
+		# between them is straight: it needs no easing and only two points.
+		var depth: float = absf((start.y - bottom) / height)
+		for i in range(line_frame, mini(line_frame + steps + 1, last_frame)):
+			owner.path[i] = depth
+		points.append(start)
+		if steps > 0:
+			points.append(Vector2(start.x + steps * speed, start.y))
+	else:
+		var trans = marker.get_meta('trans')
+		var ease = marker.get_meta('ease')
+		var duration := float(steps)
+		var fill_limit: int = clampi(last_frame - line_frame, 0, steps + 1)
+		points.resize(steps + 1)
+		for i in steps + 1:
+			var y: float = Tween.interpolate_value(
+				start.y, span, float(i), duration, trans, ease)
+			points[i] = Vector2(start.x + i * speed, y)
+			if i < fill_limit:
+				owner.path[line_frame + i] = absf((y - bottom) / height)
+	line.points = points
 
 
 func connect_all_markers():
@@ -323,9 +635,8 @@ func place_ball_on_path():
 
 
 func position_markers():
-	var center: Vector2 = get_viewport_rect().size / 2
-	var diff = center.x - (owner.frame * owner.path_speed) - position.x
-	position.x = center.x - (owner.frame * owner.path_speed)
+	position.x = owner.playhead_position() - (owner.frame * owner.path_speed)
+	update_visible_window()
 
 
 func select_to(index: int):
@@ -381,12 +692,13 @@ func _on_frame_value_changed(value: int):
 		owner.marker_data[new_frame] = orig_marker_data
 		marker_list.erase(orig_frame)
 		marker_list[new_frame] = marker
+		_window_dirty = true
 	for marker in markers:
 		var frame = marker.get_meta('frame')
 		clear_ahead(frame)
 		connect_marker(frame)
 		place_ball_on_path()
-	Data.save_path()
+	Data.save_path_debounced()
 
 
 func _on_depth_value_changed(value):
@@ -418,8 +730,8 @@ func _on_depth_value_changed(value):
 		if marker_frame == 0:
 			connect_marker(get_next_frame(0))
 		connect_marker(marker_frame)
-		place_ball_on_path()
-		Data.save_path()
+	place_ball_on_path()
+	Data.save_path_debounced()
 
 
 func _on_trans_selected(index):
@@ -435,8 +747,8 @@ func _on_trans_selected(index):
 		var frame = marker.get_meta('frame')
 		owner.marker_data[frame][1] = index
 		connect_marker(frame)
-		place_ball_on_path()
-		Data.save_path()
+	place_ball_on_path()
+	Data.save_path()
 
 
 func _on_easing_selected(index):
@@ -451,8 +763,8 @@ func _on_easing_selected(index):
 		var frame = marker.get_meta('frame')
 		owner.marker_data[frame][2] = index
 		connect_marker(frame)
-		place_ball_on_path()
-		Data.save_path()
+	place_ball_on_path()
+	Data.save_path()
 
 
 func _on_up_easing_selected(index):
@@ -512,7 +824,13 @@ func _on_add_marker_mouse_exited():
 func _on_add_marker_pressed():
 	if owner.path.is_empty():
 		return
-	owner.place_marker(owner.get_ball_depth())
+	# The ball follows a path that classic mode does not show, so placing
+	# against it there puts markers at a depth there is no way to see. Start
+	# them at the middle instead, where the zone is.
+	if owner.classic_mode:
+		owner.place_marker(0.5)
+	else:
+		owner.place_marker(owner.get_ball_depth())
 	_on_add_marker_mouse_exited()
 	owner.save_path()
 
@@ -528,7 +846,6 @@ func _on_generate_cycle_mouse_exited():
 func _on_generate_cycle_pressed():
 	if owner.path.is_empty():
 		return
-	owner.input_disabled = true
 	owner.get_node('GenerateCycle').show()
 
 
@@ -647,6 +964,7 @@ func _on_delete_pressed():
 		var next_frame = get_next_frame(frame)
 		clear_ahead(frame)
 		marker_list.erase(frame)
+		_window_dirty = true
 		owner.marker_data.erase(frame)
 		owner.path[frame] = -1
 		var line = selected_marker.get_meta('line')
@@ -669,6 +987,7 @@ func _on_delete_pressed():
 			var previous_frame = get_previous_frame(frame)
 			var next_frame = get_next_frame(frame)
 			marker_list.erase(frame)
+			_window_dirty = true
 			owner.marker_data.erase(frame)
 			for point in range(previous_frame, next_frame + 1):
 				owner.path[point] = -1

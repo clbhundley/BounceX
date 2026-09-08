@@ -30,6 +30,17 @@ const DRAG_RESISTANCE: float = 4
 var shift_pressed: bool
 var control_pressed: bool
 
+## Classic mode drops the path and the lines joining markers, leaving markers
+## travelling into a fixed zone that they disappear at. It is a way to follow a
+## track by the beat rather than by a continuous position.
+var classic_mode: bool
+var action_zone: float = 0.5
+
+## How wide the zone is drawn. Its height follows the path, since a marker can
+## land anywhere between the two lines.
+const ACTION_ZONE_WIDTH := 50.0
+var rendering: bool
+
 var input_disabled: bool
 var is_video_track: bool = false
 var _video_resync: int = 0
@@ -44,8 +55,8 @@ func _init():
 
 func _ready():
 	Data.load_config()
-	$Path.gradient.offsets[1] = 1
-	$Path.width = %Options/PathThickness.value
+	$Path.gradient.set_offset(1, 1.0)
+	$Path.width = %PathOptions/PathThickness.value
 	$Menu.self_modulate.a = 1.65
 	$MarkersMenu.self_modulate.a = 1.3
 	toggle_ball_visible(false)
@@ -177,6 +188,19 @@ func get_ease_direction(depth) -> int:
 		return $MarkersMenu/HBox/EaseUp.selected
 	else:
 		return $MarkersMenu/HBox/EaseDown.selected
+
+
+## Classic mode has the action zone in the ball's place, so the ball stays off
+## screen there however it is asked for.
+## Whether the path is being carried forward, by playing or by rendering. Both
+## want markers sent off with a flash; scrubbing and editing do not.
+func is_advancing() -> bool:
+	return rendering or %Play.button_pressed
+
+
+
+func set_ball_hidden(hidden: bool) -> void:
+	$Ball.visible = not (hidden or classic_mode)
 
 
 func toggle_ball_visible(toggled: bool) -> void:
@@ -389,7 +413,7 @@ func _on_play_toggled(button_pressed):
 		%Play.button_pressed = true
 		$Header/Play.show()
 		if $Markers.is_visible_in_tree():
-			$Ball.show()
+			set_ball_hidden(false)
 			$Markers.position_markers()
 	else:
 		toggle_ball_visible(false)
@@ -406,6 +430,14 @@ func _on_render_pressed():
 	$RenderOptions.popup_centered()
 
 
+## Frames of tail beyond the path leaving the screen, covering the rounding in
+## the layout that decides where it enters.
+const LEAD_OUT_MARGIN := 30
+
+## Frames before a marker would first touch the edge of the screen, so that it
+## arrives from outside the frame rather than appearing at it.
+const LEAD_IN_MARGIN := 20
+
 var apply_lead_in := true
 var apply_lead_out := true
 var active_effects: Dictionary
@@ -417,8 +449,8 @@ func render(starting_frame: int, ending_frame: int):
 	var selected_track = $Menu/Controls/Tracks/TrackSelection.selected
 	var track_name = $Menu/Controls/Tracks/TrackSelection.get_item_text(selected_track)
 	
-	var x_size = %Options/RenderResolution/Values/X.value
-	var y_size = %Options/RenderResolution/Values/Y.value
+	var x_size = %PathOptions/RenderResolution/Values/X.value
+	var y_size = %PathOptions/RenderResolution/Values/Y.value
 	
 	var window_starting_mode = DisplayServer.window_get_mode()
 	var window_starting_size = DisplayServer.window_get_size()
@@ -481,8 +513,11 @@ func render(starting_frame: int, ending_frame: int):
 		_aux_sequenced[section] = sequences
 	
 	#format aux data
+	# The hold breath flash plays over the ball and the path, neither of which
+	# classic mode draws, so there is nothing for it to act on there. Markers
+	# carry the flag by their colour instead.
 	var aux_effects: Dictionary
-	for section in _aux_sequenced:
+	for section in _aux_sequenced if not classic_mode else []:
 		aux_effects[section] = {}
 		for sequence in _aux_sequenced[section]:
 			var start_frame = marker_list[sequence[0]]
@@ -517,7 +552,7 @@ func render(starting_frame: int, ending_frame: int):
 	
 	$Path.position.x = offset
 	$Path.clear_points()
-	$Path.gradient.offsets[1] = 0.5
+	$Path.gradient.set_offset(1, 0.5)
 	
 	if is_video_track:
 		%VideoStreamPlayer.hide()
@@ -544,6 +579,12 @@ func render(starting_frame: int, ending_frame: int):
 	
 	var _ball_distance = path_origin.x - $Ball.position.x
 	var distance = ceil(_ball_distance / path_speed) + _distance_adjust
+	if classic_mode:
+		# The lead in runs exactly long enough to carry the path in from the
+		# right edge, which leaves a marker sitting half on screen from the
+		# first frame. Give it the room its own image needs to arrive from
+		# beyond the edge instead.
+		distance += ceili($Markers.marker_extent() / path_speed) + LEAD_IN_MARGIN
 	
 	var _cutoff_adjust:int
 	match int(path_speed):
@@ -575,12 +616,29 @@ func render(starting_frame: int, ending_frame: int):
 		$Path.position.x -= path_speed
 		step += path_speed
 	
-	$Path.show()
-	$Markers.hide()
+	rendering = true
+	var frame_before_render := frame
+	$Path.visible = not classic_mode
+	$Markers.visible = classic_mode
 	$MarkersMenu.hide()
+	if classic_mode:
+		$Markers.set_buttons_visible(false)
 	
-	var loop_end: int = ending_frame + (cutoff if apply_lead_out else distance)
+	# Frames for whatever sits under the ball to travel off the left of the
+	# screen, measured from where the ball actually is rather than from the
+	# requested resolution, so the two cannot disagree. The tail beyond that is
+	# deliberately generous: a render carrying a little dead air at the end
+	# costs nothing, while one cut short has to be done again.
+	var lead_out: int = \
+		distance + ceili($Ball.position.x / path_speed) + LEAD_OUT_MARGIN
+	var loop_end: int = ending_frame + (lead_out if apply_lead_out else distance)
 	for point in range(starting_frame, loop_end):
+		if classic_mode:
+			# Negative through the lead in, which is the point of it: the
+			# markers are still off to the right, on their way in.
+			frame = mini(point - distance, maxi(path.size() - 1, 0))
+			$Markers.position_markers()
+			$Markers.step_flashes()
 		if point+1 < path.size() and path[point+1] > -1:
 			path_origin.y = BOTTOM + path[point+1] * (TOP - BOTTOM)
 		if point - distance < path.size() and point > distance:
@@ -640,7 +698,7 @@ func render(starting_frame: int, ending_frame: int):
 			image.save_png(render_dir.path_join(str(point).lpad(6, "0") + ".png"))
 	
 	get_viewport().set_transparent_background(false)
-	$Path.gradient.offsets[1] = 1
+	$Path.gradient.set_offset(1, 1.0)
 	$Header/MenuButton.show()
 	
 	if Data.config.get_value('waveform', 'scroll_active', true):
@@ -653,8 +711,11 @@ func render(starting_frame: int, ending_frame: int):
 	if is_video_track:
 		%VideoStreamPlayer.show()
 	
+	rendering = false
+	frame = frame_before_render
 	$Path.hide()
 	$Markers.show()
+	$Markers.set_buttons_visible(true)
 	$MarkersMenu.show()
 	
 	set_physics_process(true)
@@ -676,6 +737,46 @@ func render(starting_frame: int, ending_frame: int):
 	$RenderComplete.popup_centered()
 
 
+## Where the action zone sits, in pixels across the viewport.
+func action_zone_position() -> float:
+	return get_viewport_rect().size.x * action_zone
+
+
+## Where the frame being played sits on screen. Classic mode reads a marker by
+## when it reaches the zone, so that is where the current frame has to be, or
+## markers would land out of time with the track by however far the zone sits
+## from the middle.
+func playhead_position() -> float:
+	if classic_mode:
+		return action_zone_position()
+	return get_viewport_rect().size.x * 0.5
+
+
+func set_classic_mode(enabled: bool) -> void:
+	classic_mode = enabled
+	$ActionZone.visible = enabled
+	if enabled:
+		toggle_ball_visible(false)
+	set_ball_hidden(not %Controls.get_node('Paths').is_anything_selected())
+	for line in get_tree().get_nodes_in_group('lines'):
+		line.visible = not enabled
+	$Markers.apply_marker_style()
+	update_action_zone()
+	$Markers.position_markers()
+
+
+func update_action_zone() -> void:
+	# TOP and BOTTOM are where the extremes of depth sit, while the lines are
+	# drawn a little beyond them, so the zone is measured against the lines to
+	# reach as far as they appear to.
+	var top: float = $TopLine.position.y
+	var bottom: float = $BottomLine.position.y
+	$ActionZone.size = Vector2(ACTION_ZONE_WIDTH, bottom - top)
+	$ActionZone.position = Vector2(
+		action_zone_position() - ACTION_ZONE_WIDTH * 0.5, top)
+	$Ball.position.x = playhead_position()
+
+
 func update_display() -> void:
 	var center: Vector2 = get_viewport_rect().size / 2
 	var line_offset: Vector2
@@ -687,7 +788,7 @@ func update_display() -> void:
 	$BottomLine.position.y = center.y + (path_area / 2)
 	$TopLine.set_end(Vector2(get_end().x, $TopLine.get_end().y))
 	$BottomLine.set_end(Vector2(get_end().x, $BottomLine.get_end().y))
-	$Ball.position.x = center.x
+	$Ball.position.x = playhead_position()
 	$Ball.position.y = center.y
 	TOP = $TopLine.position.y
 	BOTTOM = $BottomLine.position.y
@@ -695,6 +796,7 @@ func update_display() -> void:
 	$BottomLine.position.y += line_offset.y
 	$Backdrop.set_begin($TopLine.get_begin())
 	$Backdrop.set_end($BottomLine.get_end())
+	update_action_zone()
 	for marker in $Markers.marker_list.values():
 		var orig_pos = marker.position.y
 		var render_pos = BOTTOM + marker.get_meta('depth') * (TOP - BOTTOM)

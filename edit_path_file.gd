@@ -59,13 +59,13 @@ func delete_path() -> void:
 
 
 func copy_path() -> void:
-	var current_path := Data.get_file_path()
+	var current_path: String = Data.get_file_path()
 	var track_name   := current_path.get_base_dir().get_file()
 	var base_name    := current_path.get_basename().get_file()
 	var new_path_name: String = $CopyConfirmation/VBox/Input.text
 	if new_path_name == base_name:
 		new_path_name += " - copy"
-	var dir_path := Data.paths_dir.path_join(track_name)
+	var dir_path: String = Data.paths_dir.path_join(track_name)
 	if _path_exists(dir_path, new_path_name):
 		$CopyConfirmation/VBox/Input.text = new_path_name + " - copy"
 		return
@@ -92,7 +92,7 @@ func export_funscript() -> void:
 	if owner.has_method("_get_track_duration"):
 		duration = int(round(owner._get_track_duration()))
 
-	var dir_path := Data.paths_dir.path_join(track_title)
+	var dir_path: String = Data.paths_dir.path_join(track_title)
 	var out_path := dir_path.path_join(file_name + ".funscript")
 	Funscript.export(owner.marker_data, owner.path_meta, out_path, invert, duration)
 
@@ -119,8 +119,11 @@ func _on_confirmed():
 		if _path_exists(dir_path, new_path_name):
 			return
 		dir.rename(dir_path.path_join(path_name + ".bx"), dir_path.path_join(new_path_name + ".bx"))
-		%Controls.load_paths(track_title)
+		# Only the name has changed. Rebuilding the list would unload the path
+		# and read every marker back off disk to arrive at what is already
+		# loaded, so rename the entry where it sits and leave the path alone.
 		for item in %Controls/Paths.item_count:
-			if %Controls/Paths.get_item_text(item) == new_path_name:
-				%Controls/Paths.select(item)
-				%Controls._on_path_selected(item)
+			if %Controls/Paths.get_item_text(item) == path_name:
+				%Controls/Paths.set_item_text(item, new_path_name)
+				break
+		path_name = new_path_name

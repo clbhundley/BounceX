@@ -9,7 +9,9 @@
 [ext_resource type="Script" uid="uid://bepne8rumac7s" path="res://markers.gd" id="7_5q7av"]
 [ext_resource type="Texture2D" uid="uid://bius3v0napj7c" path="res://textures/ball.svg" id="8_5ek1g"]
 [ext_resource type="Texture2D" uid="uid://bkabq6ivbs23x" path="res://textures/circle.svg" id="9_ymix4"]
+[ext_resource type="Texture2D" uid="uid://b814vvdumyskt" path="res://textures/action_zone.svg" id="10_azone"]
 [ext_resource type="Texture2D" uid="uid://cbwqw7m1wqj64" path="res://textures/dot.svg" id="10_dtnc4"]
+[ext_resource type="Texture2D" uid="uid://bfwnhiy5oa2rh" path="res://textures/glow_ring.svg" id="10_glow"]
 [ext_resource type="Texture2D" uid="uid://bgcpkp1078rc6" path="res://textures/add_marker.svg" id="11_2agkk"]
 [ext_resource type="Texture2D" uid="uid://qn8b5b6gg863" path="res://textures/generate_cycle.svg" id="12_ak1ar"]
 [ext_resource type="Texture2D" uid="uid://1uor7ar7yyam" path="res://textures/copy.svg" id="13_2estk"]
@@ -157,15 +159,23 @@ func _on_mouse_exited():
 		self_modulate.a = 2.8
 
 
+var glow_tween: Tween
+
 func _on_toggled(button_pressed):
+	if glow_tween and glow_tween.is_valid():
+		glow_tween.kill()
+	glow_tween = create_tween().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART)
 	if button_pressed:
-		self_modulate = '4040ff'
+		self_modulate = 'ffff40'
 		self_modulate.a = 2.8
+		$Glow.self_modulate = Color(self_modulate, 1.0)
+		glow_tween.tween_property($Glow, 'modulate:a', 1.0, 0.25)
 		%Controls.hide()
 		%Options.show()
 	else:
 		owner.input_disabled = false
 		self_modulate = 'ffff40cc'
+		glow_tween.tween_property($Glow, 'modulate:a', 0.0, 0.2)
 		%Options.hide()
 		%Controls.show()
 "
@@ -229,6 +239,8 @@ func _on_toggled(button_pressed):
 		self_modulate = '74ffffa1'
 		owner.input_disabled = false
 		tween.tween_callback(ui_mouse_filter.bind(false)).set_delay(0.3)
+	$Glow.self_modulate = Color(self_modulate, 1.0)
+	tween.tween_property($Glow, 'modulate:a', alpha, 0.25)
 	tween.tween_property(menu, 'position:x', menu_pos, 0.25)
 	tween.tween_property(options_button, 'position:x', options_pos, 0.3)
 	tween.tween_property(options_button, 'modulate:a', alpha, 0.3)
@@ -393,8 +405,21 @@ visible = false
 position = Vector2(576, 324)
 texture = ExtResource("8_5ek1g")
 
+[node name="ActionZone" type="NinePatchRect" parent="." unique_id=1140277003]
+visible = false
+self_modulate = Color(1, 1, 1, 0.45)
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+texture = ExtResource("10_azone")
+patch_margin_left = 12
+patch_margin_top = 12
+patch_margin_right = 12
+patch_margin_bottom = 12
+
 [node name="MarkersMenu" type="Panel" parent="." unique_id=1986661680]
 unique_name_in_owner = true
+z_index = 1
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
@@ -590,6 +615,7 @@ focus_mode = 0
 texture_normal = ExtResource("15_rigon")
 
 [node name="Menu" type="Panel" parent="." unique_id=1078485634]
+z_index = 1
 layout_mode = 1
 anchors_preset = -1
 anchor_bottom = 1.0
@@ -599,16 +625,15 @@ metadata/_edit_use_anchors_ = true
 
 [node name="Controls" type="VBoxContainer" parent="Menu" unique_id=1968817326]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
+anchors_preset = -1
+anchor_bottom = 1.0
 offset_left = 9.0
-offset_top = 71.0
+offset_top = 75.0
 offset_right = 290.0
-offset_bottom = 637.0
-grow_horizontal = 2
-grow_vertical = 2
+offset_bottom = -47.0
 theme_override_constants/separation = 12
 script = ExtResource("16_7m41a")
-metadata/_edit_use_anchors_ = true
 
 [node name="Record" type="Button" parent="Menu/Controls" unique_id=642351741]
 unique_name_in_owner = true
@@ -706,9 +731,10 @@ text = "Don't show this notification again"
 
 [node name="TrackSelection" type="OptionButton" parent="Menu/Controls/Tracks" unique_id=1501996220]
 custom_minimum_size = Vector2(241, 0)
+custom_maximum_size = Vector2(241, -1)
 layout_mode = 2
 focus_mode = 0
-text_overrun_behavior = 2
+text_overrun_behavior = 1
 clip_text = true
 
 [node name="TrackControls" type="HBoxContainer" parent="Menu/Controls" unique_id=1287349246]
@@ -783,8 +809,9 @@ scrollable = false
 layout_mode = 2
 
 [node name="Paths" type="ItemList" parent="Menu/Controls" unique_id=1189353386]
-custom_minimum_size = Vector2(0, 250)
+custom_minimum_size = Vector2(0, 200)
 layout_mode = 2
+size_flags_vertical = 3
 focus_mode = 0
 allow_reselect = true
 
@@ -943,12 +970,10 @@ visible = false
 layout_mode = 1
 anchors_preset = -1
 offset_left = 9.0
-offset_top = 71.0
+offset_top = 75.0
 offset_right = 290.0
-offset_bottom = 639.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/separation = 12
+offset_bottom = 403.0
+theme_override_constants/separation = 14
 script = ExtResource("19_c71nt")
 metadata/_edit_use_anchors_ = true
 
@@ -956,78 +981,99 @@ metadata/_edit_use_anchors_ = true
 wait_time = 0.2
 one_shot = true
 
-[node name="PathSpeed" type="VBoxContainer" parent="Menu/Options" unique_id=600829822]
+[node name="PathSettings" type="Button" parent="Menu/Options" unique_id=1140277021]
+layout_mode = 2
+focus_mode = 0
+text = "Path Settings"
+alignment = 0
+
+[node name="PathSettingsDialog" type="AcceptDialog" parent="Menu/Options/PathSettings" unique_id=1140277022]
+oversampling_override = 1.0
+title = "Path Settings:"
+position = Vector2i(0, 36)
+size = Vector2i(460, 320)
+ok_button_text = "   OK   "
+
+[node name="PathOptions" type="VBoxContainer" parent="Menu/Options/PathSettings/PathSettingsDialog" unique_id=1140277023]
+unique_name_in_owner = true
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 452.0
+offset_bottom = 275.0
+theme_override_constants/separation = 12
+
+[node name="PathSpeed" type="VBoxContainer" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions" unique_id=600829822]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="Menu/Options/PathSpeed" unique_id=130404792]
+[node name="Label" type="Label" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathSpeed" unique_id=130404792]
 layout_mode = 2
 text = "Path Speed: 1"
 horizontal_alignment = 1
 
-[node name="HSlider" type="HSlider" parent="Menu/Options/PathSpeed" unique_id=1925412791]
+[node name="HSlider" type="HSlider" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathSpeed" unique_id=1925412791]
 layout_mode = 2
 focus_mode = 0
 min_value = 1.0
 max_value = 10.0
 value = 4.0
 
-[node name="PathFade" type="VBoxContainer" parent="Menu/Options" unique_id=1045032011]
+[node name="PathFade" type="VBoxContainer" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions" unique_id=1045032011]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="Menu/Options/PathFade" unique_id=732292403]
+[node name="Label" type="Label" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathFade" unique_id=732292403]
 layout_mode = 2
 text = "Rendered Path Edge Fade: 1"
 horizontal_alignment = 1
 
-[node name="HSlider" type="HSlider" parent="Menu/Options/PathFade" unique_id=1395860022]
+[node name="HSlider" type="HSlider" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathFade" unique_id=1395860022]
 layout_mode = 2
 focus_mode = 0
 max_value = 1.0
 step = 0.1
 value = 0.6
 
-[node name="PathArea" type="SpinBox" parent="Menu/Options" unique_id=647069361]
+[node name="PathArea" type="SpinBox" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions" unique_id=647069361]
 layout_mode = 2
 min_value = 1.0
 max_value = 10000.0
 value = 200.0
 prefix = "Path Vertical Area:"
 
-[node name="PathThickness" type="SpinBox" parent="Menu/Options" unique_id=980888799]
+[node name="PathThickness" type="SpinBox" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions" unique_id=980888799]
 layout_mode = 2
 min_value = 1.0
 value = 8.0
 prefix = "Path Thickness:"
 
-[node name="RenderResolution" type="VBoxContainer" parent="Menu/Options" unique_id=742597271]
+[node name="RenderResolution" type="VBoxContainer" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions" unique_id=742597271]
 layout_mode = 2
 script = SubResource("GDScript_575x6")
 
-[node name="Label" type="Label" parent="Menu/Options/RenderResolution" unique_id=466000839]
+[node name="Label" type="Label" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution" unique_id=466000839]
 layout_mode = 2
 text = "Render Resolution:"
 horizontal_alignment = 1
 
-[node name="Values" type="HBoxContainer" parent="Menu/Options/RenderResolution" unique_id=245591298]
+[node name="Values" type="HBoxContainer" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution" unique_id=245591298]
 layout_mode = 2
 alignment = 1
 
-[node name="XLabel" type="Label" parent="Menu/Options/RenderResolution/Values" unique_id=1191953960]
+[node name="XLabel" type="Label" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values" unique_id=1191953960]
 layout_mode = 2
 text = "X:"
 horizontal_alignment = 1
 
-[node name="X" type="SpinBox" parent="Menu/Options/RenderResolution/Values" unique_id=828241383]
+[node name="X" type="SpinBox" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values" unique_id=828241383]
 layout_mode = 2
 max_value = 10000.0
 value = 1920.0
 
-[node name="YLabel" type="Label" parent="Menu/Options/RenderResolution/Values" unique_id=728910070]
+[node name="YLabel" type="Label" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values" unique_id=728910070]
 layout_mode = 2
 text = "Y:"
 horizontal_alignment = 1
 
-[node name="Y" type="SpinBox" parent="Menu/Options/RenderResolution/Values" unique_id=914464382]
+[node name="Y" type="SpinBox" parent="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values" unique_id=914464382]
 layout_mode = 2
 max_value = 10000.0
 value = 300.0
@@ -1205,6 +1251,55 @@ custom_minimum_size = Vector2(32, 0)
 layout_mode = 2
 focus_mode = 0
 
+[node name="ActionZone" type="HBoxContainer" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox" unique_id=1140277011]
+layout_mode = 2
+theme_override_constants/separation = 17
+
+[node name="Label" type="Label" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/ActionZone" unique_id=1140277012]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "Action Zone:"
+horizontal_alignment = 2
+
+[node name="ColorPicker" type="ColorPickerButton" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/ActionZone" unique_id=1140277013]
+custom_minimum_size = Vector2(32, 0)
+layout_mode = 2
+focus_mode = 0
+
+[node name="Markers" type="HBoxContainer" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox" unique_id=1140277014]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="MarkerBase" type="HBoxContainer" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/Markers" unique_id=1140277015]
+layout_mode = 2
+theme_override_constants/separation = 17
+
+[node name="Label" type="Label" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/Markers/MarkerBase" unique_id=1140277016]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "Markers:"
+horizontal_alignment = 2
+
+[node name="ColorPicker" type="ColorPickerButton" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/Markers/MarkerBase" unique_id=1140277017]
+custom_minimum_size = Vector2(32, 0)
+layout_mode = 2
+focus_mode = 0
+
+[node name="MarkerHoldBreath" type="HBoxContainer" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/Markers" unique_id=1140277018]
+layout_mode = 2
+theme_override_constants/separation = 17
+
+[node name="Label" type="Label" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/Markers/MarkerHoldBreath" unique_id=1140277019]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+text = "Markers (Hold Breath):"
+horizontal_alignment = 2
+
+[node name="ColorPicker" type="ColorPickerButton" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox/Markers/MarkerHoldBreath" unique_id=1140277020]
+custom_minimum_size = Vector2(32, 0)
+layout_mode = 2
+focus_mode = 0
+
 [node name="Ball" type="HBoxContainer" parent="Menu/Options/ChangeColors/ColorOptionsDialog/VBox" unique_id=1200835181]
 layout_mode = 2
 theme_override_constants/separation = 18
@@ -1368,6 +1463,46 @@ focus_mode = 0
 text = "Open Resources Folder"
 alignment = 0
 
+[node name="ClassicMode" type="CheckBox" parent="Menu/Options" unique_id=1140277004]
+layout_mode = 2
+focus_mode = 0
+text = "Classic Mode"
+
+[node name="ActionZone" type="VBoxContainer" parent="Menu/Options" unique_id=1140277005]
+visible = false
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Menu/Options/ActionZone" unique_id=1140277006]
+layout_mode = 2
+text = "Action Zone: 50%"
+horizontal_alignment = 1
+
+[node name="HSlider" type="HSlider" parent="Menu/Options/ActionZone" unique_id=1140277007]
+layout_mode = 2
+focus_mode = 0
+min_value = 0.05
+max_value = 0.95
+step = 0.01
+value = 0.5
+
+[node name="MarkerImage" type="VBoxContainer" parent="Menu/Options" unique_id=1140277008]
+visible = false
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Menu/Options/MarkerImage" unique_id=1140277009]
+layout_mode = 2
+text = "Marker Image:"
+horizontal_alignment = 1
+
+[node name="OptionButton" type="OptionButton" parent="Menu/Options/MarkerImage" unique_id=1140277010]
+custom_maximum_size = Vector2(281, -1)
+layout_mode = 2
+focus_mode = 0
+selected = 0
+item_count = 1
+popup/item_0/text = "Default"
+popup/item_0/id = 0
+
 [node name="DisplayMode" type="VBoxContainer" parent="Menu/Options" unique_id=1034179227]
 layout_mode = 2
 script = SubResource("GDScript_nob1l")
@@ -1384,7 +1519,7 @@ selected = 1
 item_count = 2
 popup/item_0/text = "Windowed"
 popup/item_0/id = 0
-popup/item_1/text = "Exclusive Fullscreen"
+popup/item_1/text = "Fullscreen"
 popup/item_1/id = 1
 
 [node name="Version" type="Label" parent="Menu" unique_id=1831698532]
@@ -1397,7 +1532,7 @@ offset_right = 137.0
 offset_bottom = -5.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 17
-text = "BounceX v2.5.2"
+text = "BounceX v2.6"
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
 
@@ -1445,6 +1580,7 @@ text = "<<<"
 autowrap_mode = 3
 
 [node name="Header" type="Control" parent="." unique_id=1864634679]
+z_index = 1
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
@@ -1513,6 +1649,20 @@ grow_vertical = 2
 mouse_filter = 2
 texture = ExtResource("22_ualp2")
 
+[node name="Glow" type="TextureRect" parent="Header/OptionsButton" unique_id=1140277024]
+modulate = Color(1, 1, 1, 0)
+show_behind_parent = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("10_glow")
+expand_mode = 1
+stretch_mode = 5
+
 [node name="MenuButton" type="TextureButton" parent="Header" unique_id=1157866272]
 self_modulate = Color(0.454902, 1, 1, 0.635294)
 layout_mode = 1
@@ -1543,6 +1693,20 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 texture = ExtResource("23_fa01g")
+
+[node name="Glow" type="TextureRect" parent="Header/MenuButton" unique_id=1140277025]
+modulate = Color(1, 1, 1, 0)
+show_behind_parent = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("10_glow")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="Record" type="Control" parent="Header" unique_id=1191338579]
 visible = false
@@ -1633,6 +1797,7 @@ texture = ExtResource("25_ok0dy")
 [node name="TrackSliderLarge" type="HSlider" parent="." unique_id=834211303]
 unique_name_in_owner = true
 visible = false
+z_index = 1
 layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
@@ -1664,6 +1829,7 @@ text = "00:00"
 
 [node name="GenerateCycle" type="Panel" parent="." unique_id=1382266648]
 visible = false
+z_index = 1
 layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
@@ -1671,8 +1837,9 @@ anchor_right = 0.5
 offset_left = -220.0
 offset_top = 74.0
 offset_right = 223.0
-offset_bottom = 309.0
+offset_bottom = 331.0
 grow_horizontal = 2
+theme = ExtResource("33_jwkas")
 script = ExtResource("28_camxn")
 
 [node name="Title" type="Label" parent="GenerateCycle" unique_id=52703928]
@@ -1702,7 +1869,7 @@ offset_right = 203.0
 offset_bottom = 47.5
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 14
 
 [node name="Interval" type="HBoxContainer" parent="GenerateCycle/Inputs" unique_id=1493448707]
 layout_mode = 2
@@ -1789,7 +1956,7 @@ step = 0.01
 
 [node name="StartingPosition" type="HBoxContainer" parent="GenerateCycle/Inputs" unique_id=1466234782]
 layout_mode = 2
-theme_override_constants/separation = 40
+theme_override_constants/separation = 45
 
 [node name="Positions" type="HBoxContainer" parent="GenerateCycle/Inputs/StartingPosition" unique_id=149887406]
 layout_mode = 2
@@ -1803,21 +1970,14 @@ vertical_alignment = 1
 layout_mode = 2
 selected = 1
 item_count = 2
-popup/item_0/text = "Top"
+popup/item_0/text = " Top"
 popup/item_0/id = 0
-popup/item_1/text = "Bottom"
+popup/item_1/text = " Bottom"
 popup/item_1/id = 1
 
-[node name="Flat" type="HBoxContainer" parent="GenerateCycle/Inputs/StartingPosition" unique_id=939350664]
+[node name="FlatCheckBox" type="CheckBox" parent="GenerateCycle/Inputs/StartingPosition" unique_id=977300997]
 layout_mode = 2
-
-[node name="Label" type="Label" parent="GenerateCycle/Inputs/StartingPosition/Flat" unique_id=493971019]
-layout_mode = 2
-text = "Flat:"
-vertical_alignment = 1
-
-[node name="CheckBox" type="CheckBox" parent="GenerateCycle/Inputs/StartingPosition/Flat" unique_id=977300997]
-layout_mode = 2
+text = "Flat "
 
 [node name="Buttons" type="HBoxContainer" parent="GenerateCycle" unique_id=844730574]
 layout_mode = 1
@@ -1832,18 +1992,19 @@ offset_right = 89.5
 offset_bottom = -11.0
 grow_horizontal = 2
 grow_vertical = 0
-theme_override_constants/separation = 20
+theme_override_constants/separation = 27
 
 [node name="Generate" type="Button" parent="GenerateCycle/Buttons" unique_id=2023941233]
 layout_mode = 2
-text = "Generate"
+text = " Generate "
 
 [node name="Cancel" type="Button" parent="GenerateCycle/Buttons" unique_id=1646498830]
 layout_mode = 2
-text = "Cancel"
+text = " Cancel "
 
 [node name="InfoPanel" type="Panel" parent="." unique_id=13593172]
 visible = false
+z_index = 1
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1905,7 +2066,7 @@ autowrap_mode = 3
 
 [node name="Label2" type="Label" parent="InfoPanel/VBoxContainer" unique_id=1146803147]
 layout_mode = 2
-text = "Use Exclusive Fullscreen display mode for best performance."
+text = "Use Fullscreen display mode for best performance."
 autowrap_mode = 3
 
 [node name="Label3" type="Label" parent="InfoPanel/VBoxContainer" unique_id=1597486546]
@@ -2069,6 +2230,7 @@ layout_mode = 2
 
 [node name="MarkersCopied" type="Sprite2D" parent="." unique_id=1037286633]
 visible = false
+z_index = 1
 position = Vector2(500, 100)
 texture = ExtResource("13_2estk")
 offset = Vector2(-25, 0)
@@ -2082,6 +2244,7 @@ text = "Markers Copied"
 
 [node name="MarkersPasted" type="Sprite2D" parent="." unique_id=342293735]
 visible = false
+z_index = 1
 position = Vector2(500, 100)
 texture = ExtResource("14_usymf")
 offset = Vector2(-24, 0)
@@ -2140,17 +2303,21 @@ text = "Markers Pasted"
 [connection signal="item_selected" from="Menu/Controls/Paths" to="Menu/Controls" method="_on_path_selected"]
 [connection signal="confirmed" from="Menu/Controls/Paths/EditPathFile" to="Menu/Controls/Paths/EditPathFile" method="_on_confirmed"]
 [connection signal="timeout" from="Menu/Options/DebounceTimer" to="Menu/Options" method="_on_debounce_timer_timeout"]
-[connection signal="value_changed" from="Menu/Options/PathSpeed/HSlider" to="Menu/Options" method="_on_path_speed_changed"]
-[connection signal="value_changed" from="Menu/Options/PathFade/HSlider" to="Menu/Options" method="_on_path_fade_value_changed"]
-[connection signal="value_changed" from="Menu/Options/PathArea" to="Menu/Options" method="_on_path_area_value_changed"]
-[connection signal="value_changed" from="Menu/Options/PathThickness" to="Menu/Options" method="_on_path_thickness_value_changed"]
-[connection signal="value_changed" from="Menu/Options/RenderResolution/Values/X" to="Menu/Options/RenderResolution" method="_on_x_value_changed"]
-[connection signal="value_changed" from="Menu/Options/RenderResolution/Values/Y" to="Menu/Options/RenderResolution" method="_on_y_value_changed"]
+[connection signal="pressed" from="Menu/Options/PathSettings" to="Menu/Options" method="_on_path_settings_pressed"]
+[connection signal="value_changed" from="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathSpeed/HSlider" to="Menu/Options" method="_on_path_speed_changed"]
+[connection signal="value_changed" from="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathFade/HSlider" to="Menu/Options" method="_on_path_fade_value_changed"]
+[connection signal="value_changed" from="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathArea" to="Menu/Options" method="_on_path_area_value_changed"]
+[connection signal="value_changed" from="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/PathThickness" to="Menu/Options" method="_on_path_thickness_value_changed"]
+[connection signal="value_changed" from="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values/X" to="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution" method="_on_x_value_changed"]
+[connection signal="value_changed" from="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values/Y" to="Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution" method="_on_y_value_changed"]
 [connection signal="pressed" from="Menu/Options/GamepadRemapping" to="Menu/Options" method="_on_gamepad_remapping_pressed"]
 [connection signal="pressed" from="Menu/Options/WaveformOptions" to="Menu/Options" method="_on_waveform_options_pressed"]
 [connection signal="pressed" from="Menu/Options/ChangeColors" to="Menu/Options" method="_on_change_colors_pressed"]
 [connection signal="pressed" from="Menu/Options/ExportFunscripts" to="Menu/Options" method="_on_export_funscripts_pressed"]
 [connection signal="pressed" from="Menu/Options/OpenResourcesFolder" to="Menu/Options" method="_on_open_resources_folder_pressed"]
+[connection signal="toggled" from="Menu/Options/ClassicMode" to="Menu/Options" method="_on_classic_mode_toggled"]
+[connection signal="value_changed" from="Menu/Options/ActionZone/HSlider" to="Menu/Options" method="_on_action_zone_changed"]
+[connection signal="item_selected" from="Menu/Options/MarkerImage/OptionButton" to="Menu/Options" method="_on_marker_image_selected"]
 [connection signal="item_selected" from="Menu/Options/DisplayMode/OptionButton" to="Menu/Options/DisplayMode" method="_on_option_button_item_selected"]
 [connection signal="mouse_entered" from="Menu/Version/Button" to="Menu/Version/Button" method="_on_mouse_entered"]
 [connection signal="mouse_exited" from="Menu/Version/Button" to="Menu/Version/Button" method="_on_mouse_exited"]

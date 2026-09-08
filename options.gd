@@ -2,20 +2,20 @@ extends VBoxContainer
 
 func _ready():
 	var text_input_nodes = [
-		$PathArea,
-		$PathThickness,
-		$RenderResolution/Values/X,
-		$RenderResolution/Values/Y,
+		%PathOptions/PathArea,
+		%PathOptions/PathThickness,
+		%PathOptions/RenderResolution/Values/X,
+		%PathOptions/RenderResolution/Values/Y,
 		%MarkersMenu/HBox/Frame/Input,
 		%MarkersMenu/HBox/Depth/Input]
 	for node in text_input_nodes:
 		node.get_child(0, true).focus_mode = FOCUS_CLICK
 	
 	var options_text_input_nodes = [
-		$PathArea,
-		$PathThickness,
-		$RenderResolution/Values/X,
-		$RenderResolution/Values/Y]
+		%PathOptions/PathArea,
+		%PathOptions/PathThickness,
+		%PathOptions/RenderResolution/Values/X,
+		%PathOptions/RenderResolution/Values/Y]
 	for node in options_text_input_nodes:
 		node.get_child(0, true).connect(
 			"focus_entered",
@@ -30,39 +30,108 @@ func _ready():
 	if config.has_section_key('path', 'path_thickness'):
 		var value = config.get_value('path', 'path_thickness')
 		_on_path_thickness_value_changed(value)
-		$PathThickness.value = value
+		%PathOptions/PathThickness.value = value
 	else:
-		_on_path_thickness_value_changed($PathThickness.value)
+		_on_path_thickness_value_changed(%PathOptions/PathThickness.value)
 	
 	if config.has_section_key('path', 'path_fade'):
 		var value = config.get_value('path', 'path_fade')
 		_on_path_fade_value_changed(value)
-		$PathFade/HSlider.value = value
+		%PathOptions/PathFade/HSlider.value = value
 	else:
-		_on_path_fade_value_changed($PathFade/HSlider.value)
-		$PathFade/HSlider.value = $PathFade/HSlider.value
+		_on_path_fade_value_changed(%PathOptions/PathFade/HSlider.value)
+		%PathOptions/PathFade/HSlider.value = %PathOptions/PathFade/HSlider.value
 	
 	if config.has_section_key('path', 'path_speed'):
 		var value = config.get_value('path', 'path_speed')
 		_on_path_speed_changed(value)
-		$PathSpeed/HSlider.value = value
+		%PathOptions/PathSpeed/HSlider.value = value
 	else:
-		_on_path_speed_changed($PathSpeed/HSlider.value)
-		$PathSpeed/HSlider.value = $PathSpeed/HSlider.value
+		_on_path_speed_changed(%PathOptions/PathSpeed/HSlider.value)
+		%PathOptions/PathSpeed/HSlider.value = %PathOptions/PathSpeed/HSlider.value
 	
 	if config.has_section_key('path', 'path_area'):
 		var value = config.get_value('path', 'path_area')
 		_on_path_area_value_changed(value)
-		$PathArea.value = value
+		%PathOptions/PathArea.value = value
 	else:
-		_on_path_area_value_changed($PathArea.value)
+		_on_path_area_value_changed(%PathOptions/PathArea.value)
 	
+	if config.has_section_key('path', 'action_zone'):
+		var value = config.get_value('path', 'action_zone')
+		owner.action_zone = value
+		$ActionZone/HSlider.set_value_no_signal(value)
+		$ActionZone/Label.text = "Action Zone: %d%%" % int(value * 100)
+	if config.has_section_key('path', 'marker_image'):
+		%Markers.custom_marker_name = config.get_value('path', 'marker_image')
+	if config.has_section_key('path', 'classic_mode'):
+		$ClassicMode.set_pressed_no_signal(config.get_value('path', 'classic_mode'))
+	
+	call_deferred("_apply_classic_mode")
 	call_deferred("_load_waveform_config")
+
+
+## Deferred so the markers exist by the time the mode is applied to them.
+func _apply_classic_mode() -> void:
+	var enabled: bool = $ClassicMode.button_pressed
+	refresh_marker_images()
+	owner.set_classic_mode(enabled)
+	$ActionZone.visible = enabled
+	$MarkerImage.visible = enabled
+
+
+## Lists whatever is in the markers directory, keeping the current choice
+## selected, or falling back to the built in marker if it has gone.
+func refresh_marker_images() -> void:
+	var button: OptionButton = $MarkerImage/OptionButton
+	var chosen: String = %Markers.custom_marker_name
+	button.clear()
+	button.add_item("Default")
+	var selected := 0
+	for file_name in Data.marker_images():
+		button.add_item(file_name)
+		if file_name == chosen:
+			selected = button.item_count - 1
+	if selected == 0 and chosen != "":
+		chosen = ""
+	button.select(selected)
+	%Markers.set_custom_marker(chosen)
+
+
+## Brings a newly added image into the list and switches to it.
+func select_marker_image(file_name: String) -> void:
+	%Markers.custom_marker_name = file_name
+	refresh_marker_images()
+	Data.set_config('path', 'marker_image', file_name)
+
+
+func _on_marker_image_selected(index: int) -> void:
+	var button: OptionButton = $MarkerImage/OptionButton
+	var file_name := "" if index == 0 else button.get_item_text(index)
+	%Markers.set_custom_marker(file_name)
+	Data.set_config('path', 'marker_image', file_name)
+
+
+func _on_classic_mode_toggled(toggled: bool) -> void:
+	if toggled:
+		refresh_marker_images()
+	owner.set_classic_mode(toggled)
+	$ActionZone.visible = toggled
+	$MarkerImage.visible = toggled
+	Data.set_config('path', 'classic_mode', toggled)
+
+
+func _on_action_zone_changed(value: float) -> void:
+	owner.action_zone = value
+	$ActionZone/Label.text = "Action Zone: %d%%" % int(value * 100)
+	owner.update_action_zone()
+	%Markers.position_markers()
+	Data.set_config('path', 'action_zone', value)
 
 
 func _on_path_speed_changed(value):
 	owner.path_speed = value
-	$PathSpeed/Label.text = "Path Speed: " + str(int(value))
+	%PathOptions/PathSpeed/Label.text = "Path Speed: " + str(int(value))
 	Data.set_config('path', 'path_speed', value)
 	for marker in %Markers.marker_list.values():
 		marker.position.x = marker.get_meta('frame') * value
@@ -71,9 +140,12 @@ func _on_path_speed_changed(value):
 
 
 func _on_path_fade_value_changed(value):
-	$PathFade/Label.text = "Rendered Path Edge Fade: " + str(value)
-	owner.get_node('Path').gradient.colors[0].a = 1 - value
-	owner.get_node('Path').gradient.colors[2].a = 1 - value
+	%PathOptions/PathFade/Label.text = "Rendered Path Edge Fade: " + str(value)
+	# Reading colors hands back a copy of the array, so assigning into it
+	# changes nothing that is kept. The gradient has to be told.
+	var gradient: Gradient = owner.get_node('Path').gradient
+	for edge in [0, 2]:
+		gradient.set_color(edge, Color(gradient.get_color(edge), 1.0 - value))
 	Data.set_config('path', 'path_fade', value)
 
 
@@ -103,7 +175,7 @@ func _load_waveform_config() -> void:
 		if   n.display_mode == 1: wv_scroll = n
 		elif n.display_mode == 0: wv_static = n
 	
-	var config := Data.config
+	var config: ConfigFile = Data.config
 	
 	if wv_scroll:
 		if config.has_section_key('waveform', 'scroll_active'):
@@ -174,9 +246,14 @@ func _on_waveform_options_pressed() -> void:
 	$WaveformOptions/WaveformOptionsDialog.popup_centered()
 
 
+func _on_path_settings_pressed() -> void:
+	$PathSettings/PathSettingsDialog.popup_centered()
+	#$PathSettings/PathSettingsDialog.position = Vector2(8, 100)
+
+
 func _on_change_colors_pressed():
 	$ChangeColors/ColorOptionsDialog.popup_centered()
-	$ChangeColors/ColorOptionsDialog.position = Vector2(8, 100)
+	#$ChangeColors/ColorOptionsDialog.position = Vector2(8, 100)
 
 
 func _on_export_funscripts_pressed() -> void:

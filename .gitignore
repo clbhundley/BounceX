@@ -4,3 +4,9 @@ export_presets.cfg
 
 # Godot export artifacts
 *.translation
+
+# Local scratch files
+temp/
+
+# Windows editor temp files
+~*.TMP

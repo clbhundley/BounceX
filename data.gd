@@ -8,19 +8,31 @@ var config_path: String
 var config := ConfigFile.new()
 
 var base_dir:    String
+const SAVE_DEBOUNCE := 0.25
+var _save_timer: Timer
+var _save_pending := false
+
 var tracks_dir:  String
 var paths_dir:   String
 var renders_dir: String
+var markers_dir: String
 
 
 func _ready() -> void:
+	_save_timer = Timer.new()
+	_save_timer.wait_time = SAVE_DEBOUNCE
+	_save_timer.one_shot = true
+	_save_timer.timeout.connect(_on_save_timeout)
+	add_child(_save_timer)
 	base_dir = OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS).path_join("BounceX")
 	tracks_dir  = base_dir.path_join("Tracks")
 	paths_dir   = base_dir.path_join("Paths")
 	renders_dir = base_dir.path_join("Renders")
+	markers_dir = base_dir.path_join("Markers")
 	DirAccess.make_dir_recursive_absolute(tracks_dir)
 	DirAccess.make_dir_recursive_absolute(paths_dir)
 	DirAccess.make_dir_recursive_absolute(renders_dir)
+	DirAccess.make_dir_recursive_absolute(markers_dir)
 	config_path = base_dir.path_join("Settings.cfg")
 	# Silently migrate Settings.cfg on first launch after upgrade so
 	# load_config() picks up the user's existing colors/easings/etc.
@@ -88,6 +100,26 @@ func upgrade_path_file(file_path: String) -> void:
 			new_file.close()
 
 
+## Writing a path serialises every marker in it, which is far too much work to
+## repeat for each marker of a selection or each frame of a drag. Callers that
+## fire repeatedly ask for a save instead of performing one.
+func save_path_debounced() -> void:
+	_save_pending = true
+	_save_timer.start()
+
+
+func _on_save_timeout() -> void:
+	flush_path_save()
+
+
+## Performs a requested save immediately. Anything that abandons the current
+## path has to call this first, or the last edits to it are lost.
+func flush_path_save() -> void:
+	if _save_pending:
+		_save_pending = false
+		save_path()
+
+
 func save_path(file_path: String = get_file_path()) -> void:
 	var file := FileAccess.open(file_path, FileAccess.WRITE)
 	if not file:
@@ -99,6 +131,7 @@ func save_path(file_path: String = get_file_path()) -> void:
 
 
 func load_path(file_path: String) -> void:
+	flush_path_save()
 	upgrade_path_file(file_path)
 	var file := FileAccess.open(file_path, FileAccess.READ)
 	if not file:
@@ -108,7 +141,9 @@ func load_path(file_path: String) -> void:
 	if not parsed is Dictionary or not parsed.has("markers"):
 		return
 	bx.path_meta = parsed.get("meta", {})
-	bx.path_meta["related_media"] = file_path.get_base_dir().get_file().get_basename()
+	if bx.path_meta.get("related_media", "") == "":
+		bx.path_meta["related_media"] = \
+			file_path.get_base_dir().get_file().get_basename()
 	bx.path_extra = {}
 	for key in parsed:
 		if key != "meta" and key != "markers":
@@ -121,6 +156,81 @@ func load_path(file_path: String) -> void:
 		bx.marker_data[0] = [0, 0, 0, 0]
 	bx.define_path(false)
 	bx.get_node('Markers').set_markers()
+
+
+## Silence needs no fidelity, so a blank track is written at a rate where an
+## hour costs tens of megabytes rather than hundreds. Sixteen bit because
+## anything else sends the file down the conversion path every time it loads.
+const BLANK_TRACK_RATE := 8000
+const BLANK_TRACK_BITS := 16
+
+
+## Writes a silent track of the given length and returns where it went, so a
+## path can be built without any media to build it against. It is an ordinary
+## WAV in the tracks folder, which is the point: everything downstream treats
+## it as a track because it is one.
+func create_blank_track(track_name: String, seconds: float) -> String:
+	DirAccess.make_dir_recursive_absolute(tracks_dir)
+	var base := track_name.strip_edges().validate_filename()
+	if base == "":
+		base = "Blank"
+	var file_path := tracks_dir.path_join(base + ".wav")
+	var n := 2
+	while FileAccess.file_exists(file_path):
+		file_path = tracks_dir.path_join("%s (%d).wav" % [base, n])
+		n += 1
+	var file := FileAccess.open(file_path, FileAccess.WRITE)
+	if not file:
+		return ""
+	var width := BLANK_TRACK_BITS / 8
+	var samples := int(maxf(seconds, 0.1) * BLANK_TRACK_RATE)
+	var data_size := samples * width
+	file.store_buffer("RIFF".to_ascii_buffer())
+	file.store_32(36 + data_size)
+	file.store_buffer("WAVE".to_ascii_buffer())
+	file.store_buffer("fmt ".to_ascii_buffer())
+	file.store_32(16)
+	file.store_16(1)
+	file.store_16(1)
+	file.store_32(BLANK_TRACK_RATE)
+	file.store_32(BLANK_TRACK_RATE * width)
+	file.store_16(width)
+	file.store_16(BLANK_TRACK_BITS)
+	file.store_buffer("data".to_ascii_buffer())
+	file.store_32(data_size)
+	# Written a chunk at a time, so an hour of silence never sits in memory whole.
+	var chunk := PackedByteArray()
+	chunk.resize(1 << 16)
+	var written := 0
+	while written < data_size:
+		var size := mini(chunk.size(), data_size - written)
+		file.store_buffer(chunk if size == chunk.size() else chunk.slice(0, size))
+		written += size
+	file.close()
+	return file_path
+
+
+const MARKER_EXTENSIONS := ["png", "jpg", "jpeg", "webp", "svg"]
+
+static func is_marker_image(file_path: String) -> bool:
+	return file_path.get_extension().to_lower() in MARKER_EXTENSIONS
+
+
+## The marker images a user has brought in, by file name.
+func marker_images() -> PackedStringArray:
+	var found: PackedStringArray
+	var dir := DirAccess.open(markers_dir)
+	if not dir:
+		return found
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and is_marker_image(file_name):
+			found.append(file_name)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	found.sort()
+	return found
 
 
 static func is_video_file(file_path: String) -> bool:
@@ -304,11 +414,11 @@ func load_config() -> void:
 	volume_slider.value_changed.emit(volume_slider.value)
 	
 	if config.has_section_key('user', 'render_resolution:x'):
-		var res_x_input = bx.get_node('Menu/Options/RenderResolution/Values/X')
+		var res_x_input = bx.get_node('Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values/X')
 		res_x_input.value = config.get_value('user', 'render_resolution:x')
 	
 	if config.has_section_key('user', 'render_resolution:y'):
-		var res_y_input = bx.get_node('Menu/Options/RenderResolution/Values/Y')
+		var res_y_input = bx.get_node('Menu/Options/PathSettings/PathSettingsDialog/PathOptions/RenderResolution/Values/Y')
 		res_y_input.value = config.get_value('user', 'render_resolution:y')
 	
 	for direction in ['up', 'down']:
@@ -566,10 +676,11 @@ func _delete_dir_recursive_async(dir_path: String, progress_bar: ProgressBar, st
 
 func load_colors() -> void:
 	for setting in [
-		'Ball', 'Path', 'Backdrop',
+		'Ball', 'Path', 'Backdrop', 'Action Zone',
 		'Top Line', 'Top Active',
 		'Bottom Line', 'Bottom Active',
-		'Hold Breath Ball', 'Hold Breath Path']:
+		'Hold Breath Ball', 'Hold Breath Path',
+		'Markers', 'Hold Breath Markers']:
 		if config.has_section_key('colors', setting):
 			var color: Color = config.get_value('colors', setting)
 			match setting:
@@ -578,9 +689,21 @@ func load_colors() -> void:
 					bx.get_node('Markers/Line').self_modulate = color
 				'Ball':              bx.get_node('Ball').self_modulate = color
 				'Backdrop':          bx.get_node('Backdrop').self_modulate = color
-				'Top Line':          bx.top_color = color
+				'Action Zone':       bx.get_node('ActionZone').self_modulate = color
+				'Top Line':
+					bx.top_color = color
+					bx.get_node('TopLine').self_modulate = color
 				'Top Active':        bx.top_color_active = color
-				'Bottom Line':       bx.bottom_color = color
+				'Bottom Line':
+					bx.bottom_color = color
+					bx.get_node('BottomLine').self_modulate = color
 				'Bottom Active':     bx.bottom_color_active = color
 				'Hold Breath Ball':  bx.hold_breath_ball_color = color
 				'Hold Breath Path':  bx.hold_breath_path_color = color
+				'Markers':           bx.get_node('Markers').marker_color = color
+				'Hold Breath Markers':
+					bx.get_node('Markers').hold_breath_marker_color = color
+
+
+func _exit_tree() -> void:
+	flush_path_save()

@@ -1,5 +1,9 @@
 extends VBoxContainer
 
+## Retains the shape of a funscript while dropping the sampling noise left
+## behind by tracing curves out of linear steps.
+const DEFAULT_SMOOTHING := 0.12
+
 var last_path_index: int = -1
 var _pending_file_dialog: FileDialog = null
 var _video_scrub_timer: Timer
@@ -210,7 +214,7 @@ func load_tracks() -> void:
 
 func _on_track_selected(index: int) -> void:
 	var track_name = $Tracks/TrackSelection.get_item_text(index)
-	var file_path := Data.tracks_dir.path_join(track_name)
+	var file_path:String = Data.tracks_dir.path_join(track_name)
 	if Data.is_video_file(file_path):
 		owner.is_video_track = true
 		$AudioStreamPlayer.stream = null
@@ -295,7 +299,7 @@ func _on_path_selected(index: int) -> void:
 			line.queue_free()
 		last_path_index = index
 		$Render.disabled = false
-		owner.get_node('Ball').show()
+		owner.set_ball_hidden(false)
 		Data.load_path(Data.get_file_path())
 		var path_value = owner.path[owner.frame]
 		if path_value > -1:
@@ -307,11 +311,9 @@ func unload_all(do_scrub := false) -> void:
 	$Render.disabled = true
 	owner.define_path(false)
 	owner.marker_data.clear()
-	for marker in %Markers.marker_list.values():
-		marker.queue_free()
+	%Markers.clear_markers()
 	for line in get_tree().get_nodes_in_group('lines'):
 		line.queue_free()
-	%Markers.marker_list.clear()
 	if do_scrub:
 		scrub(0)
 		owner.place_marker(0)
@@ -330,7 +332,77 @@ func _on_paths_item_clicked(index: int, _at_position: Vector2, mouse_button_inde
 
 # ── Track file importer ───────────────────────────────────────────────────────
 
+## A track is what gives a path its length and somewhere to be saved, so making
+## one out of silence is how a path gets built with no media to build against.
 func _on_load_tracks_pressed() -> void:
+	if _pending_file_dialog:
+		return
+	var dialog := ConfirmationDialog.new()
+	dialog.theme = load("res://theme_basic.tres")
+	dialog.title = "Add Track"
+	dialog.ok_button_text = "  Create Blank  "
+	dialog.cancel_button_text = "  Cancel  "
+	
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override('separation', 10)
+	dialog.add_child(vbox)
+	
+	var blurb := Label.new()
+	blurb.text = "A blank track is silence of a chosen length,\nfor building a path without any media."
+	vbox.add_child(blurb)
+	
+	var name_box := HBoxContainer.new()
+	name_box.add_theme_constant_override('separation', 20)
+	var name_label := Label.new()
+	name_label.text = "Name:"
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_box.add_child(name_label)
+	var name_input := LineEdit.new()
+	name_input.custom_minimum_size.x = 220
+	name_input.text = "Blank"
+	name_box.add_child(name_input)
+	vbox.add_child(name_box)
+	
+	var length_box := HBoxContainer.new()
+	length_box.add_theme_constant_override('separation', 20)
+	var length_label := Label.new()
+	length_label.text = "Length:"
+	length_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	length_box.add_child(length_label)
+	var length_input := SpinBox.new()
+	length_input.custom_minimum_size.x = 100
+	length_input.min_value = 1.0
+	length_input.max_value = 480.0
+	length_input.value = 60.0
+	length_input.suffix = "min"
+	length_box.add_child(length_input)
+	vbox.add_child(length_box)
+	
+	dialog.add_button("  Load Files  ", true, "load")
+	dialog.custom_action.connect(func(action: StringName) -> void:
+		dialog.queue_free()
+		if action == &"load":
+			_open_track_file_dialog())
+	dialog.confirmed.connect(func() -> void:
+		_create_blank_track(name_input.text, length_input.value * 60.0)
+		dialog.queue_free())
+	dialog.canceled.connect(func(): dialog.queue_free())
+	add_child(dialog)
+	dialog.popup_centered()
+	name_input.grab_focus()
+	name_input.select_all()
+
+
+func _create_blank_track(track_name: String, seconds: float) -> void:
+	var file_path: String = Data.create_blank_track(track_name, seconds)
+	if file_path == "":
+		_show_notice("Could not write the blank track.")
+		return
+	load_tracks()
+	_select_track_by_name(file_path.get_file())
+
+
+func _open_track_file_dialog() -> void:
 	if _pending_file_dialog:
 		return
 	_pending_file_dialog = FileDialog.new()
@@ -364,13 +436,58 @@ func _dismiss_file_dialog() -> void:
 
 
 func _on_files_dropped(paths: PackedStringArray) -> void:
-	var valid_exts := ["mp3", "wav", "ogg"] + Data.VIDEO_EXTENSIONS
-	var filtered: PackedStringArray
+	var valid_exts:Array = ["mp3", "wav", "ogg"] + Data.VIDEO_EXTENSIONS
+	var tracks: PackedStringArray
+	var path_files: PackedStringArray
+	var marker_images: PackedStringArray
 	for p in paths:
-		if p.get_extension().to_lower() in valid_exts:
-			filtered.append(p)
-	if not filtered.is_empty():
-		_on_track_files_selected(filtered)
+		var ext := p.get_extension().to_lower()
+		if ext in valid_exts:
+			tracks.append(p)
+		elif ext == "bx" or ext == "funscript":
+			path_files.append(p)
+		elif Data.is_marker_image(p):
+			marker_images.append(p)
+	if not tracks.is_empty():
+		_on_track_files_selected(tracks)
+	if not path_files.is_empty():
+		_on_path_files_dropped(path_files)
+	if not marker_images.is_empty():
+		_on_marker_images_dropped(marker_images)
+
+
+## Marker images only mean anything where markers are what is being read, so
+## they are taken while classic mode is on and turned away otherwise.
+func _on_marker_images_dropped(source_paths: PackedStringArray) -> void:
+	if not owner.classic_mode:
+		_show_notice("Marker images are only used in classic mode.")
+		return
+	DirAccess.make_dir_recursive_absolute(Data.markers_dir)
+	var last_name := ""
+	for source_path in source_paths:
+		var file_name := source_path.get_file()
+		var dest_path: String = Data.markers_dir.path_join(file_name)
+		if not FileAccess.file_exists(dest_path) \
+				or FileAccess.get_md5(source_path) != FileAccess.get_md5(dest_path):
+			var base := file_name.get_basename()
+			var ext := "." + file_name.get_extension()
+			var n := 2
+			while FileAccess.file_exists(dest_path) \
+					and FileAccess.get_md5(source_path) != FileAccess.get_md5(dest_path):
+				file_name = "%s (%d)%s" % [base, n, ext]
+				dest_path = Data.markers_dir.path_join(file_name)
+				n += 1
+			var source := FileAccess.open(source_path, FileAccess.READ)
+			var dest := FileAccess.open(dest_path, FileAccess.WRITE)
+			if not source or not dest:
+				_show_notice("Could not copy that marker image.")
+				continue
+			dest.store_buffer(source.get_buffer(source.get_length()))
+			source.close()
+			dest.close()
+		last_name = file_name
+	if last_name != "":
+		%Options.select_marker_image(last_name)
 
 
 func _on_track_files_selected(source_paths: PackedStringArray) -> void:
@@ -379,7 +496,7 @@ func _on_track_files_selected(source_paths: PackedStringArray) -> void:
 	
 	for source_path in source_paths:
 		var file_name  := source_path.get_file()
-		var dest_path  := Data.tracks_dir.path_join(file_name)
+		var dest_path:String = Data.tracks_dir.path_join(file_name)
 		var final_name := file_name
 		
 		if FileAccess.file_exists(dest_path):
@@ -512,3 +629,211 @@ func _show_waveforms() -> void:
 		%TrackSliderLarge.hide()
 	if Data.config.get_value('waveform', 'scroll_active', true):
 		owner.get_node("WaveformScrolling").show()
+
+
+# ── Path file importer ────────────────────────────────────────────────────────
+
+func _on_path_files_dropped(source_paths: PackedStringArray) -> void:
+	var track_selection: OptionButton = $Tracks/TrackSelection
+	if track_selection.selected == -1:
+		_show_notice("Select a track before importing paths.")
+		return
+	var track_title: String = track_selection.get_item_text(track_selection.selected)
+	var funscripts: PackedStringArray
+	var imported := 0
+	for source_path in source_paths:
+		if source_path.get_extension().to_lower() == "funscript":
+			funscripts.append(source_path)
+		elif _copy_path_file(source_path, track_title) != "":
+			imported += 1
+	if imported:
+		load_paths(track_title)
+	if not funscripts.is_empty():
+		_show_funscript_import(funscripts[0], track_title)
+
+
+func _copy_path_file(source_path: String, track_title: String) -> String:
+	var source := FileAccess.open(source_path, FileAccess.READ)
+	if not source:
+		return ""
+	var contents := source.get_buffer(source.get_length())
+	source.close()
+	var dest_path := _unique_path_file(track_title, source_path.get_file().get_basename())
+	var dest := FileAccess.open(dest_path, FileAccess.WRITE)
+	if not dest:
+		return ""
+	dest.store_buffer(contents)
+	dest.close()
+	return dest_path
+
+
+func _unique_path_file(track_title: String, base_name: String) -> String:
+	var dir_path: String = Data.paths_dir.path_join(track_title)
+	DirAccess.make_dir_recursive_absolute(dir_path)
+	var file_name := base_name
+	var n := 2
+	while FileAccess.file_exists(dir_path.path_join(file_name + ".bx")):
+		file_name = "%s (%d)" % [base_name, n]
+		n += 1
+	return dir_path.path_join(file_name + ".bx")
+
+
+func _show_funscript_import(source_path: String, track_title: String) -> void:
+	var file := FileAccess.open(source_path, FileAccess.READ)
+	if not file:
+		_show_notice("Could not read that funscript.")
+		return
+	var parsed = JSON.parse_string(file.get_as_text())
+	file.close()
+	if not parsed is Dictionary or not parsed.get("actions") is Array:
+		_show_notice("That file is not a valid funscript.")
+		return
+	
+	var dialog := ConfirmationDialog.new()
+	dialog.theme = load("res://theme_basic.tres")
+	dialog.title = "Import Funscript"
+	dialog.ok_button_text = "  Import  "
+	dialog.cancel_button_text = "  Cancel  "
+	
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override('separation', 10)
+	dialog.add_child(vbox)
+	
+	var separation_min: int = %Markers.SEPARATION_MIN
+	var max_frame: int = owner.path.size()
+	var track_seconds: float = max_frame / 60.0
+	var first_at := INF
+	var last_at := 0.0
+	for action in parsed["actions"]:
+		if action is Dictionary and action.has("at"):
+			first_at = minf(first_at, float(action["at"]))
+			last_at = maxf(last_at, float(action["at"]))
+	if first_at == INF:
+		first_at = 0.0
+	
+	var source_label := Label.new()
+	vbox.add_child(source_label)
+	
+	# Where the funscript's own beginning is placed on this track. It starts
+	# where the funscript says, so importing without touching it keeps the times
+	# the script was written with.
+	var start_box := HBoxContainer.new()
+	start_box.add_theme_constant_override('separation', 20)
+	var start_label := Label.new()
+	start_label.text = "Start at:"
+	start_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	start_box.add_child(start_label)
+	var start_input := SpinBox.new()
+	start_input.custom_minimum_size.x = 100
+	start_input.min_value = 0.0
+	start_input.max_value = maxf(track_seconds, 0.0)
+	start_input.step = 0.01
+	start_input.suffix = "s"
+	start_input.value = clampf(first_at / 1000.0, 0.0, maxf(track_seconds, 0.0))
+	start_box.add_child(start_input)
+	vbox.add_child(start_box)
+	
+	var threshold_box := HBoxContainer.new()
+	threshold_box.add_theme_constant_override('separation', 20)
+	var threshold_label := Label.new()
+	threshold_label.text = "Smoothing:"
+	threshold_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	threshold_box.add_child(threshold_label)
+	var threshold_input := SpinBox.new()
+	threshold_input.min_value = 0.0
+	threshold_input.max_value = 0.5
+	threshold_input.step = 0.01
+	threshold_input.value = DEFAULT_SMOOTHING
+	threshold_box.add_child(threshold_input)
+	vbox.add_child(threshold_box)
+	
+	var preview := Label.new()
+	vbox.add_child(preview)
+	
+	# Lambdas capture locals by value, so the preview mutates this dictionary
+	# in place rather than reassigning it, keeping the confirm handler in sync.
+	var markers := {}
+	var refresh := func(_value := 0.0) -> void:
+		var offset: float = start_input.value * 1000.0 - first_at
+		markers.clear()
+		markers.merge(Funscript.to_marker_data(
+			parsed, threshold_input.value, separation_min, max_frame, offset))
+		var span: float = (last_at - first_at) / 1000.0
+		source_label.text = "%s\n%d actions  ·  %s - %s\nTrack length: %s" % [
+			source_path.get_file(),
+			parsed["actions"].size(),
+			_format_time(start_input.value),
+			_format_time(start_input.value + span),
+			_format_time(track_seconds)]
+		preview.text = "%d actions  ->  %d markers" % [
+			parsed["actions"].size(), markers.size()]
+		var beyond := 0
+		for action in parsed["actions"]:
+			if action is Dictionary and action.has("at") \
+					and roundi((float(action["at"]) + offset) * 60.0 / 1000.0) >= max_frame:
+				beyond += 1
+		if beyond:
+			preview.text += "\n%d actions land past the end of the track." % beyond
+	start_input.value_changed.connect(refresh)
+	threshold_input.value_changed.connect(refresh)
+	refresh.call()
+	
+	dialog.confirmed.connect(func() -> void:
+		_write_imported_path(
+			source_path, track_title, markers, Funscript.source_meta(parsed))
+		dialog.queue_free())
+	dialog.canceled.connect(func(): dialog.queue_free())
+	add_child(dialog)
+	dialog.popup_centered()
+
+
+func _write_imported_path(
+		source_path: String,
+		track_title: String,
+		markers: Dictionary,
+		source_meta: Dictionary) -> void:
+	if markers.is_empty():
+		_show_notice("That funscript produced no markers.")
+		return
+	var dest_path := _unique_path_file(
+		track_title, source_path.get_file().get_basename())
+	var data := {
+		"meta": {
+			"version": 2.0,
+			"marker_fields": ["depth", "trans", "ease", "auxiliary"],
+			"related_media": track_title.get_basename(),
+		},
+		"markers": markers,
+		"funscript_source": source_meta,
+	}
+	var file := FileAccess.open(dest_path, FileAccess.WRITE)
+	if not file:
+		_show_notice("Could not write the imported path.")
+		return
+	file.store_line(JSON.stringify(data))
+	file.close()
+	load_paths(track_title)
+	var path_name := dest_path.get_file().get_basename()
+	for i in $Paths.item_count:
+		if $Paths.get_item_text(i) == path_name:
+			$Paths.select(i)
+			_on_path_selected(i)
+			break
+
+
+func _show_notice(message: String) -> void:
+	var dialog := AcceptDialog.new()
+	dialog.theme = load("res://theme_basic.tres")
+	dialog.ok_button_text = "  OK  "
+	dialog.dialog_text = message
+	dialog.confirmed.connect(func(): dialog.queue_free())
+	dialog.canceled.connect(func(): dialog.queue_free())
+	add_child(dialog)
+	dialog.popup_centered()
+
+
+func _format_time(seconds: float) -> String:
+	var total := int(seconds)
+	if total >= 3600:
+		return "%d:%02d:%02d" % [total / 3600, (total / 60) % 60, total % 60]
+	return "%d:%02d" % [total / 60, total % 60]
